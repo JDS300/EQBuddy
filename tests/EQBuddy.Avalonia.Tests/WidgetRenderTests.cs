@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -141,5 +142,66 @@ public class WidgetRenderTests : IDisposable
             Assert.NotEqual(default, AppTheme.TextBrush.Color);
         }
         AppTheme.Apply("ParchmentBrass");
+    }
+
+    /// <summary>Regression test for the bug where dragging the widget to another monitor,
+    /// closing it, and reopening it snapped it back to the launch monitor. MainWindow.OnClosed
+    /// used to read <c>Position</c> to persist it, but OnClosed fires after the platform window
+    /// is already torn down, so Position reads back (0,0) no matter where the user left it — the
+    /// spawn-timer chip stack got this right (it saves from a Closing handler, while the window
+    /// still exists) but the widget itself never did. If this regresses, the assertions below
+    /// fail with WindowLeft/WindowTop pinned at 0 instead of the point the test moved to.</summary>
+    [AvaloniaFact]
+    public void ClosingTheWidgetAfterMovingItSavesWhereItActuallyWas()
+    {
+        var window = new MainWindow();
+        window.Show();
+
+        // A distinctive, non-zero, non-default point — the same shape as the user's real bug
+        // report (SpawnChipsLeft: 3086, SpawnChipsTop: 2038 while WindowLeft/Top sat at 0).
+        window.Position = new PixelPoint(3086, 2038);
+        window.Close();
+
+        // Reload from disk rather than trusting the in-memory _settings instance: the bug is
+        // specifically that what got written to settings.json is wrong, and a stale in-memory
+        // read would pass even with the bug present.
+        var reloaded = AppSettings.Load();
+        Assert.Equal(3086, reloaded.WindowLeft);
+        Assert.Equal(2038, reloaded.WindowTop);
+
+        // OnClosed calls Shutdown(), which asks the lifetime to close every window - and that
+        // re-enters OnClosing on this already-destroyed one, where Position has collapsed to
+        // (0,0). On a real X11 desktop that second pass overwrote the good save and the widget
+        // came back on the launch monitor every time; the first version of this test missed it
+        // because headless never re-enters. Closing again reproduces that second pass.
+        window.Close();
+
+        var afterSecondClose = AppSettings.Load();
+        Assert.Equal(3086, afterSecondClose.WindowLeft);
+        Assert.Equal(2038, afterSecondClose.WindowTop);
+    }
+
+    /// <summary>Companion to the Closing test above: RestorePosition (run from the
+    /// constructor, before Show) is the other half of the position round-trip, and it's
+    /// worth pinning too now that OnClosing owns the save. On an on-screen point it restores
+    /// correctly here — the X11-specific failure mode (a window manager overriding a position
+    /// set before the window is mapped) has no headless equivalent to probe, since headless
+    /// has no real window manager to do the overriding.</summary>
+    [AvaloniaFact]
+    public void RestoringASavedOnScreenPositionPutsTheWidgetThere()
+    {
+        File.WriteAllText(Path.Combine(_profile, "settings.json"),
+            $$"""
+              { "LogFolder": {{System.Text.Json.JsonSerializer.Serialize(Path.Combine(_profile, "logs"))}},
+                "TruncateLogs": false, "ShowTutorial": false, "Theme": "ParchmentBrass",
+                "WindowLeft": 400, "WindowTop": 300 }
+              """);
+
+        var window = new MainWindow();
+        window.Show();
+
+        Assert.Equal(400, window.Position.X);
+        Assert.Equal(300, window.Position.Y);
+        window.Close();
     }
 }

@@ -3,3 +3,9 @@ obj/
 dist/
 *.user
 .vs/
+
+# Real EverQuest logs carry chat, character, guild and group names — they are
+# handy to drop in tests/fixtures/ for a replay run, but they must never be
+# committed. The sanitized Testchar fixture is the only one that belongs here.
+eqlog_*.txt
+!tests/fixtures/eqlog_Testchar_fixture.txt

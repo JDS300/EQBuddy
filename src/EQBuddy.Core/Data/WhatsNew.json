@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.30.0",
+    "date": "2026-08-04",
+    "highlights": [
+      "Linux catches up: the mez-target chip stack, the spawn-countdown chip stack, and the full Spawns window are all on the Avalonia app now (parity issue #5, closed) — same chicklets, same drag-and-remember positions, same double-click-a-chip-for-the-zone-list behavior as Windows.",
+      "Nothing about spawn tracking is WPF-only anymore. Kill a named (or its placeholder) on Linux and the countdown starts from your log exactly like it always has on Windows."
+    ]
+  },
+  {
     "version": "1.29.1",
     "date": "2026-08-04",
     "highlights": [

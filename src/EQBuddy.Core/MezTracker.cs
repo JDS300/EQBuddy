@@ -208,10 +208,16 @@ public sealed class MezTracker
 
     private bool OnWornOff(SpellWornOffEvent wo)
     {
-        // Among same-named entries the longest-asleep one fades first.
+        // YOUR entries only. This line is caster-private ("Your X spell has worn off of Y"),
+        // so it ends YOUR mez and is evidence about nothing else — but EQ logs the fade
+        // WITHOUT the rank, so matching on target name alone let it settle on another
+        // chanter's entry and file the gap under THEIR rank. A real log taught
+        // "Mesmerization VI" = 6s to a player with zero casts of it. Among your own
+        // same-named entries the longest-asleep one still fades first.
         var entry = _active
-            .Where(m => m.Target.Equals(
-                LogParser.Normalize(wo.Target), StringComparison.OrdinalIgnoreCase))
+            .Where(m => m.Caster.Equals("You", StringComparison.OrdinalIgnoreCase)
+                && m.Target.Equals(
+                    LogParser.Normalize(wo.Target), StringComparison.OrdinalIgnoreCase))
             .OrderBy(m => m.LandedAt)
             .FirstOrDefault();
         if (entry is null) return false;

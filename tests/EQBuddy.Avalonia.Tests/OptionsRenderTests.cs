@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
@@ -116,6 +118,66 @@ public class OptionsRenderTests : IDisposable
             .First(c => c.Items.Contains(OptionsViewModel.KindNames[0]));
 
         Assert.Equal(Enum.GetValues<WatchKind>().Length, kindPicker.Items.Count);
+        options.Close();
+        main.Close();
+    }
+
+    /// <summary>The bug report: with the watch-rules section expanded (a long rule list
+    /// plus the worked-examples guide), this undecorated window used to grow past the
+    /// screen's usable height — carrying its own title bar and close button out of reach
+    /// with it, since there's no OS chrome to fall back on. Loaded with far more rules
+    /// than any screen has room for, unclamped this content would run to several thousand
+    /// pixels tall; the fix is a body ScrollViewer plus a work-area height clamp, so the
+    /// window itself must stay put and the overflow must land in the scroller instead.</summary>
+    [AvaloniaFact]
+    public void TheWindowStaysWithinTheScreenWhenTheWatchSectionIsFullyExpanded()
+    {
+        var main = new MainWindow();
+        main.Show();
+
+        // Far more rows than fit on any real screen, plus the guide panel — both set
+        // before OptionsWindow exists so its constructor builds them expanded, the same
+        // as a returning user whose guide preference and rule list were already large.
+        for (var i = 0; i < 40; i++)
+            main.Settings.TrackedRules.Add(new TrackedRule { Name = $"rule{i}", Pattern = "x" });
+        main.Settings.ShowWatchGuide = true;
+
+        var options = new OptionsWindow(main);
+        options.Show();
+
+        var frame = options.CaptureRenderedFrame();
+        var screen = options.Screens.ScreenFromWindow(options) ?? options.Screens.Primary;
+        Assert.NotNull(screen);
+        var workingHeight = screen!.WorkingArea.Height / screen.Scaling;
+
+        Assert.NotNull(frame);
+        // The clamp, not luck: 40 rules plus the guide is enough content that an
+        // unclamped window would dwarf any real work area, so this only holds if the
+        // MaxHeight ceiling is actually being applied.
+        Assert.True(frame!.Size.Height <= workingHeight,
+            $"Options window rendered {frame.Size.Height}px tall against a {workingHeight}px work area");
+
+        // The overflow has to go somewhere — it should be sitting in the body
+        // ScrollViewer's hidden extent, not just... not existing. Walked as a direct
+        // child of the chrome Grid rather than GetVisualDescendants, because TextBox's
+        // own control template wraps its text presenter in a ScrollViewer too, and with
+        // 40 rule rows there are dozens of those in the tree alongside the one that
+        // actually owns the body.
+        var chromeGrid = (Grid)((Border)options.Content!).Child!;
+        var bodyScroll = chromeGrid.Children.OfType<ScrollViewer>().Single();
+        Assert.True(bodyScroll.Extent.Height > bodyScroll.Viewport.Height,
+            $"body extent {bodyScroll.Extent.Height}px does not exceed its {bodyScroll.Viewport.Height}px viewport — nothing to scroll");
+        Assert.Equal(ScrollBarVisibility.Disabled, bodyScroll.HorizontalScrollBarVisibility);
+
+        // The close button lives in the fixed title row, outside the ScrollViewer — it
+        // must stay near the top of the window regardless of how tall the body content
+        // grows underneath it, not get pushed down or clamped off the bottom.
+        var close = options.GetVisualDescendants().OfType<Button>()
+            .First(b => ToolTip.GetTip(b) as string == "Close");
+        var closeTop = close.TranslatePoint(new Point(0, 0), options);
+        Assert.True(closeTop is { Y: >= 0 and < 80 },
+            $"close button top landed at {closeTop}, expected near the top of the window");
+
         options.Close();
         main.Close();
     }

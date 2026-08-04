@@ -23,6 +23,7 @@ public sealed class OptionsWindow : Window
     private readonly CheckBox _truncateCheck = new() { Margin = new Thickness(0, 12, 0, 0) };
     private readonly CheckBox _tutorialCheck = new() { Margin = new Thickness(0, 10, 0, 0) };
     private readonly CheckBox _pinChipsCheck = new() { Margin = new Thickness(0, 6, 0, 0) };
+    private readonly CheckBox _trackSpawnsCheck = new() { Margin = new Thickness(0, 10, 0, 0) };
     private readonly ComboBox _themeCombo = new() { Width = 130, FontSize = 12 };
     private readonly ComboBox _windowCombo = new() { Width = 90, FontSize = 12 };
     private readonly ComboBox _soundCombo = new() { Width = 120, FontSize = 12 };
@@ -94,6 +95,20 @@ public sealed class OptionsWindow : Window
             if (!_ready) return;
             _main.Settings.ShowTutorial = _tutorialCheck.IsChecked == true;
             _main.PersistSettings();
+        };
+
+        _trackSpawnsCheck.Content = new TextBlock
+        {
+            Text = "🕒 Track spawns (named respawn timers)",
+            FontSize = 12,
+            Foreground = AppTheme.TextBrush,
+        };
+        _trackSpawnsCheck.IsChecked = main.Settings.TrackSpawns;
+        _trackSpawnsCheck.IsCheckedChanged += (_, _) =>
+        {
+            // Routed through MainWindow, not the settings object: the setting, the
+            // right-click menu check, and the windows themselves all move together.
+            if (_ready) _main.SetTrackSpawns(_trackSpawnsCheck.IsChecked == true);
         };
 
         _pinChipsCheck.Content = new TextBlock
@@ -176,6 +191,11 @@ public sealed class OptionsWindow : Window
             new Thickness(20, 2, 0, 0)));
         panel.Children.Add(_tutorialCheck);
 
+        panel.Children.Add(_trackSpawnsCheck);
+        panel.Children.Add(AppTheme.DimText(
+            "Kill a named - or its placeholder - and a small countdown chicklet appears (⏳ Asaka L`Rei 3:12). Chicklets stack, drag anywhere as one, show every timer you have running in any zone, and flip to DUE for a minute (click to dismiss sooner). Double-click one (or right-click → Spawn timers...) for the full zone list, which follows you zone to zone. We captured the respawn times we could from community sources - if you notice a discrepancy in game, type over the duration: your number wins and survives updates.",
+            new Thickness(20, 2, 0, 0)));
+
         panel.Children.Add(Row("Recent-rate window", _windowCombo, new Thickness(0, 12, 0, 0)));
         panel.Children.Add(AppTheme.DimText("The Last Xm figures on Combat, Kills, Money, and Progress."));
 
@@ -221,6 +241,18 @@ public sealed class OptionsWindow : Window
         panel.Children.Add(AppTheme.DimText("Size also scales all text. Changes apply instantly and are saved.",
             new Thickness(0, 8, 0, 0)));
         return panel;
+    }
+
+    /// <summary>Called back by MainWindow.SetTrackSpawns so toggling the right-click menu
+    /// (or the feature turning itself off) updates this checkbox while Options sits open.
+    /// The _ready flag is dropped around the write so the sync doesn't read as the user
+    /// clicking and bounce straight back into MainWindow.</summary>
+    internal void SyncTrackSpawns(bool on)
+    {
+        var wasReady = _ready;
+        _ready = false;
+        _trackSpawnsCheck.IsChecked = on;
+        _ready = wasReady;
     }
 
     /// <summary>Show or hide the worked examples, remembering the choice. Built on first

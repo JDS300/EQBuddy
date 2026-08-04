@@ -52,6 +52,28 @@ public static class UpdateChecker
 
     private static Version Normalize(Version v) => new(v.Major, v.Minor, Math.Max(v.Build, 0));
 
+    /// <summary>What the gear menu's version line should show. <see cref="CurrentVersion"/>
+    /// reads <c>Assembly.GetName().Version</c>, a plain <see cref="Version"/> that strips any
+    /// informational suffix — so a local build stamped "1.30.0-Daggo" in
+    /// <c>Directory.Build.props</c> would otherwise display as indistinguishable plain
+    /// "1.30.0". This prefers <see cref="AssemblyInformationalVersionAttribute"/>, which
+    /// carries the suffix, and falls back to <see cref="CurrentVersion"/> when the attribute
+    /// is missing. .NET appends "+&lt;git-sha&gt;" to InformationalVersion when a source
+    /// revision id is available; that part is never something a user should see, so it's
+    /// trimmed off.</summary>
+    public static string DisplayVersion
+    {
+        get
+        {
+            var info = Assembly.GetEntryAssembly()
+                ?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                ?.InformationalVersion;
+            if (string.IsNullOrEmpty(info)) return CurrentVersion.ToString();
+            var plus = info.IndexOf('+');
+            return plus >= 0 ? info[..plus] : info;
+        }
+    }
+
     /// <summary>
     /// Locate the shared download folder: an explicit setting wins, then the known family
     /// path, then a shallow scan of this PC's OneDrive roots for "EQBuddyDownload"

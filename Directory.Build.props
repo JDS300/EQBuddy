@@ -4,7 +4,11 @@
        tarballs identified as 1.26.0 and nagged their own users to update forever
        (issue #30, reported with the exact diagnosis by sahaq). release.ps1 and
        install-local.ps1 read the version from this file. -->
+  <!-- InformationalVersion carries a local-build marker (e.g. "-Daggo") separately from
+       Version: release.ps1 and install-local.ps1 both match <Version>([\d.]+)</Version>
+       and would throw "No <Version> in Directory.Build.props" if a suffix landed there. -->
   <PropertyGroup>
-    <Version>1.29.1</Version>
+    <Version>1.30.0</Version>
+    <InformationalVersion>1.30.0-Daggo</InformationalVersion>
   </PropertyGroup>
 </Project>

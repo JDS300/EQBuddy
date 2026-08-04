@@ -11,6 +11,7 @@ using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using EQBuddy.Core;
+using SpawnChip = EQBuddy.UI.Shared.SpawnChip;
 
 namespace EQBuddy.Avalonia;
 
@@ -105,6 +106,7 @@ public sealed class MainWindow : Window
     private readonly TextBlock _markersLabel = AppTheme.Heading("Camp markers");
     private readonly ItemsControl _markerList = new();
     private readonly Button _gearBtn = AppTheme.IconButton(AppIcon.Settings, "Settings");
+    private readonly MenuItem _trackSpawnsItem = new() { Header = "Track spawns (named respawn timers)" };
     private readonly Dictionary<string, Button> _stars = new();
     private readonly Dictionary<string, SectionPanel> _sections = new(StringComparer.OrdinalIgnoreCase);
     private readonly StackPanel _sectionsPanel = new();
@@ -130,6 +132,15 @@ public sealed class MainWindow : Window
     private HistoryWindow? _historyWindow;
     private OptionsWindow? _optionsWindow;
     private AlertWindow? _alertWindow;
+    private readonly MezTracker _mezTracker = new();
+    private readonly SpawnTimers _spawnTimers;
+    private readonly EQBuddy.UI.Shared.SpawnsViewModel _spawnsVm;
+    // Nullable fields, not WPF's `is not { IsLoaded: true }` guard: a closed Avalonia
+    // window doesn't report IsLoaded the way WPF's does, so each window clears its own
+    // field from Closed and "is it up?" is simply "is the field null?".
+    private MezChipsWindow? _mezWindow;
+    private SpawnChipsWindow? _chipsWindow;
+    private SpawnsWindow? _spawnsWindow;
     private StatSort _dmgOutSort = StatSort.Total;
     private StatSort _dmgInSort = StatSort.Total;
     private StatSort _healSort = StatSort.Total;
@@ -145,6 +156,19 @@ public sealed class MainWindow : Window
         // everything learned in earlier sessions (issue #29).
         AttachSpellStore();
         _watcher = new LogWatcher(_stats);
+        // Both trackers are hung off the watcher for the same reason AttachSpellStore runs
+        // above: Select() replays the whole log, and everything either tracker derives keys
+        // off log timestamps, so the replay reconstructs them exactly. Wire them after the
+        // replay instead and the app starts blind to mezzes and kills already in today's log.
+        _mezTracker.AttachStore(System.IO.Path.Combine(Core.AppPaths.Dir, "mez-durations.json"));
+        _watcher.Mez = _mezTracker;
+        var spawnCatalog = SpawnCatalog.LoadEmbedded();
+        var spawnOverrides = SpawnOverrides.Load(AppPaths.File("spawn-overrides.json"));
+        _spawnTimers = new SpawnTimers(spawnCatalog, spawnOverrides, AppPaths.File("spawn-timers.json"));
+        // Select() also stamps the character's server onto SpawnTimers.Server, so the
+        // assignment has to happen before FollowActiveCharacter picks a log.
+        _watcher.Spawns = _spawnTimers;
+        _spawnsVm = new EQBuddy.UI.Shared.SpawnsViewModel(spawnCatalog, spawnOverrides, _spawnTimers);
         // Before any tailing: the initial full-log ingest has to know which text rules to
         // watch for, or a Text rule would miss everything already in today's log.
         _stats.RefreshTextPatterns(_settings.TrackedRules);
@@ -620,7 +644,7 @@ public sealed class MainWindow : Window
     private ContextMenu BuildContextMenu()
     {
         var menu = new ContextMenu();
-        var version = new MenuItem { Header = $"EQBuddy v{UpdateChecker.CurrentVersion}", IsEnabled = false };
+        var version = new MenuItem { Header = $"EQBuddy v{UpdateChecker.DisplayVersion}", IsEnabled = false };
         var check = new MenuItem { Header = "Check for updates" };
         check.Click += (_, _) => { _lastUpdateCheck = DateTime.Now; CheckForUpdates(manual: true); };
         var options = new MenuItem { Header = "Options... (size, opacity, watch rules)" };
@@ -631,6 +655,13 @@ public sealed class MainWindow : Window
         marker.Click += (_, _) => DropCampMarker();
         var history = new MenuItem { Header = "Session history..." };
         history.Click += OnHistory;
+        var spawns = new MenuItem { Header = "Spawn timers..." };
+        spawns.Click += (_, _) => ShowSpawnsWindow();
+        _trackSpawnsItem.ToggleType = MenuItemToggleType.CheckBox;
+        _trackSpawnsItem.IsChecked = _settings.TrackSpawns;
+        // Avalonia flips IsChecked in MenuItem's class handler before instance Click
+        // handlers run, so this reads the value the user just chose (WPF parity).
+        _trackSpawnsItem.Click += (_, _) => SetTrackSpawns(_trackSpawnsItem.IsChecked);
         var choose = new MenuItem { Header = "Choose log folder..." };
         choose.Click += OnChooseLogFolder;
         var detect = new MenuItem { Header = "Auto-detect log folder" };
@@ -647,6 +678,8 @@ public sealed class MainWindow : Window
         menu.Items.Add(tutorial);
         menu.Items.Add(marker);
         menu.Items.Add(history);
+        menu.Items.Add(spawns);
+        menu.Items.Add(_trackSpawnsItem);
         menu.Items.Add(new Separator());
         menu.Items.Add(choose);
         menu.Items.Add(detect);
@@ -667,6 +700,9 @@ public sealed class MainWindow : Window
         UpdateWindowHeightLimit();
         _scaleRoot.InvalidateMeasure();
         InvalidateMeasure();
+        // The chicklet stacks are the same widget by another name — they scale with it.
+        _mezWindow?.ApplyScale(scale);
+        _chipsWindow?.ApplyScale(scale);
     }
 
     private void UpdateWindowHeightLimit()
@@ -741,8 +777,129 @@ public sealed class MainWindow : Window
         _stats.Snapshot(TimeSpan.FromMinutes(Math.Max(1, _settings.RecentWindowMinutes)),
             _settings.TrackedRules);
 
+    /// <summary>Mez chips for the chip stack; formatting lives in
+    /// <see cref="EQBuddy.UI.Shared.MezChipPresentation"/> (shared with the WPF UI) — see
+    /// its doc comment for the display rules (numbering, "?" durations, due tint).</summary>
+    private List<SpawnChip> MezChips(DateTime now) =>
+        EQBuddy.UI.Shared.MezChipPresentation.Chips(_mezTracker.Snapshot(now), now);
+
+    /// <summary>Bring a freshly built chicklet stack up in the state the widget is already
+    /// in: owned by the widget (matching AlertWindow.ShowOwned, so it can never outlive it),
+    /// at the current UI scale, and click-through if the widget is. The two stacks share no
+    /// base type beyond Window, hence the two delegates rather than an interface.</summary>
+    private void ShowStack(Window stack, Action<double> applyScale, Action<bool> applyClickThrough)
+    {
+        applyScale(_settings.UiScale);
+        stack.Show(this);
+        // After Show: the X11 handle these need doesn't exist until the window is up.
+        if (_clickThrough) applyClickThrough(true);
+    }
+
+    private void CloseChips()
+    {
+        if (_chipsWindow is not { } cw) return;
+        _chipsWindow = null;   // cleared first so Closed handling can't loop
+        cw.SavePosition();     // a hide must never lose a drag from thirty seconds ago
+        cw.Close();
+    }
+
+    /// <summary>Single switch for the spawn-timer feature: the setting, the menu check,
+    /// and the Options checkbox stay in lockstep whichever of them the user touched.
+    /// Arming opens nothing — the chicklet stack appears from the next tick if timers
+    /// are running; the full window only ever opens on demand.</summary>
+    internal void SetTrackSpawns(bool on)
+    {
+        _settings.TrackSpawns = on;
+        _settings.Save();
+        _trackSpawnsItem.IsChecked = on;
+        if (_optionsWindow is { IsVisible: true } ow) ow.SyncTrackSpawns(on);
+        if (!on)
+        {
+            CloseChips();
+            if (_spawnsWindow is { } w)
+            {
+                _spawnsWindow = null;   // cleared first so Closed handling can't loop
+                w.Close();
+            }
+        }
+    }
+
+    /// <summary>The full zone browser, on demand only. <paramref name="zone"/> comes from
+    /// a double-clicked chicklet, so it opens showing the timer you clicked.</summary>
+    internal void ShowSpawnsWindow(string? zone = null)
+    {
+        if (_spawnsWindow is { } open)
+        {
+            open.Activate();
+            return;
+        }
+        var w = new SpawnsWindow(this, _spawnsVm, zone);
+        w.Closed += (_, _) => { if (ReferenceEquals(_spawnsWindow, w)) _spawnsWindow = null; };
+        _spawnsWindow = w;
+        w.Show(this);
+    }
+
     private void RefreshUi()
     {
+        // Spawn timers crossing zero, off the shared tick so a hidden window can't
+        // silence a camp.
+        if (_settings.TrackSpawns)
+        {
+            // Sound only — no banner. The chip flipping to DUE is the visual, and a
+            // banner on top of it was double notification (David's call). Each named
+            // can carry its own sound; "Default" maps to Alarm — a camp popping
+            // deserves a louder default than a loot ding (also David's call).
+            foreach (var due in _spawnsVm.ConsumeDueAlerts(DateTime.Now))
+                if (_spawnsVm.SoundFor(due.Zone, due.Name) is { } sound)
+                    PlayAlertSound(sound);
+
+            // Chicklets are the ambient face of spawn tracking: the stack exists exactly
+            // while timers do — including alongside the full window, which is a browser,
+            // not a replacement. No pop-open of the full window, ever (David's design).
+            if (_spawnsVm.HasActiveTimers(DateTime.Now))
+            {
+                var cw = _chipsWindow;
+                if (cw is null)
+                {
+                    cw = new SpawnChipsWindow(this, _spawnsVm);
+                    cw.Closed += (_, _) => { if (ReferenceEquals(_chipsWindow, cw)) _chipsWindow = null; };
+                    _chipsWindow = cw;
+                    ShowStack(cw, cw.ApplyScale, cw.ApplyClickThrough);
+                }
+                cw.RefreshChips(DateTime.Now);
+            }
+            else
+            {
+                CloseChips();
+            }
+        }
+        else
+        {
+            CloseChips();
+        }
+
+        // The mez stack lives its own life, independent of spawn tracking: it exists
+        // exactly while a mez is believed active, in its own window (David's call —
+        // mez chips park next to the fight, spawn chips are ambient).
+        if (_mezTracker.Snapshot(DateTime.Now).Count > 0)
+        {
+            var mw = _mezWindow;
+            if (mw is null)
+            {
+                mw = new MezChipsWindow(this, MezChips);
+                mw.Closed += (_, _) => { if (ReferenceEquals(_mezWindow, mw)) _mezWindow = null; };
+                _mezWindow = mw;
+                ShowStack(mw, mw.ApplyScale, mw.ApplyClickThrough);
+            }
+            mw.RefreshChips(DateTime.Now);
+        }
+        else if (_mezWindow is { } closing)
+        {
+            _mezWindow = null;      // cleared first so Closed handling can't loop
+            closing.SavePosition(); // a hide must never lose the spot
+            closing.Close();
+        }
+
         if (DateTime.Now - _lastCharScan > TimeSpan.FromSeconds(5))
         {
             _lastCharScan = DateTime.Now;
@@ -1335,6 +1492,11 @@ public sealed class MainWindow : Window
         var next = !_clickThrough;
         if (!X11ClickThrough.Set(this, next)) return;
         _clickThrough = next;
+        // The stacks vanish from the mouse alongside the widget: half a click-through
+        // overlay is worse than none, because the part that still catches clicks is the
+        // part parked over the game.
+        _mezWindow?.ApplyClickThrough(next);
+        _chipsWindow?.ApplyClickThrough(next);
         _root.BorderBrush = _clickThrough ? AppTheme.WarnBrush : AppTheme.BorderBrush;
         Topmost = true;
         ToolTip.SetTip(_root, _clickThrough
@@ -1725,6 +1887,11 @@ public sealed class MainWindow : Window
             X11ClickThrough.Set(this, enabled: false);
         _hotkeys?.Dispose();
         _alertWindow?.Close();
+        // Every window the widget owns goes with it — a stack left standing keeps the
+        // process alive after the widget is gone.
+        _mezWindow?.Close();
+        _chipsWindow?.Close();
+        _spawnsWindow?.Close();
         _archiver.FinalizeActiveSync(CurrentSnapshot(), "ApplicationExit");
         _watcher.Dispose();
         _repo.Dispose();

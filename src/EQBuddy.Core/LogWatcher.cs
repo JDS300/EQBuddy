@@ -45,6 +45,11 @@ public sealed class LogWatcher : IDisposable
     /// pipeline (its entries are short-lived, so replay mostly proves them expired).</summary>
     public MezTracker? Mez { get; set; }
 
+    /// <summary>Optional fourth consumer: the heal-over-time tracker, same replay-safe
+    /// pipeline (a replay reconstructs the HoTs still ticking, since every countdown is
+    /// anchored to the tick's own log timestamp).</summary>
+    public HotTracker? Hot { get; set; }
+
     public LogWatcher(SessionStats stats)
     {
         _stats = stats;
@@ -180,6 +185,7 @@ public sealed class LogWatcher : IDisposable
                             _stats.Apply(evt);
                             Spawns?.Apply(evt);
                             Mez?.Apply(evt);
+                            Hot?.Apply(evt);
                         }
                         // Every line, parsed or not: a Text watch rule matches the line's
                         // words, not whatever event we did or didn't make of it.

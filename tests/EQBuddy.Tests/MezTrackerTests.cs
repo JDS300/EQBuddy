@@ -194,6 +194,29 @@ public class MezTrackerTests
         Assert.Empty(t.Snapshot(T0.AddSeconds(6)));
     }
 
+    /// <summary>"Your X spell has worn off of Y." is caster-private — it is YOUR mez ending,
+    /// and it says nothing about anyone else's. Matching it on target name alone let it land
+    /// on another chanter's entry and file the measured gap under THEIR spell rank. Found in
+    /// a real 690k-line log: Mesmerization VI was learned at 6s by a player who never casts
+    /// it (39 casts in the log, all by other people) — EQ logs the fade WITHOUT the rank
+    /// ("Your Mesmerization spell has worn off of ..."), so nothing in the line itself could
+    /// contradict the wrong entry.</summary>
+    [Fact]
+    public void YourOwnFadeLineNeverTeachesAnotherPlayersSpellRank()
+    {
+        var t = Replay(
+            Ev(0, "Wrathos begins casting Mesmerize III."),
+            Ev(2, "an orc pawn has been mesmerized."),
+            // Your own mez on a same-named creature fades 6s later. The fade is yours; the
+            // only entry on that target is Wrathos's.
+            Ev(8, "Your Mesmerize spell has worn off of an orc pawn."));
+
+        Assert.False(t.LearnedDurations.ContainsKey("Mesmerize III"));
+        // ...and his chip survives: your spell ending is no evidence his mez broke.
+        var m = Assert.Single(t.Snapshot(T0.AddSeconds(9)));
+        Assert.Equal("Wrathos", m.Caster);
+    }
+
     [Fact]
     public void UnknownDurationChipsStillShowAndStillBreak()
     {

@@ -187,11 +187,10 @@ internal sealed class SpawnChipsWindow : Window
         var top = _settings.SpawnChipsTop;
         if (!ScreenGuard.OnScreen(this, left, top, Width, Height))
         {
-            // First use, or the saved monitor is gone: the top-left corner of the work
-            // area, clear of the widget's home edge (WPF parity — left+40, top+40).
-            var work = _owner.Screens.ScreenFromWindow(_owner)?.WorkingArea ?? new PixelRect(0, 0, 1920, 1080);
-            left = work.X + 40;
-            top = work.Y + 40;
+            // First use, or the saved monitor is gone: beside the widget, below the mez and
+            // HoT stacks. Spawn chips are the ambient one, so they sit furthest down.
+            Position = ScreenGuard.NextToOwner(_owner, slot: 2);
+            return;
         }
 
         Position = new PixelPoint((int)left, (int)top);

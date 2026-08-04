@@ -156,11 +156,9 @@ internal sealed class MezChipsWindow : Window
         var top = _settings.MezChipsTop;
         if (!ScreenGuard.OnScreen(this, left, top, Width, Height))
         {
-            // First use, or the saved monitor is gone: parked near the owner widget
-            // (WPF parity — work-area left+40, top+120).
-            var work = _owner.Screens.ScreenFromWindow(_owner)?.WorkingArea ?? new PixelRect(0, 0, 1920, 1080);
-            left = work.X + 40;
-            top = work.Y + 120;
+            // First use, or the saved monitor is gone: beside the widget, slot 0.
+            Position = ScreenGuard.NextToOwner(_owner, slot: 0);
+            return;
         }
 
         Position = new PixelPoint((int)left, (int)top);

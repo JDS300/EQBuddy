@@ -174,13 +174,11 @@ internal sealed class HotChipsWindow : Window
         var top = _settings.HotChipsTop;
         if (!ScreenGuard.OnScreen(this, left, top, Width, Height))
         {
-            // First use, or the saved monitor is gone. Offset from the mez stack's default
-            // (work-area left+40, top+120) rather than sharing it: three stacks that all
-            // default to the same pixel look like one broken window until they're dragged
-            // apart, and a healer may well have mez and HoT chips up at the same time.
-            var work = _owner.Screens.ScreenFromWindow(_owner)?.WorkingArea ?? new PixelRect(0, 0, 1920, 1080);
-            left = work.X + 40;
-            top = work.Y + 260;
+            // First use, or the saved monitor is gone: beside the widget, below the mez
+            // stack. A healer may well have mez and HoT chips up at the same time, so the
+            // slots keep them from landing on the same pixel.
+            Position = ScreenGuard.NextToOwner(_owner, slot: 1);
+            return;
         }
 
         Position = new PixelPoint((int)left, (int)top);

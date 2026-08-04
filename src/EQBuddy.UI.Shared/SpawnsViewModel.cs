@@ -4,10 +4,12 @@ namespace EQBuddy.UI.Shared;
 
 /// <summary>One chicklet in the minimized spawn-countdown stack.</summary>
 /// <summary>One row in the chip stack. Icon distinguishes chip kinds sharing the stack:
-/// "⏳" spawn countdowns, "💤" active mezzes (Zone is "" for those — they belong to no
-/// zone list and their due-click clears nothing).</summary>
+/// "⏳" spawn countdowns, "💤" active mezzes, "🌿" heal-over-time (Zone is "" for both of
+/// the latter — they belong to no zone list and their due-click clears nothing).
+/// <paramref name="Emphasis"/> asks the view for the "good" colour instead of the usual
+/// accent; only HoT chips use it, to mark the one that is on you.</summary>
 public sealed record SpawnChip(string Zone, string Name, string CountdownText, bool IsDue, string Detail,
-    string Icon = "⏳");
+    string Icon = "⏳", bool Emphasis = false);
 
 /// <summary>One row in the Spawns window, ready to render.</summary>
 public sealed record SpawnRow(

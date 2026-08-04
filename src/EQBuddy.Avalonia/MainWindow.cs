@@ -133,12 +133,14 @@ public sealed class MainWindow : Window
     private OptionsWindow? _optionsWindow;
     private AlertWindow? _alertWindow;
     private readonly MezTracker _mezTracker = new();
+    private readonly HotTracker _hotTracker = new();
     private readonly SpawnTimers _spawnTimers;
     private readonly EQBuddy.UI.Shared.SpawnsViewModel _spawnsVm;
     // Nullable fields, not WPF's `is not { IsLoaded: true }` guard: a closed Avalonia
     // window doesn't report IsLoaded the way WPF's does, so each window clears its own
     // field from Closed and "is it up?" is simply "is the field null?".
     private MezChipsWindow? _mezWindow;
+    private HotChipsWindow? _hotWindow;
     private SpawnChipsWindow? _chipsWindow;
     private SpawnsWindow? _spawnsWindow;
     private StatSort _dmgOutSort = StatSort.Total;
@@ -156,12 +158,17 @@ public sealed class MainWindow : Window
         // everything learned in earlier sessions (issue #29).
         AttachSpellStore();
         _watcher = new LogWatcher(_stats);
-        // Both trackers are hung off the watcher for the same reason AttachSpellStore runs
-        // above: Select() replays the whole log, and everything either tracker derives keys
+        // All three trackers are hung off the watcher for the same reason AttachSpellStore
+        // runs above: Select() replays the whole log, and everything any tracker derives keys
         // off log timestamps, so the replay reconstructs them exactly. Wire them after the
-        // replay instead and the app starts blind to mezzes and kills already in today's log.
+        // replay instead and the app starts blind to mezzes, kills, and HoTs already in
+        // today's log. It matters most for HoTs: a HoT has a 24-second life and announces
+        // neither its landing nor its fade (HotTracker's doc comment), so a tracker wired
+        // late doesn't recover — it simply misses every cast until the next one ticks.
         _mezTracker.AttachStore(System.IO.Path.Combine(Core.AppPaths.Dir, "mez-durations.json"));
         _watcher.Mez = _mezTracker;
+        _hotTracker.AttachStore(System.IO.Path.Combine(Core.AppPaths.Dir, "hot-durations.json"));
+        _watcher.Hot = _hotTracker;
         var spawnCatalog = SpawnCatalog.LoadEmbedded();
         var spawnOverrides = SpawnOverrides.Load(AppPaths.File("spawn-overrides.json"));
         _spawnTimers = new SpawnTimers(spawnCatalog, spawnOverrides, AppPaths.File("spawn-timers.json"));
@@ -702,6 +709,7 @@ public sealed class MainWindow : Window
         InvalidateMeasure();
         // The chicklet stacks are the same widget by another name — they scale with it.
         _mezWindow?.ApplyScale(scale);
+        _hotWindow?.ApplyScale(scale);
         _chipsWindow?.ApplyScale(scale);
     }
 
@@ -782,6 +790,16 @@ public sealed class MainWindow : Window
     /// its doc comment for the display rules (numbering, "?" durations, due tint).</summary>
     private List<SpawnChip> MezChips(DateTime now) =>
         EQBuddy.UI.Shared.MezChipPresentation.Chips(_mezTracker.Snapshot(now), now);
+
+    /// <summary>HoT chips for the chip stack; formatting lives in
+    /// <see cref="EQBuddy.UI.Shared.HotChipPresentation"/> (shared with the WPF UI) — see
+    /// its doc comment for the display rules (countdown, recast warning, which chip is you).
+    /// The self name comes from SessionStats, which LogWatcher.Select fills in from the log
+    /// file's own name: it is the same identity the archiver is stamped with, so a character
+    /// switch moves both together and nothing here has to parse a log line of its own.</summary>
+    private List<SpawnChip> HotChips(DateTime now) =>
+        EQBuddy.UI.Shared.HotChipPresentation.Chips(
+            _hotTracker.Snapshot(now), now, _stats.CharacterName, _settings.ShowSelfHotChips);
 
     /// <summary>Bring a freshly built chicklet stack up in the state the widget is already
     /// in: owned by the widget (matching AlertWindow.ShowOwned, so it can never outlive it),
@@ -898,6 +916,29 @@ public sealed class MainWindow : Window
             _mezWindow = null;      // cleared first so Closed handling can't loop
             closing.SavePosition(); // a hide must never lose the spot
             closing.Close();
+        }
+
+        // The HoT stack, same shape again and just as independent: it exists exactly while
+        // one of your heal-over-times is still ticking. Gated on the tracker's snapshot, not
+        // on the chip list, so switching ShowSelfHotChips off can't leave an empty window
+        // standing while a self-only HoT runs — HotChips would return zero rows for it.
+        if (_hotTracker.Snapshot(DateTime.Now).Count > 0)
+        {
+            var hw = _hotWindow;
+            if (hw is null)
+            {
+                hw = new HotChipsWindow(this, HotChips);
+                hw.Closed += (_, _) => { if (ReferenceEquals(_hotWindow, hw)) _hotWindow = null; };
+                _hotWindow = hw;
+                ShowStack(hw, hw.ApplyScale, hw.ApplyClickThrough);
+            }
+            hw.RefreshChips(DateTime.Now);
+        }
+        else if (_hotWindow is { } hotClosing)
+        {
+            _hotWindow = null;         // cleared first so Closed handling can't loop
+            hotClosing.SavePosition(); // a hide must never lose the spot
+            hotClosing.Close();
         }
 
         if (DateTime.Now - _lastCharScan > TimeSpan.FromSeconds(5))
@@ -1496,6 +1537,7 @@ public sealed class MainWindow : Window
         // overlay is worse than none, because the part that still catches clicks is the
         // part parked over the game.
         _mezWindow?.ApplyClickThrough(next);
+        _hotWindow?.ApplyClickThrough(next);
         _chipsWindow?.ApplyClickThrough(next);
         _root.BorderBrush = _clickThrough ? AppTheme.WarnBrush : AppTheme.BorderBrush;
         Topmost = true;
@@ -1909,6 +1951,7 @@ public sealed class MainWindow : Window
         // Every window the widget owns goes with it — a stack left standing keeps the
         // process alive after the widget is gone.
         _mezWindow?.Close();
+        _hotWindow?.Close();
         _chipsWindow?.Close();
         _spawnsWindow?.Close();
         _archiver.FinalizeActiveSync(CurrentSnapshot(), "ApplicationExit");

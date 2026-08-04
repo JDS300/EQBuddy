@@ -25,6 +25,7 @@ public sealed class OptionsWindow : Window
     private readonly CheckBox _tutorialCheck = new() { Margin = new Thickness(0, 10, 0, 0) };
     private readonly CheckBox _pinChipsCheck = new() { Margin = new Thickness(0, 6, 0, 0) };
     private readonly CheckBox _trackSpawnsCheck = new() { Margin = new Thickness(0, 10, 0, 0) };
+    private readonly CheckBox _selfHotCheck = new() { Margin = new Thickness(0, 10, 0, 0) };
     private readonly ComboBox _themeCombo = new() { Width = 130, FontSize = 12 };
     private readonly ComboBox _windowCombo = new() { Width = 90, FontSize = 12 };
     private readonly ComboBox _soundCombo = new() { Width = 120, FontSize = 12 };
@@ -117,6 +118,23 @@ public sealed class OptionsWindow : Window
             // Routed through MainWindow, not the settings object: the setting, the
             // right-click menu check, and the windows themselves all move together.
             if (_ready) _main.SetTrackSpawns(_trackSpawnsCheck.IsChecked == true);
+        };
+
+        _selfHotCheck.Content = new TextBlock
+        {
+            Text = "🌿 Show heal-over-time chips for myself",
+            FontSize = 12,
+            Foreground = AppTheme.TextBrush,
+        };
+        _selfHotCheck.IsChecked = main.Settings.ShowSelfHotChips;
+        _selfHotCheck.IsCheckedChanged += (_, _) =>
+        {
+            // Straight to settings: nothing else mirrors this one, and the next 1 s tick
+            // rebuilds the stack from HotChips, so unticking it drops the self chip within
+            // a second (and closes the stack outright if yours was the only HoT running).
+            if (!_ready) return;
+            _main.Settings.ShowSelfHotChips = _selfHotCheck.IsChecked == true;
+            _main.PersistSettings();
         };
 
         _pinChipsCheck.Content = new TextBlock
@@ -231,6 +249,11 @@ public sealed class OptionsWindow : Window
         panel.Children.Add(_trackSpawnsCheck);
         panel.Children.Add(AppTheme.DimText(
             "Kill a named - or its placeholder - and a small countdown chicklet appears (⏳ Asaka L`Rei 3:12). Chicklets stack, drag anywhere as one, show every timer you have running in any zone, and flip to DUE for a minute (click to dismiss sooner). Double-click one (or right-click → Spawn timers...) for the full zone list, which follows you zone to zone. We captured the respawn times we could from community sources - if you notice a discrepancy in game, type over the duration: your number wins and survives updates.",
+            new Thickness(20, 2, 0, 0)));
+
+        panel.Children.Add(_selfHotCheck);
+        panel.Children.Add(AppTheme.DimText(
+            "Cast a heal-over-time and a small countdown chicklet appears (🌿 Daggo 0:18), so you know when it stops ticking and can recast in time. The chips stack, drag anywhere as one, and switch to the warning colour for the last few seconds. Your own buff bar already shows your HoT on yourself, so turn this off if that chip is just in the way - chips on everyone else stay. Either way, the chip on you is tinted with the healing colour, to tell it apart at a glance from the ones on people whose buff bar you cannot see.",
             new Thickness(20, 2, 0, 0)));
 
         panel.Children.Add(Row("Recent-rate window", _windowCombo, new Thickness(0, 12, 0, 0)));

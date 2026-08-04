@@ -112,6 +112,82 @@ public class ChipWindowRenderTests : IDisposable
         main.Close();
     }
 
+    /// <summary>One HoT on someone else and one on you — the Emphasis flag on the second is
+    /// what HotChipPresentation sets for the logged-in character.</summary>
+    private static List<SpawnChip> TwoHotChips() =>
+    [
+        new SpawnChip("", "Groupmate", "0:18", false, "Blossoming Heal · started 3:00:00 PM", "🌿"),
+        new SpawnChip("", "Daggo", "0:12", false, "Blossoming Heal · started 3:00:06 PM", "🌿",
+            Emphasis: true),
+    ];
+
+    // ---- HotChipsWindow ----
+
+    /// <summary>The HoT chip stack builds, shows, and paints something — the same "compiles
+    /// but draws nothing" gap the mez stack's frame test closes.</summary>
+    [AvaloniaFact]
+    public void TheHotChipStackRendersAFrame()
+    {
+        var main = OpenMain();
+        var window = new HotChipsWindow(main, _ => TwoHotChips());
+        window.Show();
+        window.RefreshChips(DateTime.Now);
+
+        var frame = window.CaptureRenderedFrame();
+
+        Assert.NotNull(frame);
+        Assert.True(frame!.Size.Width > 20, $"HoT chip stack rendered only {frame.Size.Width}px wide");
+        Assert.True(frame.Size.Height > 20, $"HoT chip stack rendered only {frame.Size.Height}px tall");
+        window.Close();
+        main.Close();
+    }
+
+    /// <summary>Every chip the source function hands back reaches the visual tree. A healer
+    /// keeping three people up needs three rows; a stack that renders only the first would
+    /// look like it was working.</summary>
+    [AvaloniaFact]
+    public void TheHotChipStackShowsEveryChipItIsGiven()
+    {
+        var main = OpenMain();
+        var window = new HotChipsWindow(main, _ => TwoHotChips());
+        window.Show();
+        window.RefreshChips(DateTime.Now);
+
+        var chipBorders = ChipBorders(window);
+
+        Assert.Equal(2, chipBorders.Count);
+        window.Close();
+        main.Close();
+    }
+
+    /// <summary>The chip on YOU renders differently from the chip on someone else. This is
+    /// the one visual rule the HoT stack has that the mez stack does not, and it's invisible
+    /// to a count-the-rows test: both chips exist either way, so only the countdown brush
+    /// says whether Emphasis survived the trip from the presentation layer to the screen.</summary>
+    [AvaloniaFact]
+    public void ASelfHotChipRendersDifferentlyFromOneOnSomeoneElse()
+    {
+        var main = OpenMain();
+        var window = new HotChipsWindow(main, _ => TwoHotChips());
+        window.Show();
+        window.RefreshChips(DateTime.Now);
+
+        // Countdowns only, looked up by their text: the name blocks share one brush, so
+        // comparing every TextBlock would pass on their equality alone.
+        var countdowns = window.GetVisualDescendants().OfType<TextBlock>()
+            .Where(t => t.Text is "0:18" or "0:12")
+            .ToDictionary(t => t.Text!, t => t.Foreground);
+
+        Assert.Equal(2, countdowns.Count);
+        Assert.NotSame(countdowns["0:18"], countdowns["0:12"]);
+        // Named, not just different: "self is green, everyone else is the usual accent" is
+        // the actual contract, and a future edit that swapped the two would still differ.
+        Assert.Same(AppTheme.AccentBrush, countdowns["0:18"]);
+        Assert.Same(AppTheme.GoodBrush, countdowns["0:12"]);
+        window.Close();
+        main.Close();
+    }
+
     // ---- SpawnChipsWindow ----
 
     /// <summary>The spawn chip stack, driven by a real SpawnsViewModel over running

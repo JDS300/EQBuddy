@@ -122,6 +122,17 @@ public sealed class AppSettings
     public double MezChipsLeft { get; set; } = double.NaN;
     public double MezChipsTop { get; set; } = double.NaN;
 
+    /// <summary>Position of the heal-over-time chip stack; its own window again, since a
+    /// healer parks "who am I keeping up" somewhere different from the mez stack.</summary>
+    public double HotChipsLeft { get; set; } = double.NaN;
+    public double HotChipsTop { get; set; } = double.NaN;
+    /// <summary>Show a chip for your HoT on YOURSELF. On by default — recasting on time is
+    /// the whole point — but a healer who mostly self-HoTs sees that chip constantly, and
+    /// your own buff bar already shows it, so it can be turned off. Self chips render in
+    /// the "good" colour either way, to separate them at a glance from the ones on people
+    /// whose buff bar you cannot see.</summary>
+    public bool ShowSelfHotChips { get; set; } = true;
+
     private static string FilePath => AppPaths.File("settings.json");
 
     // NaN is a legitimate value here ("not placed yet" window positions), and the

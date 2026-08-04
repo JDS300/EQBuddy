@@ -4,6 +4,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using EQBuddy.Core;
@@ -39,6 +40,13 @@ public sealed class OptionsWindow : Window
         Padding = new Thickness(8, 6),
     };
     private readonly StackPanel _cardsPanel = new();
+    // Only the body scrolls — the title row and its close button live outside this and
+    // stay reachable no matter how tall the watch-rules section grows. See ApplyHeightLimit.
+    private readonly ScrollViewer _bodyScroll = new()
+    {
+        VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+        HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+    };
     private bool _ready;
 
     private static readonly string[] SoundNames = Array.ConvertAll(MainWindow.AlertSounds, x => x.Name);
@@ -61,7 +69,7 @@ public sealed class OptionsWindow : Window
             CornerRadius = new CornerRadius(10),
             BorderBrush = AppTheme.BorderBrush,
             BorderThickness = new Thickness(1),
-            Child = BuildContent(),
+            Child = BuildChrome(),
         };
         PointerPressed += OnDrag;
         _scaleSlider.Value = main.UiScale;
@@ -158,13 +166,37 @@ public sealed class OptionsWindow : Window
         // Restore before _ready so this doesn't count as the user changing it.
         ToggleGuide(main.Settings.ShowWatchGuide, persist: false);
         UpdateLabels();
+
+        // Ceiling, not a fixed height — SizeToContent still shrinks the window for short
+        // content. Applied now against the owner's screen (this window has no compositor
+        // surface of its own until it's shown) and again on Opened once we know which
+        // monitor it actually landed on — same two-step as SpawnsWindow.
+        ApplyHeightLimit(main.Screens.ScreenFromWindow(main) ?? main.Screens.Primary);
+        Opened += (_, _) => ApplyHeightLimit(Screens.ScreenFromWindow(this) ?? Screens.Primary);
+
         _ready = true;
     }
 
-    private Control BuildContent()
+    /// <summary>Title row (fixed) over a scrolling body — the split that keeps the close
+    /// button reachable no matter how far the watch-rules section grows underneath it.</summary>
+    private Control BuildChrome()
     {
-        var panel = new StackPanel { Margin = new Thickness(16), Width = 520 };
-        var title = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+        var grid = new Grid();
+        grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        grid.RowDefinitions.Add(new RowDefinition(GridLength.Star));
+
+        grid.Children.Add(BuildTitleRow());
+
+        _bodyScroll.Content = BuildBody();
+        Grid.SetRow(_bodyScroll, 1);
+        grid.Children.Add(_bodyScroll);
+
+        return grid;
+    }
+
+    private Control BuildTitleRow()
+    {
+        var title = new Grid { Margin = new Thickness(16, 16, 16, 10) };
         title.Children.Add(new TextBlock
         {
             Text = "Options",
@@ -176,7 +208,12 @@ public sealed class OptionsWindow : Window
         close.HorizontalAlignment = HorizontalAlignment.Right;
         close.Click += (_, _) => Close();
         title.Children.Add(close);
-        panel.Children.Add(title);
+        return title;
+    }
+
+    private Control BuildBody()
+    {
+        var panel = new StackPanel { Margin = new Thickness(16, 0, 16, 16), Width = 520 };
 
         panel.Children.Add(Row("Theme", _themeCombo, new Thickness(0, 0, 0, 12)));
 
@@ -217,6 +254,7 @@ public sealed class OptionsWindow : Window
             _main.Settings.TrackedRules.Add(new TrackedRule { Name = "", Pattern = "" });
             _main.PersistSettings();
             BuildRulesEditor();
+            ReclampHeight();
         };
         panel.Children.Add(add);
         panel.Children.Add(_pinChipsCheck);
@@ -267,6 +305,14 @@ public sealed class OptionsWindow : Window
             _main.Settings.ShowWatchGuide = open;
             _main.PersistSettings();
         }
+        // The guide is exactly the content that used to push the close button off-screen —
+        // re-pin the ceiling now that it just changed size. (Window.MaxHeight already holds
+        // once set, so this is belt-and-braces against layout quirks rather than strictly
+        // load-bearing — cheap, and it's the case the bug report was actually about.)
+        // Gated on _ready for the same reason persist is: the constructor's own restore
+        // call runs before this window has a platform surface, and the real ApplyHeightLimit
+        // call that follows it (against the owner's screen) already covers that case.
+        if (_ready) ReclampHeight();
     }
 
     private static Control BuildGuide()
@@ -412,6 +458,7 @@ public sealed class OptionsWindow : Window
                 _main.Settings.TrackedRules.Remove(rule);
                 _main.PersistSettings();
                 BuildRulesEditor();
+                ReclampHeight();
             };
             Grid.SetColumn(del, 7);
             row.Children.Add(del);
@@ -619,8 +666,35 @@ public sealed class OptionsWindow : Window
             BeginMoveDrag(e);
     }
 
+    // Deliberately NOT ScrollViewer, same call SpawnsWindow makes: this undecorated window
+    // has no OS title bar, and once the body scrolls, the empty space inside the
+    // ScrollViewer is the only large grab area left — the title row itself is mostly text
+    // and a close button. Excluding ScrollViewer here would leave almost nowhere to drag
+    // from. A press on an actual control (ScrollBar included) still gets its own click.
     private static bool IsInteractiveControl(Visual visual) => visual is
         Button or TextBox or ComboBox or global::Avalonia.Controls.Slider or CheckBox or ToggleButton or ScrollBar;
+
+    /// <summary>Ceiling, not a fixed height — SizeToContent still shrinks the window for
+    /// short content. Two numbers, same shape as SpawnsWindow.ApplyHeightLimit: the
+    /// window-level cap is generous (just shy of the full work area, covers window chrome
+    /// and OS panels), the body ScrollViewer's own cap is the one that actually bites,
+    /// sized to leave room for the fixed title row that sits above it and must stay
+    /// reachable. WorkingArea.Height is divided by Scaling because WorkingArea is in
+    /// physical pixels while Avalonia's Height/MaxHeight are logical (DIP) units — skip
+    /// that on a HiDPI screen and the clamp fires at the wrong point.</summary>
+    private void ApplyHeightLimit(Screen? screen)
+    {
+        if (screen is null) return;
+        var workingHeight = screen.WorkingArea.Height / screen.Scaling;
+        MaxHeight = Math.Max(280, workingHeight - 40);
+        _bodyScroll.MaxHeight = Math.Max(200, workingHeight - 110);
+    }
+
+    /// <summary>Re-asks the screen the window actually landed on and re-applies the
+    /// clamp. Called after anything that can grow the body — expanding the watch guide,
+    /// adding or deleting a watch rule — since that's exactly the content growth that used
+    /// to carry the close button off-screen with it.</summary>
+    private void ReclampHeight() => ApplyHeightLimit(Screens.ScreenFromWindow(this) ?? Screens.Primary);
 
     private static TextBlock LabelValue() => new()
     {

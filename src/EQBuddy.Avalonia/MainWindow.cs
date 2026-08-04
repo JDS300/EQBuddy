@@ -1885,9 +1885,17 @@ public sealed class MainWindow : Window
     /// from their own Closing handlers) already worked this way.</summary>
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        _settings.WindowLeft = Position.X;
-        _settings.WindowTop = Position.Y;
-        _settings.Save();
+        // Only while the platform window is still there. OnClosed calls Shutdown(), which
+        // asks the lifetime to close every window and re-enters OnClosing on this
+        // already-destroyed one - where Position has collapsed to (0,0) and the second pass
+        // overwrote the good save from the first. That is what actually sent the widget back
+        // to the launch monitor: the save had run correctly a moment earlier.
+        if (TryGetPlatformHandle() is not null)
+        {
+            _settings.WindowLeft = Position.X;
+            _settings.WindowTop = Position.Y;
+            _settings.Save();
+        }
         base.OnClosing(e);
     }
 

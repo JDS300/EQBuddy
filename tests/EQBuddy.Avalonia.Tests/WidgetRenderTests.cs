@@ -168,6 +168,17 @@ public class WidgetRenderTests : IDisposable
         var reloaded = AppSettings.Load();
         Assert.Equal(3086, reloaded.WindowLeft);
         Assert.Equal(2038, reloaded.WindowTop);
+
+        // OnClosed calls Shutdown(), which asks the lifetime to close every window - and that
+        // re-enters OnClosing on this already-destroyed one, where Position has collapsed to
+        // (0,0). On a real X11 desktop that second pass overwrote the good save and the widget
+        // came back on the launch monitor every time; the first version of this test missed it
+        // because headless never re-enters. Closing again reproduces that second pass.
+        window.Close();
+
+        var afterSecondClose = AppSettings.Load();
+        Assert.Equal(3086, afterSecondClose.WindowLeft);
+        Assert.Equal(2038, afterSecondClose.WindowTop);
     }
 
     /// <summary>Companion to the Closing test above: RestorePosition (run from the

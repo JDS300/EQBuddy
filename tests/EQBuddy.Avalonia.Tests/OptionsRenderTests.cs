@@ -122,6 +122,119 @@ public class OptionsRenderTests : IDisposable
         main.Close();
     }
 
+    /// <summary>The bug report this pins: "when I select spell fade, I don't see any other
+    /// option for class as a drop down." A SpellFade rule needs its class-filter combo
+    /// (By name.../Any spell/Any CC/Charm/Mez/Root/Lull/Stun/HoT) visible and populated;
+    /// every other kind must not show it. Every rule row builds one of these combos
+    /// regardless of kind (it just toggles IsVisible), so the fixture uses one rule of
+    /// each shape and asserts on IsVisible rather than presence in the tree — a bare
+    /// GetVisualDescendants().OfType&lt;ComboBox&gt;() would find both.</summary>
+    [AvaloniaFact]
+    public void ASpellFadeRuleShowsTheClassFilterComboAndANonFadeRuleDoesNot()
+    {
+        var main = new MainWindow();
+        main.Show();
+        main.Settings.TrackedRules.Clear();
+        main.Settings.TrackedRules.Add(new TrackedRule
+        {
+            Name = "mez wears off", Kind = WatchKind.SpellFade, SpellFilter = EQBuddy.Core.SpellFilter.Mesmerize,
+        });
+        main.Settings.TrackedRules.Add(new TrackedRule { Name = "ore", Kind = WatchKind.Loot });
+
+        var options = new OptionsWindow(main);
+        options.Show();
+
+        // Every rule row builds this combo (populated from the same array the WPF picker
+        // uses), so both rows produce one — identified by its "By name..." item rather than
+        // by index, per the class combo's own item text rather than guessing position among
+        // the theme picker, the recent-rate window, and each row's sound picker.
+        var classCombos = options.GetVisualDescendants().OfType<ComboBox>()
+            .Where(c => c.Items.Contains(OptionsViewModel.SpellFilterNames[0]))
+            .ToList();
+        Assert.Equal(2, classCombos.Count);
+
+        var fadeCombo = classCombos.Single(c => c.IsVisible);
+        var lootCombo = classCombos.Single(c => c != fadeCombo);
+        Assert.False(lootCombo.IsVisible);
+
+        Assert.Equal(OptionsViewModel.SpellFilterNames.Length, fadeCombo.Items.Count);
+        Assert.Equal((int)EQBuddy.Core.SpellFilter.Mesmerize, fadeCombo.SelectedIndex);
+        Assert.Equal("Watch one named spell, or a whole class of spells", ToolTip.GetTip(fadeCombo));
+
+        options.Close();
+        main.Close();
+    }
+
+    /// <summary>The other half of the bug fix: a class filter needs no match text, so the
+    /// text box hides while the combo takes its place — but switch back to "By name..."
+    /// and the text box has to reappear, live, without reopening the window.</summary>
+    [AvaloniaFact]
+    public void ChoosingAClassFilterHidesTheMatchTextBoxAndByNameBringsItBack()
+    {
+        var main = new MainWindow();
+        main.Show();
+        main.Settings.TrackedRules.Clear();
+        main.Settings.TrackedRules.Add(new TrackedRule
+        {
+            Name = "mez wears off", Pattern = "", Kind = WatchKind.SpellFade,
+            SpellFilter = EQBuddy.Core.SpellFilter.Mesmerize,
+        });
+
+        var options = new OptionsWindow(main);
+        options.Show();
+
+        var classCombo = options.GetVisualDescendants().OfType<ComboBox>()
+            .Single(c => c.Items.Contains(OptionsViewModel.SpellFilterNames[0]));
+        var matchArea = (Grid)classCombo.Parent!;
+        var matchBox = matchArea.Children.OfType<TextBox>().Single();
+
+        Assert.False(matchBox.IsVisible);   // class filter already selected: no text needed
+
+        classCombo.SelectedIndex = (int)EQBuddy.Core.SpellFilter.ByName;
+        Assert.True(matchBox.IsVisible);
+        Assert.Equal(EQBuddy.Core.SpellFilter.ByName, main.Settings.TrackedRules[0].SpellFilter);
+
+        classCombo.SelectedIndex = (int)EQBuddy.Core.SpellFilter.Charm;
+        Assert.False(matchBox.IsVisible);
+        Assert.Equal(EQBuddy.Core.SpellFilter.Charm, main.Settings.TrackedRules[0].SpellFilter);
+
+        options.Close();
+        main.Close();
+    }
+
+    /// <summary>The class combo's visibility also has to track the *kind* combo, live —
+    /// switching a rule into Spell fade must reveal it immediately, and switching back out
+    /// must hide it again, all without closing and reopening the window.</summary>
+    [AvaloniaFact]
+    public void SwitchingTheKindComboToSpellFadeRevealsTheClassComboImmediately()
+    {
+        var main = new MainWindow();
+        main.Show();
+        main.Settings.TrackedRules.Clear();
+        main.Settings.TrackedRules.Add(new TrackedRule { Name = "ore", Kind = WatchKind.Loot });
+
+        var options = new OptionsWindow(main);
+        options.Show();
+
+        var classCombo = options.GetVisualDescendants().OfType<ComboBox>()
+            .Single(c => c.Items.Contains(OptionsViewModel.SpellFilterNames[0]));
+        var kindCombo = options.GetVisualDescendants().OfType<ComboBox>()
+            .Single(c => c.Items.Contains(OptionsViewModel.KindNames[0]));
+
+        Assert.False(classCombo.IsVisible);   // starts as Loot: no class filter to show
+
+        kindCombo.SelectedIndex = (int)WatchKind.SpellFade;
+        Assert.True(classCombo.IsVisible);
+        Assert.Equal(WatchKind.SpellFade, main.Settings.TrackedRules[0].Kind);
+
+        kindCombo.SelectedIndex = (int)WatchKind.Kill;
+        Assert.False(classCombo.IsVisible);
+        Assert.Equal(WatchKind.Kill, main.Settings.TrackedRules[0].Kind);
+
+        options.Close();
+        main.Close();
+    }
+
     /// <summary>The bug report: with the watch-rules section expanded (a long rule list
     /// plus the worked-examples guide), this undecorated window used to grow past the
     /// screen's usable height — carrying its own title bar and close button out of reach

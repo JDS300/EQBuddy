@@ -238,7 +238,7 @@ public sealed class HotTracker
     }
 
     private static string Key(string target, string spell) =>
-        $"{Normalize(target)} {spell}";
+        $"{Normalize(target)}\0{spell}";
 
     private static string Normalize(string target) => LogParser.Normalize(target);
 

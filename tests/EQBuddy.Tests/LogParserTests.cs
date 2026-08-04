@@ -207,6 +207,26 @@ public class LogParserTests
         Assert.True(e.OverTime);
     }
 
+    /// <summary>A critical heal appends "(Critical)" after the full stop, and the heal
+    /// patterns anchored on that stop — so every crit heal parsed as nothing at all and
+    /// vanished from healing stats. 205 lines in one real log (186 of them outgoing),
+    /// including the biggest heals in it, since a crit is exactly the one you'd notice.
+    /// Same trailing-note shape the melee patterns already allow for.</summary>
+    [Fact]
+    public void CriticalHealsStillParse()
+    {
+        var tick = Parse<HealEvent>("You healed Daggo over time for 78 hit points by Blossoming Heal. (Critical)");
+        Assert.Equal(("Daggo", 78, "Blossoming Heal", true), (tick.Target, tick.Amount, tick.Spell, tick.Outgoing));
+        Assert.True(tick.OverTime);
+
+        var direct = Parse<HealEvent>("You healed Daggo for 398 hit points by Blossoming Heal Trigger. (Critical)");
+        Assert.Equal(("Daggo", 398, "Blossoming Heal Trigger", true), (direct.Target, direct.Amount, direct.Spell, direct.Outgoing));
+        Assert.False(direct.OverTime);
+
+        var received = Parse<HealEvent>("Aamilea healed you for 56 hit points by Light Healing. (Critical)");
+        Assert.Equal((56, "Light Healing", false, "Aamilea"), (received.Amount, received.Spell, received.Outgoing, received.Healer));
+    }
+
     [Fact]
     public void RegenTickHasNoAmount() =>
         Parse<RegenTickEvent>("Your wounds begin to heal.");

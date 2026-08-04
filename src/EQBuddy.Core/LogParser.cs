@@ -89,7 +89,10 @@ public static partial class LogParser
     // You healed Kaybek for 10 hit points by Lifespike. / You healed Kaybek for 7 (10) hit points by Lifespike.
     // Heal-over-time ticks say "healed X over time for N" (eqlog_Hugzee: "Xephira healed
     // Spamwagon over time for 11 hit points by Budding Heal.") — same event, one extra phrase.
-    [GeneratedRegex(@"^You healed (?<target>.+?)(?<hot> over time)? for (?<amount>\d+)(?: \((?<attempted>\d+)\))? hit points(?: by (?<spell>.+?))?\.$")]
+    // A crit appends " (Critical)" AFTER the full stop, so anchoring on the stop dropped
+    // every critical heal — 205 lines in one real log, including its biggest heals, all
+    // missing from healing stats. Same optional trailing note the melee patterns allow.
+    [GeneratedRegex(@"^You healed (?<target>.+?)(?<hot> over time)? for (?<amount>\d+)(?: \((?<attempted>\d+)\))? hit points(?: by (?<spell>.+?))?\.(?: \((?<note>[^)]+)\))?$")]
     private static partial Regex HealOutRx();
 
     // You have been healed for 30 hit points. / Someone healed you...
@@ -115,7 +118,8 @@ public static partial class LogParser
     // Aamilea healed you for 56 hit points by Light Healing.
     // HoT ticks: "Aenari healed you over time for 8 hit points by Echoing Light." — 223
     // such lines in one week of eqlog_Hugzee were invisible, undercounting healing received.
-    [GeneratedRegex(@"^(?<healer>.+?) healed you(?<hot> over time)? for (?<amount>\d+)(?: \((?<attempted>\d+)\))? hit points(?: by (?<spell>.+?))?\.$")]
+    // Trailing note as above: crits on heals received drop the same way.
+    [GeneratedRegex(@"^(?<healer>.+?) healed you(?<hot> over time)? for (?<amount>\d+)(?: \((?<attempted>\d+)\))? hit points(?: by (?<spell>.+?))?\.(?: \((?<note>[^)]+)\))?$")]
     private static partial Regex HealInByRx();
 
     // A willowisp resisted your Denon's Disruptive Discord!

@@ -22,6 +22,19 @@ public class HotTrackerTests
         return t;
     }
 
+    /// <summary>Prelude for every cast test. "You begin casting Blossoming Heal." says
+    /// nothing about what the spell DOES — nothing in the log does — so the tracker only
+    /// knows a name is a HoT because it has watched that name tick. This is the cheapest
+    /// way to teach it one: a single tick, closed immediately by its Trigger so it leaves
+    /// no chip behind and (a 0-second gap being an implausible duration) teaches no
+    /// duration either, leaving the 24s estimate in force. A real session gets this for
+    /// free — the startup replay of today's log, or the persisted duration store.</summary>
+    private static GameEvent[] KnownHot(string spell) =>
+    [
+        Ev(-300, $"You healed Chickpea over time for 61 hit points by {spell}."),
+        Ev(-300, $"You healed Chickpea for 398 hit points by {spell} Trigger."),
+    ];
+
     /// <summary>Nothing announces that a HoT landed — there is no "you begin to heal"
     /// line and no fade line — so the first tick is the only proof the spell is on the
     /// target, and it is what opens the chip.</summary>
@@ -266,5 +279,251 @@ public class HotTrackerTests
             Ev(3, "You have entered Clan Crushbone."));
 
         Assert.Empty(t.Snapshot(T0.AddSeconds(4)));
+    }
+
+    /// <summary>The reported bug: "I'm full health but I didn't see it show up as a chip
+    /// anywhere." A tick line only exists when healing actually happened — not one of the
+    /// HoT ticks in 690k lines of eqlog_Daggo_freeport reports 0 — so a HoT cast on a
+    /// full-health target ticks in total silence. Waiting for a tick means the healer
+    /// gets no chip in exactly the case where they cannot see the HoT any other way, so
+    /// the CAST has to open one.</summary>
+    [Fact]
+    public void ACastOpensAChipEvenWhenNoTickEverArrives()
+    {
+        var t = Replay([.. KnownHot("Blossoming Heal"),
+            Ev(0, "You begin casting Blossoming Heal.")]);
+
+        var h = Assert.Single(t.Snapshot(T0.AddSeconds(6)));
+        Assert.Equal("Blossoming Heal", h.Spell);
+    }
+
+    /// <summary>Nothing in the log names the target of a beneficial cast: "You have
+    /// targeted X" and "You are targeting" appear ZERO times in the fixture log, and the
+    /// cast line is bare. So the chip a cast opens must admit it does not know who it
+    /// landed on rather than guess — an empty Target, which no real name can collide
+    /// with, telling the UI to show the spell instead of a person.</summary>
+    [Fact]
+    public void ACastOpensAChipWithNoTargetBecauseTheLogNeverNamesOne()
+    {
+        var t = Replay([.. KnownHot("Efflorescing Heal"),
+            Ev(0, "You begin casting Efflorescing Heal III.")]);
+
+        var h = Assert.Single(t.Snapshot(T0.AddSeconds(6)));
+        Assert.Equal("", h.Target);
+        Assert.False(h.TargetKnown);
+        // The cast carries the RANK, the ticks and the Trigger never do; the chip keys on
+        // the unranked name so the first tick can find its way home.
+        Assert.Equal("Efflorescing Heal", h.Spell);
+    }
+
+    /// <summary>The half that already worked and must keep working, now as the second
+    /// act: the first tick is the only thing that ever names the target, so it BINDS the
+    /// waiting chip — one chip that gains a name, not a second chip beside it — and
+    /// re-anchors the countdown to the real first tick instead of the estimate.</summary>
+    [Fact]
+    public void TheFirstTickBindsTheWaitingChipInsteadOfOpeningASecondOne()
+    {
+        var t = Replay([.. KnownHot("Blossoming Heal"),
+            Ev(0, "You begin casting Blossoming Heal."),
+            // Cast to first tick measured 1-8s across 768 runs in eqlog_Daggo_freeport,
+            // 84% of them 2-7s: this is a perfectly ordinary one.
+            Ev(4, "You healed Daggo over time for 61 hit points by Blossoming Heal.")]);
+
+        var h = Assert.Single(t.Snapshot(T0.AddSeconds(5)));
+        Assert.Equal("Daggo", h.Target);
+        Assert.True(h.TargetKnown);
+        Assert.Equal(T0.AddSeconds(4), h.FirstTick);           // the real tick, not the estimate
+        Assert.Equal(23, h.RemainingSeconds(T0.AddSeconds(5)), 0);
+    }
+
+    /// <summary>"Your Blooming Heal spell is interrupted." — 320 of them in the fixture
+    /// log, 20 for this spell alone. The cast never landed, so its chip is a lie and has
+    /// to go the moment the log says so.</summary>
+    [Fact]
+    public void AnInterruptedCastCancelsTheWaitingChip()
+    {
+        var t = Replay([.. KnownHot("Blooming Heal"),
+            Ev(0, "You begin casting Blooming Heal."),
+            Ev(2, "Your Blooming Heal spell is interrupted.")]);
+
+        Assert.Empty(t.Snapshot(T0.AddSeconds(3)));
+    }
+
+    /// <summary>The other way a cast dies: "Your Flowering Heal spell fizzles!" (119
+    /// fizzles in the fixture log, 6 of them this spell — and note the BANG, not a
+    /// period; that is what the log and the parser both use).</summary>
+    [Fact]
+    public void AFizzledCastCancelsTheWaitingChip()
+    {
+        var t = Replay([.. KnownHot("Flowering Heal"),
+            Ev(0, "You begin casting Flowering Heal."),
+            Ev(2, "Your Flowering Heal spell fizzles!")]);
+
+        Assert.Empty(t.Snapshot(T0.AddSeconds(3)));
+    }
+
+    /// <summary>A chip opened by a cast that never ticks has no Trigger and no last tick
+    /// to end it, so the estimate is all there is: it runs the spell's duration from where
+    /// the first tick would have been (cast + the measured 5s median delay) and then goes
+    /// away. A chip that lingered forever would be worse than no chip.</summary>
+    [Fact]
+    public void AWaitingChipThatNeverTicksExpiresOnTheEstimate()
+    {
+        var t = Replay([.. KnownHot("Sprouting Heal"),
+            Ev(0, "You begin casting Sprouting Heal III.")]);
+
+        Assert.Single(t.Snapshot(T0.AddSeconds(28)));   // 0 + 5 + 24 = 29
+        Assert.Empty(t.Snapshot(T0.AddSeconds(30)));
+    }
+
+    /// <summary>Only a HoT gets a chip. Every cast the player makes comes through the same
+    /// event, so without this the chip stack would fill with nukes, mezzes and gates. A
+    /// spell is a HoT because it has been seen ticking (or because the duration store
+    /// remembers it from a previous session) — the cast line itself says nothing.</summary>
+    [Fact]
+    public void ACastOfSomethingNeverSeenTickingOpensNothing()
+    {
+        var t = Replay(
+            Ev(0, "You begin casting Complete Heal."),
+            Ev(1, "You begin casting Careless Lightning."));
+
+        Assert.Empty(t.Snapshot(T0.AddSeconds(2)));
+    }
+
+    /// <summary>The ambiguity the log forces on us: a cast while the same HoT is already
+    /// running on Daggo is EITHER a refresh on Daggo or a fresh cast on someone else, and
+    /// nothing distinguishes them. Refreshing Daggo's chip would be the dangerous guess —
+    /// a chip promising 24s of healing that may in fact lapse in 10, which is how a healer
+    /// lets a HoT drop — so the running chip is left strictly alone and the cast opens its
+    /// own targetless chip beside it.</summary>
+    [Fact]
+    public void ACastDoesNotStealAChipAlreadyRunningOnAKnownTarget()
+    {
+        var t = Replay([.. KnownHot("Blossoming Heal"),
+            Ev(0, "You healed Daggo over time for 61 hit points by Blossoming Heal."),
+            Ev(6, "You healed Daggo over time for 61 hit points by Blossoming Heal."),
+            Ev(12, "You begin casting Blossoming Heal.")]);
+
+        var chips = t.Snapshot(T0.AddSeconds(13));
+        Assert.Equal(2, chips.Count);
+        // Daggo's countdown still runs from HIS first tick — untouched by the new cast.
+        var daggo = Assert.Single(chips, c => c.Target == "Daggo");
+        Assert.Equal(T0, daggo.FirstTick);
+        Assert.Equal(11, daggo.RemainingSeconds(T0.AddSeconds(13)), 0);
+        Assert.Single(chips, c => !c.TargetKnown);
+    }
+
+    /// <summary>The other half of that rule: a tick that merely sustains a series already
+    /// running is that series' tick, not the waiting cast's first tick. Binding on it
+    /// would silently re-point the new cast at a target it may never have touched, and
+    /// would restart Daggo's countdown on evidence that says nothing about Daggo.</summary>
+    [Fact]
+    public void ATickThatSustainsARunningSeriesDoesNotBindTheWaitingChip()
+    {
+        var t = Replay([.. KnownHot("Blossoming Heal"),
+            Ev(0, "You healed Daggo over time for 61 hit points by Blossoming Heal."),
+            Ev(6, "You begin casting Blossoming Heal."),
+            Ev(12, "You healed Daggo over time for 61 hit points by Blossoming Heal.")]);
+
+        var chips = t.Snapshot(T0.AddSeconds(13));
+        Assert.Equal(2, chips.Count);
+        Assert.Equal(T0, Assert.Single(chips, c => c.Target == "Daggo").FirstTick);
+        Assert.Single(chips, c => !c.TargetKnown);
+    }
+
+    /// <summary>An interrupt kills the cast that was in flight, not the HoT already
+    /// ticking on someone: that one landed, and it keeps healing.</summary>
+    [Fact]
+    public void AnInterruptLeavesAHotThatAlreadyLandedAlone()
+    {
+        var t = Replay([.. KnownHot("Blooming Heal"),
+            Ev(0, "You healed Daggo over time for 61 hit points by Blooming Heal."),
+            Ev(6, "You begin casting Blooming Heal."),
+            Ev(8, "Your Blooming Heal spell is interrupted.")]);
+
+        var h = Assert.Single(t.Snapshot(T0.AddSeconds(9)));
+        Assert.Equal("Daggo", h.Target);
+    }
+
+    /// <summary>A HoT that healed nothing until its very last beat: the target finally
+    /// takes damage and only the terminating burst logs. It names a target the tracker has
+    /// no series for, but it does say that cast is over — so it closes the waiting chip
+    /// instead of leaving it to run out the estimate. No duration is learned from it: the
+    /// chip's anchor was an estimate, and a guessed measurement would poison the store
+    /// that real Triggers fill.</summary>
+    [Fact]
+    public void ATriggerEndsAWaitingChipWithoutLearningADurationFromIt()
+    {
+        var t = Replay([.. KnownHot("Flowering Heal"),
+            Ev(0, "You begin casting Flowering Heal."),
+            // 24s, not the 29s the estimate expects: this cast's first tick came
+            // instantly (0s cast-to-tick happens 12 times in the fixture log), so the
+            // Trigger arrives while the chip still has 5s of guessed countdown left.
+            Ev(24, "You healed Daggo for 202 hit points by Flowering Heal Trigger.")]);
+
+        Assert.Empty(t.Snapshot(T0.AddSeconds(25)));
+        Assert.Empty(t.LearnedDurations);
+    }
+
+    /// <summary>Changed means "the stack looks different now", and both cast-side events
+    /// change it: the chip appearing with no name, and the first tick giving it one.
+    /// A UI that missed either would show a stale stack.</summary>
+    [Fact]
+    public void ChangedFiresWhenACastOpensAChipAndWhenATickBindsIt()
+    {
+        var t = new HotTracker();
+        foreach (var e in KnownHot("Blossoming Heal")) t.Apply(e);
+        var fired = 0;
+        t.Changed += () => fired++;
+
+        t.Apply(Ev(0, "You begin casting Blossoming Heal."));
+        Assert.Equal(1, fired);                       // targetless chip appeared
+
+        t.Apply(Ev(4, "You healed Daggo over time for 61 hit points by Blossoming Heal."));
+        Assert.Equal(2, fired);                       // it now names Daggo
+
+        t.Apply(Ev(10, "You healed Daggo over time for 61 hit points by Blossoming Heal."));
+        Assert.Equal(2, fired);                       // same chip, same countdown
+
+        t.Apply(Ev(16, "Your Blossoming Heal spell is interrupted."));
+        Assert.Equal(2, fired);                       // a later cast died; the chip is not it
+    }
+
+    /// <summary>Zoning drops the cast-in-flight chip too: whoever it was on, they are not
+    /// in this zone with you.</summary>
+    [Fact]
+    public void ZoningClearsAWaitingChipAsWell()
+    {
+        var t = Replay([.. KnownHot("Blossoming Heal"),
+            Ev(0, "You begin casting Blossoming Heal."),
+            Ev(3, "You have entered Clan Crushbone.")]);
+
+        Assert.Empty(t.Snapshot(T0.AddSeconds(4)));
+    }
+
+    /// <summary>A HoT the store already knows is a HoT: the duration store is keyed by
+    /// unranked spell name, so it carries "this name ticks" across restarts and the very
+    /// first cast of a session gets a chip without waiting to be re-taught.</summary>
+    [Fact]
+    public void AStoredDurationIsAlsoWhatMakesACastRecogniseableAcrossRestarts()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"hot-durations-{Guid.NewGuid():N}.json");
+        try
+        {
+            var t = new HotTracker();
+            t.AttachStore(path);
+            t.Apply(Ev(0, "You healed Daggo over time for 184 hit points by Efflorescing Heal."));
+            t.Apply(Ev(12, "You healed Daggo for 489 hit points by Efflorescing Heal Trigger."));
+
+            var reborn = new HotTracker();
+            reborn.AttachStore(path);
+            reborn.Apply(Ev(60, "You begin casting Efflorescing Heal III."));
+
+            var h = Assert.Single(reborn.Snapshot(T0.AddSeconds(61)));
+            Assert.Equal("Efflorescing Heal", h.Spell);
+            Assert.False(h.TargetKnown);
+            Assert.Equal(16, h.RemainingSeconds(T0.AddSeconds(61)), 0);   // 60+5+12-61
+        }
+        finally { File.Delete(path); }
     }
 }

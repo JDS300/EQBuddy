@@ -30,10 +30,16 @@ public static class HotChipPresentation
             var remaining = h.RemainingSeconds(now);
             chips.Add(new SpawnChip(
                 Zone: "",
-                Name: h.Target,
+                // Until a tick names someone the chip is the SPELL, not a blank row: a cast
+                // on a full-health target heals nothing, so the log names nobody, and there
+                // is no "you have targeted X" line in EverQuest to fall back on. Showing the
+                // spell asserts only what is actually known.
+                Name: h.TargetKnown ? h.Target : h.Spell,
                 CountdownText: $"{(int)remaining / 60}:{(int)remaining % 60:00}",
                 IsDue: remaining <= DueSeconds,
-                Detail: $"{h.Spell} · started {h.FirstTick:h:mm:ss tt}",
+                Detail: h.TargetKnown
+                    ? $"{h.Spell} · started {h.FirstTick:h:mm:ss tt}"
+                    : $"{h.Spell} · target unknown until it heals someone",
                 Icon: "🌿",
                 Emphasis: isSelf));
         }

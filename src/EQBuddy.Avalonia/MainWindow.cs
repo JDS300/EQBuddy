@@ -1877,12 +1877,23 @@ public sealed class MainWindow : Window
             BeginMoveDrag(e);
     }
 
-    protected override void OnClosed(EventArgs e)
+    /// <summary>Saves the widget's position while the platform window still exists.
+    /// OnClosed (below) used to do this, but OnClosed fires after the window is torn down,
+    /// so Position had already collapsed to (0,0) by the time it read it — a widget dragged
+    /// to another monitor silently forgot and reopened wherever it started. Closing fires
+    /// first, with the real position still in hand; the chip stacks (SavePosition, called
+    /// from their own Closing handlers) already worked this way.</summary>
+    protected override void OnClosing(WindowClosingEventArgs e)
     {
-        _uiTimer.Stop();
         _settings.WindowLeft = Position.X;
         _settings.WindowTop = Position.Y;
         _settings.Save();
+        base.OnClosing(e);
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        _uiTimer.Stop();
         if (_clickThrough)
             X11ClickThrough.Set(this, enabled: false);
         _hotkeys?.Dispose();

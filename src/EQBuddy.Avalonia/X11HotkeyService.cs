@@ -15,10 +15,15 @@ internal sealed class X11HotkeyService : IDisposable
     private const int GrabModeAsync = 1;
 
     private readonly Dictionary<(uint KeyCode, uint Mods), Action> _actions = [];
+    private readonly List<string> _failed = [];
     private readonly Thread _thread;
     private readonly IntPtr _display;
     private readonly IntPtr _root;
     private volatile bool _stopping;
+
+    /// <summary>Hotkeys another application already owns, so the user can be told which
+    /// of their shortcuts is doing nothing rather than being left to guess.</summary>
+    public IReadOnlyList<string> FailedHotkeys => _failed;
 
     public X11HotkeyService(IEnumerable<(string Spec, Action Action)> hotkeys)
     {
@@ -70,9 +75,74 @@ internal sealed class X11HotkeyService : IDisposable
             return;
         }
 
+        // XGrabKey answers asynchronously, so a conflict arrives as a BadAccess at the error
+        // handler rather than as a return value. XSync forces it to be delivered here, while
+        // our trap is installed.
+        lock (ErrorLock)
+        {
+            s_trapDisplay = _display;
+            s_trapped = false;
+            s_handler ??= OnXError;
+            var previous = XSetErrorHandler(Marshal.GetFunctionPointerForDelegate(s_handler));
+            try
+            {
+                foreach (var variant in LockVariants(mods))
+                    XGrabKey(_display, (int)keycode, variant, _root, true, GrabModeAsync, GrabModeAsync);
+                XSync(_display, false);
+            }
+            finally
+            {
+                XSetErrorHandler(previous);
+            }
+
+            if (s_trapped)
+            {
+                // Somebody else owns this combination. Drop the half-registered grab rather
+                // than leaving variants dangling, and tell the user which shortcut is dead.
+                foreach (var variant in LockVariants(mods))
+                    XUngrabKey(_display, (int)keycode, variant, _root);
+                XFlush(_display);
+                _failed.Add(spec);
+                App.LogError($"Hotkey '{spec}' is already taken by another application; it will do nothing.");
+                return;
+            }
+        }
+
         _actions[(keycode, mods)] = action;
-        foreach (var variant in LockVariants(mods))
-            XGrabKey(_display, (int)keycode, variant, _root, true, GrabModeAsync, GrabModeAsync);
+    }
+
+    // ---- X error trap ----
+    //
+    // Xlib's DEFAULT protocol-error handler prints the error and calls exit(1). A hotkey
+    // another client already holds is entirely survivable, but it killed the process: a
+    // second EQBuddy, or the headless render tests running while the app was open, died on
+    // startup with "exit code 1" and no usable message.
+    //
+    // The handler is process-global and Avalonia's X11 backend installs its own, so ours is
+    // installed only around the grab and restored immediately (XSync guarantees the reply
+    // arrives inside that window). Do NOT try to chain to the displaced handler: Avalonia's
+    // is a managed delegate, and round-tripping its function pointer through
+    // GetDelegateForFunctionPointer hands back the original object, which throws
+    // InvalidCastException on the cast to this delegate type. Learned the hard way - the
+    // headless tests never load the X11 backend, so only the real app showed it.
+
+    private const int BadAccess = 10;
+    private static readonly object ErrorLock = new();
+    private static XErrorHandler? s_handler;      // rooted: X keeps only the raw pointer
+    private static volatile IntPtr s_trapDisplay;
+    private static volatile bool s_trapped;
+
+    private static int OnXError(IntPtr display, ref XErrorEvent evt)
+    {
+        if (evt.Display == s_trapDisplay && evt.ErrorCode == BadAccess)
+        {
+            s_trapped = true;
+            return 0;
+        }
+        // Anything else that lands in our brief window can't be forwarded (see above), so
+        // log it rather than lose it silently.
+        App.LogError($"X11 error {evt.ErrorCode} (request {evt.RequestCode}) during hotkey registration.");
+        return 0;
     }
 
     private void EventLoop()
@@ -147,6 +217,29 @@ internal sealed class X11HotkeyService : IDisposable
             App.LogError("X11 hotkey thread did not stop within 250ms.");
         XCloseDisplay(_display);
     }
+
+    // typedef struct { int type; Display *display; XID resourceid; unsigned long serial;
+    //                  unsigned char error_code, request_code, minor_code; } XErrorEvent;
+    // 64-bit layout: 4 bytes + 4 padding, then three pointer-sized fields, then the codes.
+    [StructLayout(LayoutKind.Explicit, Size = 40)]
+    private struct XErrorEvent
+    {
+        [FieldOffset(0)] public int Type;
+        [FieldOffset(8)] public IntPtr Display;
+        [FieldOffset(16)] public IntPtr ResourceId;
+        [FieldOffset(24)] public IntPtr Serial;
+        [FieldOffset(32)] public byte ErrorCode;
+        [FieldOffset(33)] public byte RequestCode;
+        [FieldOffset(34)] public byte MinorCode;
+    }
+
+    private delegate int XErrorHandler(IntPtr display, ref XErrorEvent evt);
+
+    [DllImport("libX11.so.6")]
+    private static extern IntPtr XSetErrorHandler(IntPtr handler);
+
+    [DllImport("libX11.so.6")]
+    private static extern int XSync(IntPtr display, [MarshalAs(UnmanagedType.Bool)] bool discard);
 
     [StructLayout(LayoutKind.Explicit, Size = 192)]
     private struct XKeyEvent

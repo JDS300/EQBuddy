@@ -34,10 +34,19 @@ public sealed record MezState(
 ///
 /// Durations: catalog first (Data/MezSpells.json — null until researched), overridden by
 /// learned values. Only the CASTER's log sees "Your X spell has worn off of Y.", so only
-/// the caster's EQBuddy can measure real durations; it learns the LONGEST land→fade gap
-/// per exact spell name (rank included — ranks lengthen mezzes), because early breaks
-/// shorten gaps but nothing lengthens them. Learned values persist via
-/// <see cref="AttachStore"/> and flow to the rest of the group through catalog updates.
+/// the caster's EQBuddy can measure real durations; it keeps a bounded set of land→fade
+/// SAMPLES per exact spell name (rank included — ranks lengthen mezzes) and estimates the
+/// duration from the cluster they form (<see cref="Effective"/>). It used to keep the
+/// LONGEST gap instead, on the reasoning that "early breaks shorten gaps but nothing
+/// lengthens them". That reasoning is wrong twice over, and it was reported from play: the
+/// store read "Mesmerization V = 43" and the chip started at 0:43 for a spell that runs
+/// about 38. Log-flush jitter of a second or two makes a maximum over many samples a reading
+/// of the tail by construction, with no way back down — replaying the fixture through the
+/// previous code learns 42 for that rank, against a sample cluster of 36-42 whose mode is 38.
+/// And a fade cannot always be attributed: with two same-named entries of yours open, the
+/// gap can be measured from the wrong landing (see the ambiguity gate in
+/// <see cref="OnWornOff"/>). Learned values persist via <see cref="AttachStore"/> and flow to
+/// the rest of the group through catalog updates.
 /// </summary>
 public sealed class MezTracker
 {
@@ -55,9 +64,37 @@ public sealed class MezTracker
     /// creature's engagement, worth one broken mez between them — see
     /// <see cref="CreditBreak"/> for the measurements and the reasoning.</summary>
     public static readonly TimeSpan BreakWindow = TimeSpan.FromSeconds(6);
+    /// <summary>Unambiguous fade measurements kept per exact (ranked) spell name, newest
+    /// preferred. Bounded so the store cannot grow without limit, and so that evidence from
+    /// a server-side duration change (or a spell the player has since re-ranked) ages out
+    /// instead of outvoting reality forever. 64 because samples arrive slowly: the fixture
+    /// holds 1,197 caster-private fade lines across all ranks and yields 12 usable samples
+    /// for Mesmerization V in a week of play — everything else is a twin fade, a gap under
+    /// 4s, or a fade the break-retraction correctly threw away — so 64 is roughly a month,
+    /// long enough for a stable mode and short enough to forget a stale one. It also keeps
+    /// the store at a few hundred bytes per spell.</summary>
+    public static readonly int SampleCap = 64;
+    /// <summary>Fewer samples than this and the estimate falls back to the longest one seen
+    /// — see <see cref="Effective"/>.</summary>
+    public static readonly int ModeMinimumSamples = 8;
+    /// <summary>A modal value seen fewer times than this is a coincidence, not a mode, and
+    /// the estimate falls back to the longest sample — see <see cref="Effective"/>.</summary>
+    public static readonly int ModeMinimumRepeats = 3;
+    /// <summary>The samples are a mixture of early breaks (low) and natural fades (clustered
+    /// at the truth); only samples at or above this fraction of the set's high-water mark
+    /// vote — see <see cref="Effective"/>.</summary>
+    public static readonly double ClusterFloor = 0.7;
+    /// <summary>The high-water mark the cluster floor is measured from: this percentile of
+    /// the samples, NOT the maximum, so one freak reading cannot drag the floor above the
+    /// real cluster — see <see cref="Effective"/>.</summary>
+    public static readonly double ClusterAnchor = 0.9;
 
     private readonly Dictionary<string, MezSpellInfo> _catalog;
-    private readonly Dictionary<string, double> _learned = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Per exact (ranked) spell name: the unambiguous land→fade gaps measured for
+    /// it, oldest first, capped at <see cref="SampleCap"/>. The estimate is derived from
+    /// these on demand (<see cref="Effective"/>) rather than stored, because a single
+    /// remembered number cannot be voted against.</summary>
+    private readonly Dictionary<string, List<double>> _samples = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<MezState> _active = [];
     private readonly List<(string Caster, string Spell, DateTime Time)> _recentCasts = [];
     /// <summary>Per creature name: when we last saw a break signal for it, whether a kill
@@ -71,10 +108,10 @@ public sealed class MezTracker
     /// was counted, not to a window that is merely open — see there.</summary>
     private readonly Dictionary<string, (DateTime At, bool KillCredited, DateTime Removed)> _breaks =
         new(StringComparer.OrdinalIgnoreCase);
-    /// <summary>Durations learned from a fade that has not yet outlived <see cref="BreakWindow"/>,
-    /// with the value they replaced. See <see cref="OnWornOff"/> for why a measurement is only
+    /// <summary>Samples taken from a fade that has not yet outlived <see cref="BreakWindow"/>,
+    /// with the value recorded. See <see cref="OnWornOff"/> for why a measurement is only
     /// provisional until the next few seconds of log prove nothing hit the creature.</summary>
-    private readonly List<(string Name, string Spell, DateTime At, double? Previous)> _provisional = [];
+    private readonly List<(string Name, string Spell, DateTime At, double Sample)> _provisional = [];
     private string? _storePath;
     private readonly object _lock = new();
 
@@ -97,19 +134,47 @@ public sealed class MezTracker
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
     }
 
-    /// <summary>Loads learned durations and saves after each new maximum —
-    /// same pattern as SpellCatalog's store; tests don't attach one.</summary>
+    /// <summary>Loads the learned SAMPLES and saves after each new one — same pattern as
+    /// SpellCatalog's store; tests don't attach one. The file holds the samples themselves
+    /// (<c>{"Mesmerization V": [38, 37, 38, ...]}</c>), not the number derived from them: a
+    /// store that kept only the answer has nothing for the next fade to vote against, and
+    /// would drift back to whatever it last wrote.
+    ///
+    /// Migration from the pre-mode format (<c>{"Mesmerization V": 43}</c>, one scalar per
+    /// spell): the scalars are READ AND DISCARDED, not seeded as samples. A stored scalar is
+    /// the longest gap ever observed under a rule that could only ratchet upward — the
+    /// reported store said 43s for a spell that runs ~38 — and seeding it would not be a
+    /// harmless single vote: below <see cref="ModeMinimumSamples"/> the estimate is the
+    /// MAXIMUM, so the old inflated number would win every comparison for the whole warm-up.
+    /// Replaying the reporter's week-long log yields 12 usable samples for the rank they cast
+    /// constantly, so seeding would mean serving the exact reported bug for about a week and
+    /// then having it outvoted anyway. Discarding costs the other direction and much less of
+    /// it: until the first clean fade of a spell arrives — one or two a session in that log —
+    /// its chip falls back to the catalog's shorter guess. A scalar file must still LOAD,
+    /// though: it is on every existing user's disk, so the store is parsed element by element
+    /// and anything that is not an array of numbers is skipped rather than thrown on.</summary>
     public void AttachStore(string path)
     {
         _storePath = path;
         try
         {
             if (!File.Exists(path)) return;
-            var stored = JsonSerializer.Deserialize<Dictionary<string, double>>(File.ReadAllText(path));
-            if (stored is null) return;
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            if (doc.RootElement.ValueKind != JsonValueKind.Object) return;
             lock (_lock)
-                foreach (var (spell, seconds) in stored)
-                    if (seconds is > 0 and < 600) _learned.TryAdd(spell, seconds);
+                foreach (var prop in doc.RootElement.EnumerateObject())
+                {
+                    if (prop.Value.ValueKind != JsonValueKind.Array) continue;   // old scalar: dropped
+                    var samples = prop.Value.EnumerateArray()
+                        .Where(v => v.ValueKind == JsonValueKind.Number)
+                        .Select(v => v.GetDouble())
+                        .Where(s => s is > 3 and < 600)
+                        .ToList();
+                    // A store written by a future build with a bigger cap keeps its NEWEST
+                    // samples here, matching the eviction rule in OnWornOff.
+                    if (samples.Count > SampleCap) samples.RemoveRange(0, samples.Count - SampleCap);
+                    if (samples.Count > 0) _samples.TryAdd(prop.Name, samples);
+                }
         }
         catch { /* corrupt store: rewritten on next learn */ }
     }
@@ -192,10 +257,16 @@ public sealed class MezTracker
                 .ToList();
     }
 
-    /// <summary>Learned durations (exact spell name → seconds), for display/export.</summary>
+    /// <summary>Learned durations (exact spell name → seconds), for display/export.
+    /// Derived from the samples on read — see <see cref="Effective"/>.</summary>
     public IReadOnlyDictionary<string, double> LearnedDurations
     {
-        get { lock (_lock) return new Dictionary<string, double>(_learned); }
+        get
+        {
+            lock (_lock)
+                return _samples.Where(kv => kv.Value.Count > 0).ToDictionary(
+                    kv => kv.Key, kv => Effective(kv.Value), StringComparer.OrdinalIgnoreCase);
+        }
     }
 
     private bool IsMezSpell(string spell) =>
@@ -270,15 +341,16 @@ public sealed class MezTracker
         // under THEIR rank. A real log taught "Mesmerization VI" = 6s to a player with zero
         // casts of it. Among your own same-named entries the longest-asleep one fades first.
         var name = LogParser.Normalize(wo.Target);
-        var entry = _active
+        var mine = _active
             .Where(m => m.Caster.Equals("You", StringComparison.OrdinalIgnoreCase)
                 && m.Target.Equals(name, StringComparison.OrdinalIgnoreCase))
             .OrderBy(m => m.LandedAt)
-            .FirstOrDefault();
+            .ToList();
         // No entry of yours: the fade belongs to a mez we never tracked, and it must not
         // touch the window either — stamping it would let YOUR fade swallow the break of
         // somebody else's chip on a same-named creature.
-        if (entry is null) return false;
+        if (mine.Count == 0) return false;
+        var entry = mine[0];
 
         var known = _breaks.TryGetValue(name, out var prev);
         var counted = known && wo.Time - prev.Removed <= BreakWindow;
@@ -292,9 +364,10 @@ public sealed class MezTracker
         // A fade measures the real duration only when the mez ended on its own; a fade
         // caused by damage measures the time to the BREAK. Replaying the reported log
         // through 1.29.1 filed "Mesmerization V = 7" off the trace above — a spell whose
-        // real length is ~25s. "Longest observed wins" caps that but cannot prevent it: on
-        // a fresh store 7s is the only value there is, and every chip cast from it counts
-        // down to a wake-up 18 seconds early.
+        // real length is ~38s. The estimator cannot save us from that on its own: a break
+        // gap is a legitimate-looking number, and on a thin sample set Effective() returns
+        // the maximum, so 7s would simply BE the answer and every chip cast from it would
+        // count down to a wake-up half a minute early.
         //
         // The tell arrives AFTER the fade, not before: the engagement in the reported log
         // last touched this name at 20:54:18, eight seconds earlier — outside the window —
@@ -305,17 +378,47 @@ public sealed class MezTracker
         // window — see RetractProvisional, called from CreditBreak/CreditKill.
         //
         // This also silently discards fades that merely happen during combat on that name,
-        // whether or not the damage broke them. That costs nothing: longest-wins means the
-        // useful samples are the quiet, full-duration fades, and those are exactly the ones
-        // with no combat around them.
-        // Longest observed per exact (ranked) spell name wins: early breaks shorten the
-        // land->fade gap, nothing lengthens it.
-        var observed = (wo.Time - entry.LandedAt).TotalSeconds;
-        var previous = _learned.TryGetValue(entry.Spell, out var was) ? was : (double?)null;
-        if (observed is > 3 and < 600 && observed > (previous ?? 0))
+        // whether or not the damage broke them, and on a melee-heavy log that is most of
+        // them: replaying the fixture, 401 of the 417 samples this method records are
+        // retracted within the window. The survivors are the quiet, full-duration fades and
+        // they are clean — Mesmerization V's twelve read 36-42 with no break contamination
+        // at all — but the filter is blunt enough to starve a rank entirely. Mesmerization IV
+        // ends the fixture with ZERO samples (13 unambiguous fades, every one followed by a
+        // blow on that creature inside the window; gaps 4 7 8 20 23 23 28 28 30 32 33 35 42,
+        // which do look like breaks), so its chips fall back to the catalog. That is not new
+        // — the previous code learned nothing for IV from this log either — but it is the
+        // price of the rule, and the place to look if a rank never learns.
+        //
+        // AMBIGUITY GATE. The fade line names a creature, not a mez — and EQ logs it without
+        // even the rank — so with two of your own entries open on that name there is nothing
+        // in the log that says which one ended. The pick above (longest asleep) still has to
+        // remove SOMETHING, because a mez of yours genuinely ended; but as a MEASUREMENT it
+        // is a guess, and a guess that fails in one direction: when the YOUNGER of two
+        // same-named entries fades, the gap is credited to the older one and inflated by the
+        // whole stagger between the landings. (Those pairs come from an AoE catching twins in
+        // one second — OnLanding's refresh rule collapses staggered landings on one name into
+        // a single entry — after which a re-mez refreshes one of the pair and staggers them.)
+        //
+        // Measured over the 690k-line fixture: of 1,197 caster-private fade lines, 363 arrive
+        // with two or more of your entries open. Their gaps are nothing like the clean ones —
+        // for Mesmerization V they are 0s x114, 1s x88, 2s x33, i.e. mostly AoE twins broken
+        // the instant they land, with a long scatter above. Gating them out costs 3 of the
+        // rank's 15 samples and moves the estimate from 39 to 38, and one of the three
+        // discarded was a 23s reading against a cluster of 36-42: exactly the attribution
+        // error, just not the dominant term. So: chip goes, sample does not.
+        if (mine.Count > 1) return true;
+
+        // One sample per unambiguous fade, whole seconds (the log's own resolution — a
+        // land→fade gap is always an integer count of log seconds). Bounded and oldest-first
+        // evicted: see SampleCap. The estimator over these is Effective().
+        var observed = Math.Round((wo.Time - entry.LandedAt).TotalSeconds);
+        if (observed is > 3 and < 600)
         {
-            _provisional.Add((name, entry.Spell, wo.Time, previous));
-            _learned[entry.Spell] = Math.Round(observed, 1);
+            if (!_samples.TryGetValue(entry.Spell, out var samples))
+                _samples[entry.Spell] = samples = [];
+            samples.Add(observed);
+            if (samples.Count > SampleCap) samples.RemoveAt(0);
+            _provisional.Add((name, entry.Spell, wo.Time, observed));
             SaveStore();
         }
         return true;
@@ -324,8 +427,11 @@ public sealed class MezTracker
     /// <summary>Undoes any fade measurement for <paramref name="name"/> still inside its
     /// <see cref="BreakWindow"/>: a break signal this close behind the fade means the fade
     /// WAS that break, so the gap it measured is the time to the break, not the duration.
-    /// Newest first, restoring each one's predecessor, so stacked measurements on one spell
-    /// unwind to exactly what was there before.</summary>
+    /// Newest first, pulling out the newest sample of that exact value, so stacked
+    /// measurements on one spell unwind to exactly the sample set that was there before.
+    /// (The one thing that cannot be undone is an eviction the retracted sample caused —
+    /// the oldest sample of a full set is gone for good. Worth nothing: it is one vote in
+    /// <see cref="SampleCap"/>, and only for spells whose sample set is already full.)</summary>
     private void RetractProvisional(string name, DateTime now)
     {
         var undone = false;
@@ -334,16 +440,92 @@ public sealed class MezTracker
             var p = _provisional[i];
             if (now - p.At > BreakWindow
                 || !p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) continue;
-            if (p.Previous is { } before) _learned[p.Spell] = before;
-            else _learned.Remove(p.Spell);
+            if (_samples.TryGetValue(p.Spell, out var samples))
+            {
+                var at = samples.LastIndexOf(p.Sample);
+                if (at >= 0) samples.RemoveAt(at);
+                // An empty set is removed outright so the spell reads as never-measured
+                // rather than as measured-and-unknown.
+                if (samples.Count == 0) _samples.Remove(p.Spell);
+            }
             _provisional.RemoveAt(i);
             undone = true;
         }
         if (undone) SaveStore();
     }
 
+    /// <summary>
+    /// The duration a set of unambiguous fade measurements implies: the MODE of the upper
+    /// cluster — not the maximum, and not the mode of everything.
+    ///
+    /// WHY NOT THE MAXIMUM. Reported from play: the store read "Mesmerization V = 43" and
+    /// the chip started at 0:43 for a spell that runs about 38. Nothing was wrong with the
+    /// measurements; the estimator was. With a second or two of log-flush jitter on every
+    /// reading, a maximum over hundreds of samples is a reading of the TAIL by construction,
+    /// it only ever ratchets upward, and one freak value is permanent. Replaying the fixture
+    /// through this tracker, the surviving Mesmerization V samples are
+    /// 36 37 38 38 38 38 39 39 39 40 41 42 — max 42, mode 38. The user is right and the tail
+    /// is noise.
+    ///
+    /// WHY NOT A PLAIN MODE EITHER. The samples are a MIXTURE of two populations, not one
+    /// cluster: natural fades sit tightly at the true duration but spread over three or four
+    /// adjacent values (jitter), while early breaks — a mez cut short, whose breaking blow
+    /// the retraction window in <see cref="RetractProvisional"/> did not catch — pile up at
+    /// the very bottom and repeat EXACTLY, because "4 seconds" is a common way for a mez to
+    /// die. With hundreds of samples the fade cluster still wins (the fixture's unambiguous
+    /// Mesmerization V, n=378 before retraction: mode 38 x37). With a few dozen it does not.
+    /// The same log's Mesmerization III, n=26 before retraction, reads
+    /// 4 4 4 4 6 11 11 13 14 15 16 16 19 27 29 29 30 31 32 33 34 34 34 35 36 36:
+    /// its most common single value is FOUR SECONDS. A chip claiming 4s for a ~36s mez is a
+    /// far worse bug than the 43s it replaced — it would tell the player their mez is about
+    /// to break, constantly.
+    ///
+    /// SO: vote only among samples at or above <see cref="ClusterFloor"/> of the set's
+    /// high-water mark, then take the mode of those. The floor is measured from the
+    /// <see cref="ClusterAnchor"/> percentile rather than the maximum, so a single freak
+    /// long reading cannot drag the floor above the real cluster and leave the estimator
+    /// voting on the outlier alone. 70% because the two populations are far apart in exactly
+    /// that region: a rank-lengthened mez varies by a couple of seconds, while break gaps
+    /// scatter from 0 up. On the fixture's pre-retraction sets (the hard case — full
+    /// contamination) this yields V 38, III 34, IV falls through to the max at 42; on the
+    /// clean post-retraction sets it yields V 38 and changes nothing else.
+    ///
+    /// TIE-BREAK: the LONGER value. The contamination is one-directional — a break gap is
+    /// always SHORTER than the spell, while nothing but flush jitter can make a gap longer —
+    /// so of two equally common values the shorter is the likelier artefact. Erring long is
+    /// also the cheaper error in the UI: a chip that reads a second past the wake-up is
+    /// corrected by the break line the moment anything touches the creature, while a chip
+    /// that expires early says a sleeping mob is awake and invites a re-mez that lands as a
+    /// resist.
+    ///
+    /// FALL BACK TO THE MAXIMUM (today's behaviour) on thin evidence — under
+    /// <see cref="ModeMinimumSamples"/> samples, or when the winning value is not seen at
+    /// least <see cref="ModeMinimumRepeats"/> times, which is the honest reading of "there
+    /// is no mode here": the fixture's Mesmerization IV has 13 pre-retraction samples whose
+    /// upper band is 28 28 30 32 33 35 42 — the best it can offer is a value seen twice, so
+    /// the max (42) is the more honest answer than a coin-flip mode. NOT the catalog:
+    /// it says Mesmerization = 24s (the base rank's number — ranks lengthen mezzes and most
+    /// are unresearched) against a real ~38, so "mode when there is evidence, catalog before
+    /// that" would make every chip 14 seconds SHORT through the whole warm-up and after
+    /// every store reset — silent, and worse than the bug being fixed. Longest-of-few is
+    /// biased high but self-limiting, and being a little long never leaves a sleeping mob
+    /// unattended.
+    /// </summary>
+    private static double Effective(List<double> samples)
+    {
+        if (samples.Count < ModeMinimumSamples) return samples.Max();
+        var sorted = samples.Order().ToList();
+        var anchor = sorted[(int)Math.Ceiling(ClusterAnchor * sorted.Count) - 1];
+        var winner = sorted
+            .Where(s => s >= ClusterFloor * anchor)
+            .GroupBy(s => s)
+            .OrderByDescending(g => g.Count()).ThenByDescending(g => g.Key)
+            .First();
+        return winner.Count() >= ModeMinimumRepeats ? winner.Key : samples.Max();
+    }
+
     private double? DurationFor(string spell) =>
-        _learned.TryGetValue(spell, out var learned) ? learned
+        _samples.TryGetValue(spell, out var s) && s.Count > 0 ? Effective(s)
         : _catalog.TryGetValue(SpellCatalog.BaseName(spell), out var info) ? info.DurationSeconds
         : null;
 
@@ -469,7 +651,7 @@ public sealed class MezTracker
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(_learned));
+            File.WriteAllText(path, JsonSerializer.Serialize(_samples));
         }
         catch { /* best-effort; in-memory learning still works */ }
     }

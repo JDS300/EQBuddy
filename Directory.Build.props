@@ -8,7 +8,7 @@
        Version: release.ps1 and install-local.ps1 both match <Version>([\d.]+)</Version>
        and would throw "No <Version> in Directory.Build.props" if a suffix landed there. -->
   <PropertyGroup>
-    <Version>1.31.2</Version>
-    <InformationalVersion>1.31.2-Daggo</InformationalVersion>
+    <Version>1.31.3</Version>
+    <InformationalVersion>1.31.3-Daggo</InformationalVersion>
   </PropertyGroup>
 </Project>

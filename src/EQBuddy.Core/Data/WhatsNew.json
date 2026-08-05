@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.31.3",
+    "date": "2026-08-04",
+    "highlights": [
+      "FIX: mez countdowns were running long. EQBuddy learned the LONGEST land-to-fade gap it had ever seen, on the theory that early breaks only ever shorten a measurement — but a second of log timing jitter lengthens one, and over hundreds of casts the longest reading drifts several seconds above the truth and can never come back down. One real store had Mesmerization V at 43 seconds for a spell that runs about 38.",
+      "Durations are now learned from the cluster your casts actually land in rather than the single longest outlier, and a fade that arrives while two mobs of the same name are mezzed teaches nothing at all — the log cannot say which of them woke, so it is not evidence."
+    ]
+  },
+  {
     "version": "1.31.2",
     "date": "2026-08-04",
     "highlights": [

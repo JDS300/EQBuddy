@@ -442,6 +442,227 @@ public class MezTrackerTests
         Assert.Empty(t.Snapshot(T0.AddSeconds(27)));
     }
 
+    /// <summary>Reported from play: the learned store read "Mesmerization V = 43" and the
+    /// chip therefore started at 0:43 for a spell that runs about 36. Measured over the
+    /// 690k-line fixture, the fades where exactly ONE same-named entry of yours was open
+    /// (so the log can say which mez ended) put Mesmerization V at n=425, mode 38 (x41)
+    /// with 37 (x36) and 39 (x26) beside it — and max 43. A second or two of log-flush
+    /// jitter guarantees that a maximum taken over hundreds of samples lands in the tail,
+    /// and the old rule could only ratchet upward. The cluster is the duration; the
+    /// extreme is noise.</summary>
+    [Fact]
+    public void ARunOfThirtyEightSecondFadesWithOneFortyThreeSecondOutlierLearnsThirtyEight()
+    {
+        // Real lines from the fixture (Thu Jul 30 13:05, Befallen): the caster's own
+        // Mesmerization V, a bystander-visible landing, and the caster-private fade —
+        // which EQ logs WITHOUT the rank.
+        var t = new MezTracker();
+        for (var i = 0; i < 12; i++)
+        {
+            var c = i * 60;
+            t.Apply(Ev(c, "You begin casting Mesmerization V."));
+            t.Apply(Ev(c + 2, "a necromancer has been mesmerized."));
+            t.Apply(Ev(c + 40, "Your Mesmerization spell has worn off of a necromancer."));
+        }
+        // One fade lands two seconds late — the log-flush tail that used to become the
+        // whole estimate.
+        t.Apply(Ev(720, "You begin casting Mesmerization V."));
+        t.Apply(Ev(722, "a necromancer has been mesmerized."));
+        t.Apply(Ev(765, "Your Mesmerization spell has worn off of a necromancer."));
+
+        Assert.Equal(38, t.LearnedDurations["Mesmerization V"], 0);
+    }
+
+    /// <summary>The other half of the same report, and the reason the old maximum drifted
+    /// so far: EQ logs the fade WITHOUT the rank and without any handle on WHICH creature
+    /// it was, so with two of your own same-named entries open the tracker picks the
+    /// longest-asleep one — and a fade of the YOUNGER twin is then credited to the older,
+    /// inflating the gap by the whole stagger between them. Splitting the fixture's fades
+    /// by whether exactly one same-named entry was open: unambiguous Mesmerization V tops
+    /// out at 43s over 425 samples, the ambiguous ones reach 80s (and Mesmerization III
+    /// reaches 90s against an unambiguous max of 36). A measurement the log cannot attribute
+    /// is not evidence: the chip still goes (something of yours ended), the sample does not.</summary>
+    [Fact]
+    public void AFadeArrivingWhileTwoSameNamedMezzesAreOpenTeachesNothing()
+    {
+        // The fixture's AoE at Thu Jul 30 13:05:38 catches two necromancers in one second —
+        // two creatures, two chips (issue #32). A re-mez ten seconds later refreshes one of
+        // them, so the pair is now staggered: whichever fades, the gap is ambiguous.
+        var t = Replay(
+            Ev(0, "You begin casting Mesmerization V."),
+            Ev(1, "a necromancer has been mesmerized."),
+            Ev(1, "a necromancer has been mesmerized."),
+            Ev(20, "You begin casting Mesmerization V."),
+            Ev(22, "a necromancer has been mesmerized."));
+        Assert.Equal(2, t.Snapshot(T0.AddSeconds(23)).Count);
+
+        t.Apply(Ev(30, "Your Mesmerization spell has worn off of a necromancer."));
+
+        Assert.False(t.LearnedDurations.ContainsKey("Mesmerization V"));   // not the 29s guess
+        Assert.Single(t.Snapshot(T0.AddSeconds(31)));                      // one chip still went
+    }
+
+    /// <summary>Migration: stores written before this change hold ONE scalar per spell —
+    /// the longest gap ever seen, which is exactly the biased number this change exists to
+    /// stop trusting (the reported store read "Mesmerization V = 43"). Seeding it as a
+    /// sample would let the bias dominate a fresh mode, so the old file is read and its
+    /// scalars are dropped; the store re-fills from play. Loading it must never throw.</summary>
+    [Fact]
+    public void AnOldFormatScalarStoreLoadsWithoutThrowingAndItsInflatedValueIsDiscarded()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"mez-durations-{Guid.NewGuid():N}.json");
+        try
+        {
+            File.WriteAllText(path, """{"Mesmerization V":43,"Mesmerize II":32}""");
+            var t = new MezTracker();
+            t.AttachStore(path);   // must not throw
+
+            Assert.Empty(t.LearnedDurations);
+
+            // ...and the very next real fade is believed on its own terms, not blended
+            // with the discarded 43.
+            t.Apply(Ev(0, "You begin casting Mesmerization V."));
+            t.Apply(Ev(2, "a necromancer has been mesmerized."));
+            t.Apply(Ev(40, "Your Mesmerization spell has worn off of a necromancer."));
+            Assert.Equal(38, t.LearnedDurations["Mesmerization V"], 0);
+        }
+        finally { File.Delete(path); }
+    }
+
+    /// <summary>The samples themselves persist, not the number derived from them: a restart
+    /// that kept only "38" would have nothing to add the next fade to, and the store would
+    /// drift back to whatever single value it last wrote. A week of play should not have to
+    /// be re-measured every launch (same bar as spawn timers and learned HoT durations).</summary>
+    [Fact]
+    public void TheLearnedSampleSetSurvivesARestartThroughTheStoreFile()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"mez-durations-{Guid.NewGuid():N}.json");
+        try
+        {
+            var t = new MezTracker();
+            t.AttachStore(path);
+            for (var i = 0; i < 12; i++)
+            {
+                var c = i * 60;
+                t.Apply(Ev(c, "You begin casting Mesmerization V."));
+                t.Apply(Ev(c + 2, "a necromancer has been mesmerized."));
+                t.Apply(Ev(c + 40, "Your Mesmerization spell has worn off of a necromancer."));
+            }
+
+            var reborn = new MezTracker();
+            reborn.AttachStore(path);
+            Assert.Equal(38, reborn.LearnedDurations["Mesmerization V"], 0);
+
+            // A late outlier after the restart is outvoted, which only works if the twelve
+            // earlier samples came back with it.
+            reborn.Apply(Ev(720, "You begin casting Mesmerization V."));
+            reborn.Apply(Ev(722, "a necromancer has been mesmerized."));
+            reborn.Apply(Ev(765, "Your Mesmerization spell has worn off of a necromancer."));
+            Assert.Equal(38, reborn.LearnedDurations["Mesmerization V"], 0);
+        }
+        finally { File.Delete(path); }
+    }
+
+    /// <summary>The trap in "use the mode once there are enough samples": the catalog says
+    /// Mesmerization = 24s and the real spell runs ~38, so falling back to the catalog while
+    /// the sample set fills would make every chip 14 seconds short after a store reset — a
+    /// worse bug than the one being fixed, and invisible until a mez outlives its chip. Below
+    /// the mode threshold the estimate therefore stays what it has always been: the longest
+    /// unambiguous gap seen, which is biased high but never leaves a mez unattended.</summary>
+    [Fact]
+    public void OneUnambiguousFadeAloneStillBeatsTheCatalogsShorterGuess()
+    {
+        var t = Replay(
+            Ev(0, "You begin casting Mesmerization V."),
+            Ev(2, "a necromancer has been mesmerized."),
+            Ev(40, "Your Mesmerization spell has worn off of a necromancer."),   // 38s
+            Ev(90, "You begin casting Mesmerization V."),
+            Ev(92, "a necromancer has been mesmerized."));
+
+        Assert.Equal(38, t.LearnedDurations["Mesmerization V"], 0);   // not the catalog's 24
+        var m = Assert.Single(t.Snapshot(T0.AddSeconds(93)));
+        Assert.Equal(37, m.RemainingSeconds(T0.AddSeconds(93))!.Value, 0);
+    }
+
+    /// <summary>Two durations equally common is a coin toss the estimator has to settle the
+    /// same way every time, and the safe side is the longer one: the sample set's
+    /// contamination is one-directional — a mez broken more than <see cref="MezTracker.BreakWindow"/>
+    /// before its fade line still measures the time to the BREAK, which is always SHORTER
+    /// than the spell, while nothing except a couple of seconds of log-flush jitter can make
+    /// a gap longer. On a tie, prefer the value the short-side noise cannot have produced.</summary>
+    [Fact]
+    public void WhenTwoDurationsAreEquallyCommonTheLongerOneWins()
+    {
+        var t = new MezTracker();
+        for (var i = 0; i < 2 * MezTracker.ModeMinimumSamples; i++)
+        {
+            var c = i * 60;
+            t.Apply(Ev(c, "You begin casting Mesmerization V."));
+            t.Apply(Ev(c + 2, "a necromancer has been mesmerized."));
+            t.Apply(Ev(c + (i % 2 == 0 ? 40 : 36), "Your Mesmerization spell has worn off of a necromancer."));
+        }
+        // ...and one 48s straggler, so a tie broken correctly still cannot be the maximum.
+        var last = 2 * MezTracker.ModeMinimumSamples * 60;
+        t.Apply(Ev(last, "You begin casting Mesmerization V."));
+        t.Apply(Ev(last + 2, "a necromancer has been mesmerized."));
+        t.Apply(Ev(last + 50, "Your Mesmerization spell has worn off of a necromancer."));
+
+        Assert.Equal(38, t.LearnedDurations["Mesmerization V"], 0);   // tied with 34
+    }
+
+    /// <summary>The sample set is bounded, and the bound is a recency window: a store that
+    /// grew forever would carry a server's spell-duration change (or a rank the player
+    /// re-ranked into) as dead weight for as long as the file survives, and the estimator
+    /// would need thousands of new fades to outvote it. Oldest samples are evicted first, so
+    /// a genuine change of duration takes over after one bound's worth of play.</summary>
+    [Fact]
+    public void TheSampleSetIsBoundedAndTheNewestEvidenceWins()
+    {
+        var t = new MezTracker();
+        for (var i = 0; i < 2 * MezTracker.SampleCap; i++)
+        {
+            var c = i * 60;
+            // The first bound's worth of fades run 38s; everything after runs 30s.
+            t.Apply(Ev(c, "You begin casting Mesmerization V."));
+            t.Apply(Ev(c + 2, "a necromancer has been mesmerized."));
+            t.Apply(Ev(c + (i < MezTracker.SampleCap ? 40 : 32),
+                "Your Mesmerization spell has worn off of a necromancer."));
+        }
+
+        Assert.Equal(30, t.LearnedDurations["Mesmerization V"], 0);
+    }
+
+    /// <summary>The shape a plain mode gets catastrophically wrong, and it is the shape the
+    /// samples really have: they are a MIXTURE of two populations, not one cluster. Early
+    /// breaks — a mez interrupted after a few seconds, whose breaking blow the retraction
+    /// window missed — pile up at the very bottom and repeat exactly, because "4 seconds"
+    /// is a common outcome; natural fades cluster tightly at the true duration but spread
+    /// over three or four adjacent values. Measured over the fixture's unambiguous
+    /// Mesmerization III fades before the break-retraction filters them (n=26, the real
+    /// list): 4, 4, 4, 4, 6, 11, 11, 13, 14, 15, 16, 16, 19, 27, 29, 29, 30, 31, 32, 33,
+    /// 34, 34, 34, 35, 36, 36. The most common single value there is 4 SECONDS — a chip
+    /// claiming 4s for a ~36s mez, which is far worse than the 43s over-report this change
+    /// set out to fix. So the estimator takes the mode of the UPPER cluster only.</summary>
+    [Fact]
+    public void ManyShortEarlyBreaksCannotOutvoteASmallClusterOfFullDurationFades()
+    {
+        var t = new MezTracker();
+        // Six mezzes broken almost immediately (nothing in the log says so — the blow that
+        // broke them was never parsed, which is exactly when a short gap becomes a sample),
+        // then nine that ran their course at 34-36s.
+        var gaps = new[] { 4, 4, 4, 4, 4, 4, 34, 35, 36, 34, 35, 36, 34, 35, 36 };
+        for (var i = 0; i < gaps.Length; i++)
+        {
+            var c = i * 60;
+            t.Apply(Ev(c, "You begin casting Mesmerization III."));
+            t.Apply(Ev(c + 2, "a necromancer has been mesmerized."));
+            t.Apply(Ev(c + 2 + gaps[i], "Your Mesmerization spell has worn off of a necromancer."));
+        }
+
+        // 4s is the most common value in the set and must lose anyway.
+        Assert.InRange(t.LearnedDurations["Mesmerization III"], 33, 37);
+    }
+
     [Fact]
     public void UnknownDurationChipsStillShowAndStillBreak()
     {

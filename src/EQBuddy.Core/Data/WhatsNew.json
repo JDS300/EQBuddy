@@ -1,5 +1,14 @@
 [
   {
+    "version": "1.31.1",
+    "date": "2026-08-04",
+    "highlights": [
+      "FIX: mez chips for same-named mobs. Breaking one of two identical creatures wiped BOTH chips — one attack round is several log lines (main hand, off hand, kick, a damage shield, a groupmate's swing) and every one of them was counted as its own break. A round now costs one chip, however many lines it writes, and killing two mezzed adds still clears both.",
+      "The ★ alert tile can be recalled. It's draggable only while Options is open and click-through the rest of the time, so a tile parked on a monitor you no longer use had nothing to grab — Options now has a button that brings it back beside the widget.",
+      "Heal-over-time chips now appear only when the HoT starts healing someone. Opening one on the cast was dropped: a HoT on a full-health target heals nothing and so logs nothing, and the cast line names no target, so it could never work reliably."
+    ]
+  },
+  {
     "version": "1.31.0",
     "date": "2026-08-04",
     "highlights": [

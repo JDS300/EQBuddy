@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.31.0",
+    "date": "2026-08-04",
+    "highlights": [
+      "NEW: heal-over-time chips (🌿) — a stack showing every HoT you have running and how long before it stops, so a lapsed HoT stops being something you notice afterwards. Your own is tinted apart from the ones on other people (your buff bar already shows yours, theirs is invisible to you), and can be switched off entirely in Options.",
+      "The chip appears the moment you cast, not when the first heal lands — a HoT on someone at full health heals nothing, so EverQuest logs nothing, and the chip used to never show up at all. Until a tick names a target the chip shows the spell instead, because the cast line names nobody and EverQuest has no 'you have targeted X' line to fall back on.",
+      "Durations are learned from your own play: a HoT ends on a bigger final heal (the 'Trigger' burst), which measures the real duration exactly — no guessing from the wiki.",
+      "FIX: critical heals were parsed as nothing at all and never reached your healing stats — a crit puts '(Critical)' after the full stop and the patterns stopped at the stop. 205 heals in one real log, by definition the biggest ones in it.",
+      "Linux: Options finally has the spell-class dropdown for watch rules (Any CC, Charm, Mez, Root, Lull, Stun, HoT) — it was Windows-only, so a class-filtered fade rule could not be set up at all.",
+      "Linux: the chip stacks now open beside the widget instead of a corner of the desktop, the widget remembers which monitor you left it on, Options scrolls instead of running off the bottom of the screen, and a hotkey another application already owns no longer stops EQBuddy from starting."
+    ]
+  },
+  {
     "version": "1.30.0",
     "date": "2026-08-04",
     "highlights": [

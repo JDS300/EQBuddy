@@ -75,7 +75,24 @@ to see. So the cast opens the entry immediately, with **no target**, and the fir
 **A name earns HoT status by having been seen ticking or triggering**, seeded at
 `AttachStore` from the learned-duration store. `You begin casting X.` says only that
 something was cast; without this gate an ungated cast handler chips every nuke, mez and gate
-in the game. Cost is one landed HoT per never-seen spell, once ever.
+in the game.
+
+> **Known limitation — the cast path is currently inconsistent.** Only spells with a
+> *learned duration* are seeded at startup, and a duration is only learned from a completed
+> **Trigger**. A spell that has ticked but never completed is forgotten on restart, so
+> whether a full-health cast produces a chip depends on the player's history with that
+> particular spell. Reported from play: with a store holding only `Efflorescing Heal`, a
+> full-health `Blossoming Heal` produced no chip.
+>
+> This was missed because the verification seeded a completed HoT before the full-health
+> cast, which guaranteed the gate passed — it tested a constructed happy path, not the real
+> cold start.
+>
+> The fix is small: persist the *set of names known to be HoTs* separately from the learned
+> durations, so one observed tick makes a name permanent. Until then the honest description
+> of the cast path is "works for spells you have already completed once", and a reviewer
+> should decide whether to take it that way, take the fix with it, or drop the cast path and
+> open chips on the first tick only.
 
 **Ended by the Trigger**, with the 5-tick/6s estimate as fallback — 128 of 712 runs have no
 visible Trigger (zoning, log truncation, the target dying), so the fallback carries ~18% of
@@ -182,7 +199,9 @@ without playing":
   independently computed ground truth exactly.
 - Three concurrent HoTs on screen, self tinted apart from the others; toggling
   `ShowSelfHotChips` removed only the self chip.
-- A cast at full health with zero ticks renders `🌿 Blossoming Heal 0:30` — the reported bug.
+- A cast at full health with zero ticks renders `🌿 Blossoming Heal 0:30` — **but only for a
+  spell already in the learned-duration store**, which that scenario seeded. See the known
+  limitation above; in real play, with an unseeded spell, no chip appears.
 
 Note for reviewers: headless Avalonia tests do **not** load the X11 backend, so they cannot
 verify focus behaviour, click-through or multi-monitor placement. Those were checked by

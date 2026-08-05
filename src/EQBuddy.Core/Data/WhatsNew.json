@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.31.2",
+    "date": "2026-08-04",
+    "highlights": [
+      "FIX: same-named mez chips, the other half. Breaking a mez with damage makes EverQuest log it TWICE — the spell wearing off, and the blow that did it, naming the same creature in the same second — so with two identical mobs mezzed, the fade took one chip and the blow took the other. They now count as one break, in either order.",
+      "A mez broken early no longer teaches a wrong duration. That fade measures the moment the mez was interrupted, not how long the spell lasts — one seen in play offered 7 seconds for a spell that really runs about 25. Durations learned from a fade are now dropped if a blow lands on that creature immediately after."
+    ]
+  },
+  {
     "version": "1.31.1",
     "date": "2026-08-04",
     "highlights": [

@@ -60,10 +60,21 @@ public sealed class MezTracker
     private readonly Dictionary<string, double> _learned = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<MezState> _active = [];
     private readonly List<(string Caster, string Spell, DateTime Time)> _recentCasts = [];
-    /// <summary>Per creature name: when we last saw a break signal for it, and whether a
-    /// kill line has already claimed that engagement. Keyed on log time, so replay-safe.</summary>
-    private readonly Dictionary<string, (DateTime At, bool KillCredited)> _breaks =
+    /// <summary>Per creature name: when we last saw a break signal for it, whether a kill
+    /// line has already claimed that engagement, and when a damage/kill signal last actually
+    /// TOOK a chip for it (default = never). Keyed on log time, so replay-safe.
+    ///
+    /// <c>Removed</c> is separate from <c>At</c> because a live engagement window is not the
+    /// same thing as a break that has been counted: in the reported log the group beats on
+    /// one creature for 36 seconds without a 6s gap, so the window never lapses, yet only the
+    /// first of those lines ever cost a chip. <see cref="OnWornOff"/> yields to a break that
+    /// was counted, not to a window that is merely open — see there.</summary>
+    private readonly Dictionary<string, (DateTime At, bool KillCredited, DateTime Removed)> _breaks =
         new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Durations learned from a fade that has not yet outlived <see cref="BreakWindow"/>,
+    /// with the value they replaced. See <see cref="OnWornOff"/> for why a measurement is only
+    /// provisional until the next few seconds of log prove nothing hit the creature.</summary>
+    private readonly List<(string Name, string Spell, DateTime At, double? Previous)> _provisional = [];
     private string? _storePath;
     private readonly object _lock = new();
 
@@ -146,8 +157,10 @@ public sealed class MezTracker
                     changed = CreditKill(k.Target, k.Time);
                     break;
                 case SpellWornOffEvent { Pet: false } wo when wo.Target.Length > 0 && IsMezSpell(wo.Spell):
-                    // Caster-private natural fade: the exact end, and the one signal that
-                    // can teach a real duration (see class summary).
+                    // Caster-private fade: the exact end of YOUR mez, and — when nothing
+                    // broke it — the one signal that can teach a real duration (see class
+                    // summary). It joins the same break window as the damage lines, because
+                    // a mez broken by a hit logs BOTH (see OnWornOff).
                     changed = OnWornOff(wo);
                     break;
                 case ZoneEvent:
@@ -155,6 +168,9 @@ public sealed class MezTracker
                     _active.Clear();
                     _recentCasts.Clear();
                     _breaks.Clear();
+                    // Nothing can arrive to retract a measurement across a zone line: the
+                    // creature is gone from the log. Pending fades stand as learned.
+                    _provisional.Clear();
                     break;
             }
             Prune(evt.Time);
@@ -217,32 +233,113 @@ public sealed class MezTracker
         return true;
     }
 
+    /// <summary>
+    /// "Your X spell has worn off of Y." — the second path to the reported "2 of the same
+    /// mobs break clears both", still live after 1.29.1 deduped repeated damage LINES.
+    /// Breaking a mez with a hit makes EverQuest log the event TWICE: the spell wearing off,
+    /// and the blow that did it, naming the same creature in the same second. From the
+    /// reported log — AoE lands on twins at 20:54:19, then at 20:54:26 "Your Mesmerization
+    /// spell has worn off of Innoruuk`s Chosen." is immediately followed by "You bash
+    /// Innoruuk`s Chosen for 5 points of damage." This method used to remove an entry
+    /// directly, bypassing <see cref="CreditBreak"/> entirely, so it neither consumed a
+    /// credit nor stamped one: the fade took one twin and the bash took the other.
+    ///
+    /// So the fade now joins the break window from both ends. It yields when a damage or
+    /// kill signal has already TAKEN a chip for this name inside the window (the reverse
+    /// ordering — the log's order within one second is not guaranteed), and it stamps the
+    /// window when it removes one, so the blow that follows is suppressed like any other
+    /// line of the same round.
+    ///
+    /// Two deliberate asymmetries with <see cref="CreditBreak"/>:
+    ///
+    /// It yields to a COUNTED break (<c>Removed</c>), not to an open window (<c>At</c>). In
+    /// the reported log the fight on that name runs 36 seconds with no 6s gap, so the window
+    /// is permanently live; the re-mez at 20:54:52 lands INTO it and therefore can never
+    /// have its break credited from damage (deliberate — see <see cref="CreditBreak"/>),
+    /// leaving this caster-private line as the only thing that can clear the chip.
+    ///
+    /// And it never stamps <c>Removed</c> itself, so a fade never suppresses another FADE.
+    /// Two fade lines in one second are two mezzes ending, not one event logged twice: an
+    /// AoE that landed on twins in the same second expires on both in the same second too.
+    /// </summary>
     private bool OnWornOff(SpellWornOffEvent wo)
     {
-        // YOUR entries only. This line is caster-private ("Your X spell has worn off of Y"),
-        // so it ends YOUR mez and is evidence about nothing else — but EQ logs the fade
-        // WITHOUT the rank, so matching on target name alone let it settle on another
-        // chanter's entry and file the gap under THEIR rank. A real log taught
-        // "Mesmerization VI" = 6s to a player with zero casts of it. Among your own
-        // same-named entries the longest-asleep one still fades first.
+        // YOUR entries only. This line is caster-private, so it ends YOUR mez and is
+        // evidence about nothing else — but EQ logs the fade WITHOUT the rank, so matching
+        // on target name alone let it settle on another chanter's entry and file the gap
+        // under THEIR rank. A real log taught "Mesmerization VI" = 6s to a player with zero
+        // casts of it. Among your own same-named entries the longest-asleep one fades first.
+        var name = LogParser.Normalize(wo.Target);
         var entry = _active
             .Where(m => m.Caster.Equals("You", StringComparison.OrdinalIgnoreCase)
-                && m.Target.Equals(
-                    LogParser.Normalize(wo.Target), StringComparison.OrdinalIgnoreCase))
+                && m.Target.Equals(name, StringComparison.OrdinalIgnoreCase))
             .OrderBy(m => m.LandedAt)
             .FirstOrDefault();
+        // No entry of yours: the fade belongs to a mez we never tracked, and it must not
+        // touch the window either — stamping it would let YOUR fade swallow the break of
+        // somebody else's chip on a same-named creature.
         if (entry is null) return false;
+
+        var known = _breaks.TryGetValue(name, out var prev);
+        var counted = known && wo.Time - prev.Removed <= BreakWindow;
+        var live = known && wo.Time - prev.At <= BreakWindow;
+        _breaks[name] = (wo.Time, live && prev.KillCredited, live ? prev.Removed : default);
+        if (counted) return false;   // the blow that broke this mez already cost the chip
         _active.Remove(entry);
-        // A natural fade measures the full duration; learn the longest observed per
-        // exact (ranked) spell name — early breaks shorten gaps, nothing lengthens them.
+
+        // Learning, and why the measurement is only PROVISIONAL for BreakWindow.
+        //
+        // A fade measures the real duration only when the mez ended on its own; a fade
+        // caused by damage measures the time to the BREAK. Replaying the reported log
+        // through 1.29.1 filed "Mesmerization V = 7" off the trace above — a spell whose
+        // real length is ~25s. "Longest observed wins" caps that but cannot prevent it: on
+        // a fresh store 7s is the only value there is, and every chip cast from it counts
+        // down to a wake-up 18 seconds early.
+        //
+        // The tell arrives AFTER the fade, not before: the engagement in the reported log
+        // last touched this name at 20:54:18, eight seconds earlier — outside the window —
+        // so nothing at fade time distinguishes the break from an expiry. It is the bash in
+        // the NEXT line that gives it away. Hence: learn immediately (so a re-cast in the
+        // same breath uses the value, and so a fade at the very end of a session is still
+        // persisted), then retract if a break signal for that creature lands inside the
+        // window — see RetractProvisional, called from CreditBreak/CreditKill.
+        //
+        // This also silently discards fades that merely happen during combat on that name,
+        // whether or not the damage broke them. That costs nothing: longest-wins means the
+        // useful samples are the quiet, full-duration fades, and those are exactly the ones
+        // with no combat around them.
+        // Longest observed per exact (ranked) spell name wins: early breaks shorten the
+        // land->fade gap, nothing lengthens it.
         var observed = (wo.Time - entry.LandedAt).TotalSeconds;
-        if (observed is > 3 and < 600
-            && (!_learned.TryGetValue(entry.Spell, out var known) || observed > known))
+        var previous = _learned.TryGetValue(entry.Spell, out var was) ? was : (double?)null;
+        if (observed is > 3 and < 600 && observed > (previous ?? 0))
         {
+            _provisional.Add((name, entry.Spell, wo.Time, previous));
             _learned[entry.Spell] = Math.Round(observed, 1);
             SaveStore();
         }
         return true;
+    }
+
+    /// <summary>Undoes any fade measurement for <paramref name="name"/> still inside its
+    /// <see cref="BreakWindow"/>: a break signal this close behind the fade means the fade
+    /// WAS that break, so the gap it measured is the time to the break, not the duration.
+    /// Newest first, restoring each one's predecessor, so stacked measurements on one spell
+    /// unwind to exactly what was there before.</summary>
+    private void RetractProvisional(string name, DateTime now)
+    {
+        var undone = false;
+        for (var i = _provisional.Count - 1; i >= 0; i--)
+        {
+            var p = _provisional[i];
+            if (now - p.At > BreakWindow
+                || !p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) continue;
+            if (p.Previous is { } before) _learned[p.Spell] = before;
+            else _learned.Remove(p.Spell);
+            _provisional.RemoveAt(i);
+            undone = true;
+        }
+        if (undone) SaveStore();
     }
 
     private double? DurationFor(string spell) =>
@@ -289,12 +386,15 @@ public sealed class MezTracker
     private bool CreditBreak(string target, DateTime now)
     {
         var name = LogParser.Normalize(target);
+        RetractProvisional(name, now);
         var live = _breaks.TryGetValue(name, out var prev) && now - prev.At <= BreakWindow;
+        var took = !live && RemoveTarget(name);
         // Marked even when nothing was removed: the point is to recognise the engagement,
         // and a fight already in progress on one "orc pawn" must not eat the chip of the
-        // one an enchanter mezzes NEXT to it a moment later.
-        _breaks[name] = (now, live && prev.KillCredited);
-        return !live && RemoveTarget(name);
+        // one an enchanter mezzes NEXT to it a moment later. Removed, by contrast, moves
+        // only when a chip actually went — that is what a fade yields to (see OnWornOff).
+        _breaks[name] = (now, live && prev.KillCredited, took ? now : live ? prev.Removed : default);
+        return took;
     }
 
     /// <summary>
@@ -312,10 +412,12 @@ public sealed class MezTracker
     private bool CreditKill(string target, DateTime now)
     {
         var name = LogParser.Normalize(target);
-        var claimable = _breaks.TryGetValue(name, out var prev)
-            && now - prev.At <= BreakWindow && !prev.KillCredited;
-        _breaks[name] = (now, true);
-        return !claimable && RemoveTarget(name);
+        RetractProvisional(name, now);
+        var live = _breaks.TryGetValue(name, out var prev) && now - prev.At <= BreakWindow;
+        var claimable = live && !prev.KillCredited;
+        var took = !claimable && RemoveTarget(name);
+        _breaks[name] = (now, true, took ? now : live ? prev.Removed : default);
+        return took;
     }
 
     /// <summary>Drops ONE entry for an already-normalized creature name. Only ever called
@@ -344,6 +446,10 @@ public sealed class MezTracker
         // pure housekeeping — done in a batch (like the _recentCasts cap) rather than on
         // every event, because a long session names thousands of creatures and this runs
         // per parsed line. A handful of names are in flight at once in real combat.
+        // A fade measurement that has outlived the window was not a break after all: nothing
+        // hit the creature in the seconds behind it, so it stands as learned.
+        if (_provisional.Count > 0)
+            _provisional.RemoveAll(p => now - p.At > BreakWindow);
         if (_breaks.Count > 32)
             foreach (var name in _breaks.Where(b => now - b.Value.At > BreakWindow)
                          .Select(b => b.Key).ToList())

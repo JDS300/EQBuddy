@@ -339,6 +339,109 @@ public class MezTrackerTests
         Assert.Empty(t.Snapshot(T0.AddSeconds(6)));
     }
 
+    /// <summary>The second path to "2 of the same mobs break clears both", still live after
+    /// 1.29.1 deduped repeated damage LINES. Breaking a mez with a hit makes EverQuest log
+    /// the event TWICE — the spell wearing off, and the blow that did it — naming the same
+    /// creature in the same second. From the reported log: the AoE lands on twins at
+    /// 20:54:19, then at 20:54:26 "Your Mesmerization spell has worn off of Innoruuk`s
+    /// Chosen." is followed by "You bash Innoruuk`s Chosen for 5 points of damage." The fade
+    /// took one twin and the bash took the other, because OnWornOff removed an entry without
+    /// going through the break window at all. One break, one chip.</summary>
+    [Fact]
+    public void AFadeAndTheDamageThatCausedItClearOnlyOneOfTwoSameNamedChips()
+    {
+        var t = Replay(
+            Ev(0, "You begin casting Mesmerization V."),
+            Ev(1, "Innoruuk`s Chosen has been mesmerized."),
+            Ev(1, "Innoruuk`s Chosen has been mesmerized."));
+        Assert.Equal(2, t.Snapshot(T0.AddSeconds(2)).Count);
+
+        // Seven seconds in — nowhere near Mesmerization's 24s, which is the tell that this
+        // fade is a break, not an expiry. Both lines are the SAME break.
+        t.Apply(Ev(8, "Your Mesmerization spell has worn off of Innoruuk`s Chosen."));
+        t.Apply(Ev(8, "You bash Innoruuk`s Chosen for 5 points of damage."));
+
+        Assert.Single(t.Snapshot(T0.AddSeconds(9)));
+    }
+
+    /// <summary>The same pair the other way round: the log's ordering of the fade and the
+    /// blow inside one second is not guaranteed (the reported log happened to put the fade
+    /// first), so the damage arriving first must claim the break and the fade must then
+    /// recognise its chip as already taken. And neither ordering may teach a duration —
+    /// the gap measured here is the time to the BREAK, not the spell's length.</summary>
+    [Fact]
+    public void TheDamageThatBrokeAMezAndTheFadeLineAfterItClearOnlyOneOfTwoSameNamedChips()
+    {
+        var t = Replay(
+            Ev(0, "You begin casting Mesmerization V."),
+            Ev(1, "Innoruuk`s Chosen has been mesmerized."),
+            Ev(1, "Innoruuk`s Chosen has been mesmerized."));
+        Assert.Equal(2, t.Snapshot(T0.AddSeconds(2)).Count);
+
+        t.Apply(Ev(8, "You bash Innoruuk`s Chosen for 5 points of damage."));
+        t.Apply(Ev(8, "Your Mesmerization spell has worn off of Innoruuk`s Chosen."));
+
+        Assert.Single(t.Snapshot(T0.AddSeconds(9)));
+        Assert.False(t.LearnedDurations.ContainsKey("Mesmerization V"));
+    }
+
+    /// <summary>Duration learning only works if the fade it measures was the mez ENDING on
+    /// its own. Replaying the reported log through 1.29.1 filed "Mesmerization V = 7" from
+    /// the bashed twin above — a spell whose real length is ~25s. "Longest observed wins"
+    /// caps the damage but does not prevent it: on a fresh store 7s is the only value there
+    /// is, and every chip cast from it counts down to a wake-up that is 18 seconds early.</summary>
+    [Fact]
+    public void AFadeTheDamageBrokeDoesNotTeachABogusShortDuration()
+    {
+        var t = Replay(
+            Ev(0, "You begin casting Mesmerization V."),
+            Ev(1, "Innoruuk`s Chosen has been mesmerized."),
+            Ev(8, "Your Mesmerization spell has worn off of Innoruuk`s Chosen."),
+            Ev(8, "You bash Innoruuk`s Chosen for 5 points of damage."));
+
+        Assert.False(t.LearnedDurations.ContainsKey("Mesmerization V"));
+    }
+
+    /// <summary>The fade must yield to a break that was actually COUNTED, not merely to a
+    /// live engagement window — otherwise the fade stops working during long fights. In the
+    /// reported log the group beats on Innoruuk`s Chosen for half a minute, so the window
+    /// never lapses; the second mez lands INTO that fight, meaning no damage line can ever
+    /// credit its break (deliberate — see CreditBreak). The caster-private fade is then the
+    /// only signal that can clear the chip, and it has to.</summary>
+    [Fact]
+    public void ANaturalFadeStillClearsItsChipWhileTheFightOnThatNameGrindsOn()
+    {
+        var t = new MezTracker();
+        for (var s = 0; s <= 12; s += 2)
+            t.Apply(Ev(s, "You slash Innoruuk`s Chosen for 60 points of damage."));
+
+        t.Apply(Ev(12, "You begin casting Mesmerization V."));
+        t.Apply(Ev(13, "Innoruuk`s Chosen has been mesmerized."));
+        Assert.Single(t.Snapshot(T0.AddSeconds(14)));
+
+        t.Apply(Ev(14, "You slash Innoruuk`s Chosen for 60 points of damage."));
+        t.Apply(Ev(20, "Your Mesmerization spell has worn off of Innoruuk`s Chosen."));
+
+        Assert.Empty(t.Snapshot(T0.AddSeconds(21)));
+    }
+
+    /// <summary>Two fade lines in one second are two mezzes ending, not one event logged
+    /// twice — an AoE that landed on same-named twins in the same second expires on both in
+    /// the same second too. So a fade only ever yields to a DAMAGE-credited break; it never
+    /// suppresses another fade.</summary>
+    [Fact]
+    public void TwoSameNamedTwinsFadingInTheSameSecondBothClear()
+    {
+        var t = Replay(
+            Ev(0, "You begin casting Mesmerization V."),
+            Ev(1, "Innoruuk`s Chosen has been mesmerized."),
+            Ev(1, "Innoruuk`s Chosen has been mesmerized."),
+            Ev(26, "Your Mesmerization spell has worn off of Innoruuk`s Chosen."),
+            Ev(26, "Your Mesmerization spell has worn off of Innoruuk`s Chosen."));
+
+        Assert.Empty(t.Snapshot(T0.AddSeconds(27)));
+    }
+
     [Fact]
     public void UnknownDurationChipsStillShowAndStillBreak()
     {

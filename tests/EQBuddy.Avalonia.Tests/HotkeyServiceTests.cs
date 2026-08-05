@@ -8,8 +8,24 @@ namespace EQBuddy.Avalonia.Tests;
 /// These need a live X11 display and are skipped without one (CI runs headless), because
 /// the behaviour under test is an Xlib protocol error — something no fake can produce.
 /// </summary>
-public class HotkeyServiceTests
+public class HotkeyServiceTests : IDisposable
 {
+    // X11HotkeyService reports a taken hotkey through App.LogError, which writes to
+    // AppPaths — so without this the run appended to the developer's REAL profile
+    // (~/.config/EQBuddy/error.log). Every other test class here isolates the profile;
+    // this one was written without a fixture and slipped through.
+    private readonly string _profile =
+        Directory.CreateTempSubdirectory("eqbuddy-hotkey-").FullName;
+
+    public HotkeyServiceTests() =>
+        Environment.SetEnvironmentVariable("EQBUDDY_APPDATA", _profile);
+
+    public void Dispose()
+    {
+        Environment.SetEnvironmentVariable("EQBUDDY_APPDATA", null);
+        try { Directory.Delete(_profile, recursive: true); } catch { /* best effort */ }
+    }
+
     private static bool HasX11 =>
         Environment.GetEnvironmentVariable("DISPLAY") is { Length: > 0 }
         && !OperatingSystem.IsWindows() && !OperatingSystem.IsMacOS();

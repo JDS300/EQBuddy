@@ -367,8 +367,10 @@ public class MezTrackerTests
     /// <summary>The same pair the other way round: the log's ordering of the fade and the
     /// blow inside one second is not guaranteed (the reported log happened to put the fade
     /// first), so the damage arriving first must claim the break and the fade must then
-    /// recognise its chip as already taken. And neither ordering may teach a duration —
-    /// the gap measured here is the time to the BREAK, not the spell's length.</summary>
+    /// recognise its chip as already taken. Nor does it teach a duration — but note WHY, since
+    /// 1.31.3: not because anything retracts the sample afterwards, but because this fade
+    /// yields to a break already COUNTED and so never reaches the learning path at all. A fade
+    /// that does take its own chip keeps its sample however soon damage follows.</summary>
     [Fact]
     public void TheDamageThatBrokeAMezAndTheFadeLineAfterItClearOnlyOneOfTwoSameNamedChips()
     {
@@ -385,21 +387,57 @@ public class MezTrackerTests
         Assert.False(t.LearnedDurations.ContainsKey("Mesmerization V"));
     }
 
-    /// <summary>Duration learning only works if the fade it measures was the mez ENDING on
-    /// its own. Replaying the reported log through 1.29.1 filed "Mesmerization V = 7" from
-    /// the bashed twin above — a spell whose real length is ~25s. "Longest observed wins"
-    /// caps the damage but does not prevent it: on a fresh store 7s is the only value there
-    /// is, and every chip cast from it counts down to a wake-up that is 18 seconds early.</summary>
+    /// <summary>Reported from play, and the reason 1.31.2's break-retraction was withdrawn in
+    /// 1.31.3: a mez that ran its full course and faded is attacked in the SAME SECOND, because
+    /// that is what a group does the instant a mob wakes. Retracting any sample with a break
+    /// signal behind it therefore threw away the natural fades along with the broken ones —
+    /// 401 of the fixture's 417 samples, and every single one of Mesmerization IV's, so that
+    /// rank could never learn at all and its chips fell back to the catalog's 24s for a spell
+    /// that runs ~40.
+    ///
+    /// The window could not be tightened to fix it either, because the delay carries no signal.
+    /// Splitting the fixture's unambiguous fades by how long the mez had held, and measuring
+    /// the gap to the next damage line naming that creature:
+    /// short holds (&lt;=12s, almost certainly broken) n=43, delay 0s in 40 of 43;
+    /// long holds (&gt;=25s, plausibly a natural fade) n=145, delay 0s in 97 of 145.
+    /// Zero in both populations, at any window size. What separates them is the HOLD, which is
+    /// exactly what the upper-cluster estimator keys on — so the sample is taken and kept, and
+    /// the breaks are outvoted rather than filtered.</summary>
     [Fact]
-    public void AFadeTheDamageBrokeDoesNotTeachABogusShortDuration()
+    public void AFadeFollowedImmediatelyByDamageOnThatCreatureStillTeachesItsDuration()
     {
         var t = Replay(
             Ev(0, "You begin casting Mesmerization V."),
-            Ev(1, "Innoruuk`s Chosen has been mesmerized."),
-            Ev(8, "Your Mesmerization spell has worn off of Innoruuk`s Chosen."),
-            Ev(8, "You bash Innoruuk`s Chosen for 5 points of damage."));
+            Ev(2, "a necromancer has been mesmerized."),
+            // 38s — the rank's real length. The mob wakes and the group is on it at once.
+            Ev(40, "Your Mesmerization spell has worn off of a necromancer."),
+            Ev(40, "You slash a necromancer for 61 points of damage."));
 
-        Assert.False(t.LearnedDurations.ContainsKey("Mesmerization V"));
+        Assert.Equal(38, t.LearnedDurations["Mesmerization V"], 0);
+    }
+
+    /// <summary>The other half of withdrawing the retraction: nothing filters break-shortened
+    /// samples out any more, so the estimator has to reject them on its own — which is what it
+    /// was built for in 1.31.3. Six mezzes cut short after 4s and nine that ran ~35s, EVERY one
+    /// of the fifteen followed in the same second by the blow that landed on the woken mob (the
+    /// shape the fixture actually has). Under 1.31.2 all fifteen were retracted and the rank
+    /// learned nothing; the mode of the upper cluster ignores the 4s pile-up instead.</summary>
+    [Fact]
+    public void BrokenMezSamplesAmongFullDurationFadesAreOutvotedRatherThanFiltered()
+    {
+        var t = new MezTracker();
+        var gaps = new[] { 4, 4, 4, 4, 4, 4, 34, 35, 36, 34, 35, 36, 34, 35, 36 };
+        for (var i = 0; i < gaps.Length; i++)
+        {
+            var c = i * 60;
+            t.Apply(Ev(c, "You begin casting Mesmerization III."));
+            t.Apply(Ev(c + 2, "a necromancer has been mesmerized."));
+            t.Apply(Ev(c + 2 + gaps[i], "Your Mesmerization spell has worn off of a necromancer."));
+            t.Apply(Ev(c + 2 + gaps[i], "You slash a necromancer for 61 points of damage."));
+        }
+
+        // 4s is the most common value in the set and must still lose.
+        Assert.InRange(t.LearnedDurations["Mesmerization III"], 33, 37);
     }
 
     /// <summary>The fade must yield to a break that was actually COUNTED, not merely to a
@@ -586,10 +624,10 @@ public class MezTrackerTests
 
     /// <summary>Two durations equally common is a coin toss the estimator has to settle the
     /// same way every time, and the safe side is the longer one: the sample set's
-    /// contamination is one-directional — a mez broken more than <see cref="MezTracker.BreakWindow"/>
-    /// before its fade line still measures the time to the BREAK, which is always SHORTER
-    /// than the spell, while nothing except a couple of seconds of log-flush jitter can make
-    /// a gap longer. On a tie, prefer the value the short-side noise cannot have produced.</summary>
+    /// contamination is one-directional — a mez cut short by a blow measures the time to the
+    /// BREAK, which is always SHORTER than the spell, while nothing except a couple of seconds
+    /// of log-flush jitter can make a gap longer. On a tie, prefer the value the short-side
+    /// noise cannot have produced.</summary>
     [Fact]
     public void WhenTwoDurationsAreEquallyCommonTheLongerOneWins()
     {
@@ -634,13 +672,12 @@ public class MezTrackerTests
 
     /// <summary>The shape a plain mode gets catastrophically wrong, and it is the shape the
     /// samples really have: they are a MIXTURE of two populations, not one cluster. Early
-    /// breaks — a mez interrupted after a few seconds, whose breaking blow the retraction
-    /// window missed — pile up at the very bottom and repeat exactly, because "4 seconds"
-    /// is a common outcome; natural fades cluster tightly at the true duration but spread
-    /// over three or four adjacent values. Measured over the fixture's unambiguous
-    /// Mesmerization III fades before the break-retraction filters them (n=26, the real
-    /// list): 4, 4, 4, 4, 6, 11, 11, 13, 14, 15, 16, 16, 19, 27, 29, 29, 30, 31, 32, 33,
-    /// 34, 34, 34, 35, 36, 36. The most common single value there is 4 SECONDS — a chip
+    /// breaks — a mez interrupted after a few seconds — pile up at the very bottom and repeat
+    /// exactly, because "4 seconds" is a common outcome; natural fades cluster tightly at the
+    /// true duration but spread over three or four adjacent values. Measured over the
+    /// fixture's unambiguous Mesmerization III fades (n=27, the real list): 4, 4, 4, 4, 6,
+    /// 11, 11, 13, 14, 15, 16, 16, 19, 27, 29, 29, 30, 31, 32, 33,
+    /// 34, 34, 34, 35, 36, 36, 36. The most common single value there is 4 SECONDS — a chip
     /// claiming 4s for a ~36s mez, which is far worse than the 43s over-report this change
     /// set out to fix. So the estimator takes the mode of the UPPER cluster only.</summary>
     [Fact]

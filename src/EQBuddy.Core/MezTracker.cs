@@ -62,17 +62,21 @@ public sealed class MezTracker
     public static readonly TimeSpan ExpiryLinger = TimeSpan.FromSeconds(8);
     /// <summary>Break signals against the same creature NAME this close together are one
     /// creature's engagement, worth one broken mez between them — see
-    /// <see cref="CreditBreak"/> for the measurements and the reasoning.</summary>
+    /// <see cref="CreditBreak"/> for the measurements and the reasoning. This governs CHIP
+    /// REMOVAL only; it deliberately says nothing about learning (see <see cref="OnWornOff"/>
+    /// for why the 1.31.2 rule that used it to retract measurements was withdrawn).</summary>
     public static readonly TimeSpan BreakWindow = TimeSpan.FromSeconds(6);
     /// <summary>Unambiguous fade measurements kept per exact (ranked) spell name, newest
     /// preferred. Bounded so the store cannot grow without limit, and so that evidence from
     /// a server-side duration change (or a spell the player has since re-ranked) ages out
-    /// instead of outvoting reality forever. 64 because samples arrive slowly: the fixture
-    /// holds 1,197 caster-private fade lines across all ranks and yields 12 usable samples
-    /// for Mesmerization V in a week of play — everything else is a twin fade, a gap under
-    /// 4s, or a fade the break-retraction correctly threw away — so 64 is roughly a month,
-    /// long enough for a stable mode and short enough to forget a stale one. It also keeps
-    /// the store at a few hundred bytes per spell.</summary>
+    /// instead of outvoting reality forever. The cap matters more than it used to: with
+    /// 1.31.2's retraction withdrawn the sets are ~25x larger (the 690k-line fixture records
+    /// 418 samples across all ranks where 16 survived before), so the BOUND, not a filter, is
+    /// what ages evidence out. 64 is about two days of heavy play for the rank an enchanter
+    /// spams — the fixture's week yields 378 Mesmerization V samples — which is enough for a
+    /// stable mode and short enough to forget a stale one, and it keeps the store at a few
+    /// hundred bytes per spell. Raising it would not sharpen the estimate: the mode of the
+    /// upper cluster is already stable at 38 over both the newest 64 and all 378.</summary>
     public static readonly int SampleCap = 64;
     /// <summary>Fewer samples than this and the estimate falls back to the longest one seen
     /// — see <see cref="Effective"/>.</summary>
@@ -108,10 +112,6 @@ public sealed class MezTracker
     /// was counted, not to a window that is merely open — see there.</summary>
     private readonly Dictionary<string, (DateTime At, bool KillCredited, DateTime Removed)> _breaks =
         new(StringComparer.OrdinalIgnoreCase);
-    /// <summary>Samples taken from a fade that has not yet outlived <see cref="BreakWindow"/>,
-    /// with the value recorded. See <see cref="OnWornOff"/> for why a measurement is only
-    /// provisional until the next few seconds of log prove nothing hit the creature.</summary>
-    private readonly List<(string Name, string Spell, DateTime At, double Sample)> _provisional = [];
     private string? _storePath;
     private readonly object _lock = new();
 
@@ -233,9 +233,6 @@ public sealed class MezTracker
                     _active.Clear();
                     _recentCasts.Clear();
                     _breaks.Clear();
-                    // Nothing can arrive to retract a measurement across a zone line: the
-                    // creature is gone from the log. Pending fades stand as learned.
-                    _provisional.Clear();
                     break;
             }
             Prune(evt.Time);
@@ -359,35 +356,39 @@ public sealed class MezTracker
         if (counted) return false;   // the blow that broke this mez already cost the chip
         _active.Remove(entry);
 
-        // Learning, and why the measurement is only PROVISIONAL for BreakWindow.
+        // Learning. The sample is taken here and KEPT — nothing downstream can retract it.
         //
-        // A fade measures the real duration only when the mez ended on its own; a fade
-        // caused by damage measures the time to the BREAK. Replaying the reported log
-        // through 1.29.1 filed "Mesmerization V = 7" off the trace above — a spell whose
-        // real length is ~38s. The estimator cannot save us from that on its own: a break
-        // gap is a legitimate-looking number, and on a thin sample set Effective() returns
-        // the maximum, so 7s would simply BE the answer and every chip cast from it would
-        // count down to a wake-up half a minute early.
+        // 1.31.2 made it provisional for BreakWindow instead: a fade measures the real
+        // duration only when the mez ended on its own, a fade caused by damage measures the
+        // time to the BREAK ("Mesmerization V = 7" off the trace above, against a real ~38s),
+        // and the tell arrives AFTER the fade — the bash in the next line, not the engagement
+        // eight seconds earlier. That was correct against the estimator OF THE TIME, which
+        // was "longest observed wins": one 7s reading on a fresh store simply WAS the answer.
         //
-        // The tell arrives AFTER the fade, not before: the engagement in the reported log
-        // last touched this name at 20:54:18, eight seconds earlier — outside the window —
-        // so nothing at fade time distinguishes the break from an expiry. It is the bash in
-        // the NEXT line that gives it away. Hence: learn immediately (so a re-cast in the
-        // same breath uses the value, and so a fade at the very end of a session is still
-        // persisted), then retract if a break signal for that creature lands inside the
-        // window — see RetractProvisional, called from CreditBreak/CreditKill.
+        // 1.31.3 replaced that estimator with the mode of the upper cluster (see Effective),
+        // which rejects break-shortened samples on its own — a short gap falls below the
+        // cluster floor and never votes. The retraction became a second filter for a problem
+        // already solved, and it is a ruinously expensive one: replaying the fixture, it
+        // discarded 402 of the 418 samples this method records — the whole log ended with 16.
+        // A full play session taught nothing at all. And Mesmerization IV could never learn
+        // at all — every one of its 13 unambiguous fades is followed by damage inside the
+        // window — so its chips were stuck on the catalog's 24s for a spell that runs ~40.
+        // Without the retraction the same log puts it at 42.
         //
-        // This also silently discards fades that merely happen during combat on that name,
-        // whether or not the damage broke them, and on a melee-heavy log that is most of
-        // them: replaying the fixture, 401 of the 417 samples this method records are
-        // retracted within the window. The survivors are the quiet, full-duration fades and
-        // they are clean — Mesmerization V's twelve read 36-42 with no break contamination
-        // at all — but the filter is blunt enough to starve a rank entirely. Mesmerization IV
-        // ends the fixture with ZERO samples (13 unambiguous fades, every one followed by a
-        // blow on that creature inside the window; gaps 4 7 8 20 23 23 28 28 30 32 33 35 42,
-        // which do look like breaks), so its chips fall back to the catalog. That is not new
-        // — the previous code learned nothing for IV from this log either — but it is the
-        // price of the rule, and the place to look if a rank never learns.
+        // And it could not be salvaged by tightening the window, because the fade→damage
+        // delay carries no information. Measured over the fixture, splitting unambiguous
+        // fades by how long the mez had held before it ended:
+        //
+        //   SHORT hold (<=12s, almost certainly broken)   n=43    delay 0s in 40 of 43
+        //   LONG  hold (>=25s, plausibly a natural fade)  n=145   delay 0s in 97 of 145
+        //
+        // Zero in BOTH populations. Whenever a mez ends — broken or expired — the group is on
+        // the mob in the same second, because that is the whole point of watching the chip.
+        // No window size separates them. What does separate them is the HOLD DURATION: breaks
+        // are short and scattered, natural fades cluster at the truth. That is precisely the
+        // signal Effective() keys on, so the job belongs there and the filter is gone.
+        //
+        // Do not reinstate it. The cost is measured above; the benefit is now zero.
         //
         // AMBIGUITY GATE. The fade line names a creature, not a mez — and EQ logs it without
         // even the rank — so with two of your own entries open on that name there is nothing
@@ -418,64 +419,39 @@ public sealed class MezTracker
                 _samples[entry.Spell] = samples = [];
             samples.Add(observed);
             if (samples.Count > SampleCap) samples.RemoveAt(0);
-            _provisional.Add((name, entry.Spell, wo.Time, observed));
             SaveStore();
         }
         return true;
-    }
-
-    /// <summary>Undoes any fade measurement for <paramref name="name"/> still inside its
-    /// <see cref="BreakWindow"/>: a break signal this close behind the fade means the fade
-    /// WAS that break, so the gap it measured is the time to the break, not the duration.
-    /// Newest first, pulling out the newest sample of that exact value, so stacked
-    /// measurements on one spell unwind to exactly the sample set that was there before.
-    /// (The one thing that cannot be undone is an eviction the retracted sample caused —
-    /// the oldest sample of a full set is gone for good. Worth nothing: it is one vote in
-    /// <see cref="SampleCap"/>, and only for spells whose sample set is already full.)</summary>
-    private void RetractProvisional(string name, DateTime now)
-    {
-        var undone = false;
-        for (var i = _provisional.Count - 1; i >= 0; i--)
-        {
-            var p = _provisional[i];
-            if (now - p.At > BreakWindow
-                || !p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) continue;
-            if (_samples.TryGetValue(p.Spell, out var samples))
-            {
-                var at = samples.LastIndexOf(p.Sample);
-                if (at >= 0) samples.RemoveAt(at);
-                // An empty set is removed outright so the spell reads as never-measured
-                // rather than as measured-and-unknown.
-                if (samples.Count == 0) _samples.Remove(p.Spell);
-            }
-            _provisional.RemoveAt(i);
-            undone = true;
-        }
-        if (undone) SaveStore();
     }
 
     /// <summary>
     /// The duration a set of unambiguous fade measurements implies: the MODE of the upper
     /// cluster — not the maximum, and not the mode of everything.
     ///
+    /// This is the ONLY thing standing between a break-shortened sample and the chip: since
+    /// 1.31.3 withdrew the break-retraction (see <see cref="OnWornOff"/>) nothing filters the
+    /// sample set at all, so every early break is in here and has to be OUTVOTED. Sizing the
+    /// rule against contaminated sets is therefore not a hard case any more — it is the case.
+    ///
     /// WHY NOT THE MAXIMUM. Reported from play: the store read "Mesmerization V = 43" and
     /// the chip started at 0:43 for a spell that runs about 38. Nothing was wrong with the
     /// measurements; the estimator was. With a second or two of log-flush jitter on every
     /// reading, a maximum over hundreds of samples is a reading of the TAIL by construction,
-    /// it only ever ratchets upward, and one freak value is permanent. Replaying the fixture
-    /// through this tracker, the surviving Mesmerization V samples are
-    /// 36 37 38 38 38 38 39 39 39 40 41 42 — max 42, mode 38. The user is right and the tail
-    /// is noise.
+    /// it only ever ratchets upward, and one freak value is permanent — and now that breaks
+    /// are kept, the maximum would ALSO have to be lucky enough never to see a long ambiguous
+    /// reading. Replaying the fixture through this tracker, Mesmerization V's retained set
+    /// (the newest 64 of 378 samples) runs 4 … 36 36 36 36 36 37 37 37 37 38 38 38 38 38 38
+    /// 38 38 39 39 39 39 39 41 41 42 42 42 42 42 42 42 43 43 — max 43, upper-cluster mode 38.
+    /// The user is right and the tail is noise.
     ///
     /// WHY NOT A PLAIN MODE EITHER. The samples are a MIXTURE of two populations, not one
     /// cluster: natural fades sit tightly at the true duration but spread over three or four
-    /// adjacent values (jitter), while early breaks — a mez cut short, whose breaking blow
-    /// the retraction window in <see cref="RetractProvisional"/> did not catch — pile up at
-    /// the very bottom and repeat EXACTLY, because "4 seconds" is a common way for a mez to
-    /// die. With hundreds of samples the fade cluster still wins (the fixture's unambiguous
-    /// Mesmerization V, n=378 before retraction: mode 38 x37). With a few dozen it does not.
-    /// The same log's Mesmerization III, n=26 before retraction, reads
-    /// 4 4 4 4 6 11 11 13 14 15 16 16 19 27 29 29 30 31 32 33 34 34 34 35 36 36:
+    /// adjacent values (jitter), while early breaks pile up at the very bottom and repeat
+    /// EXACTLY, because "4 seconds" is a common way for a mez to die. With hundreds of
+    /// samples the fade cluster still wins (the fixture's unambiguous Mesmerization V,
+    /// n=378: mode 38). With a few dozen it does not. The same log's Mesmerization III,
+    /// n=27, reads in full
+    /// 4 4 4 4 6 11 11 13 14 15 16 16 19 27 29 29 30 31 32 33 34 34 34 35 36 36 36:
     /// its most common single value is FOUR SECONDS. A chip claiming 4s for a ~36s mez is a
     /// far worse bug than the 43s it replaced — it would tell the player their mez is about
     /// to break, constantly.
@@ -486,9 +462,9 @@ public sealed class MezTracker
     /// long reading cannot drag the floor above the real cluster and leave the estimator
     /// voting on the outlier alone. 70% because the two populations are far apart in exactly
     /// that region: a rank-lengthened mez varies by a couple of seconds, while break gaps
-    /// scatter from 0 up. On the fixture's pre-retraction sets (the hard case — full
-    /// contamination) this yields V 38, III 34, IV falls through to the max at 42; on the
-    /// clean post-retraction sets it yields V 38 and changes nothing else.
+    /// scatter from 0 up. Over the full fixture this yields Mesmerization V 38, III 36, and
+    /// IV 42 (falling through to the max — see below). V is 38 both with the 1.31.2 retraction
+    /// in front of it and without: the filter was never what produced the right answer.
     ///
     /// TIE-BREAK: the LONGER value. The contamination is one-directional — a break gap is
     /// always SHORTER than the spell, while nothing but flush jitter can make a gap longer —
@@ -501,9 +477,12 @@ public sealed class MezTracker
     /// FALL BACK TO THE MAXIMUM (today's behaviour) on thin evidence — under
     /// <see cref="ModeMinimumSamples"/> samples, or when the winning value is not seen at
     /// least <see cref="ModeMinimumRepeats"/> times, which is the honest reading of "there
-    /// is no mode here": the fixture's Mesmerization IV has 13 pre-retraction samples whose
-    /// upper band is 28 28 30 32 33 35 42 — the best it can offer is a value seen twice, so
-    /// the max (42) is the more honest answer than a coin-flip mode. NOT the catalog:
+    /// is no mode here": the fixture's Mesmerization IV has 13 samples
+    /// (4 7 8 20 23 23 28 28 30 32 33 35 42) whose upper band is 28 28 30 32 33 35 42 — the
+    /// best it can offer is a value seen twice, so the max (42) is the more honest answer
+    /// than a coin-flip mode. That 42 is also the rank that could not learn AT ALL under the
+    /// retraction, and ~42 against a real ~40 is a far smaller error than the catalog's 24.
+    /// NOT the catalog:
     /// it says Mesmerization = 24s (the base rank's number — ranks lengthen mezzes and most
     /// are unresearched) against a real ~38, so "mode when there is evidence, catalog before
     /// that" would make every chip 14 seconds SHORT through the whole warm-up and after
@@ -568,7 +547,6 @@ public sealed class MezTracker
     private bool CreditBreak(string target, DateTime now)
     {
         var name = LogParser.Normalize(target);
-        RetractProvisional(name, now);
         var live = _breaks.TryGetValue(name, out var prev) && now - prev.At <= BreakWindow;
         var took = !live && RemoveTarget(name);
         // Marked even when nothing was removed: the point is to recognise the engagement,
@@ -594,7 +572,6 @@ public sealed class MezTracker
     private bool CreditKill(string target, DateTime now)
     {
         var name = LogParser.Normalize(target);
-        RetractProvisional(name, now);
         var live = _breaks.TryGetValue(name, out var prev) && now - prev.At <= BreakWindow;
         var claimable = live && !prev.KillCredited;
         var took = !claimable && RemoveTarget(name);
@@ -628,10 +605,6 @@ public sealed class MezTracker
         // pure housekeeping — done in a batch (like the _recentCasts cap) rather than on
         // every event, because a long session names thousands of creatures and this runs
         // per parsed line. A handful of names are in flight at once in real combat.
-        // A fade measurement that has outlived the window was not a break after all: nothing
-        // hit the creature in the seconds behind it, so it stands as learned.
-        if (_provisional.Count > 0)
-            _provisional.RemoveAll(p => now - p.At > BreakWindow);
         if (_breaks.Count > 32)
             foreach (var name in _breaks.Where(b => now - b.Value.At > BreakWindow)
                          .Select(b => b.Key).ToList())

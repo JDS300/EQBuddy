@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.31.4",
+    "date": "2026-08-04",
+    "highlights": [
+      "Mez durations learn far faster, and ranks that never learned at all now do. A rule added two versions ago threw away any measurement taken when the creature was hit soon after its mez ended — which is nearly always, since a mob that wakes gets attacked immediately. It discarded 402 of 418 measurements in one week of play, and one spell rank could never be measured at all.",
+      "It is no longer needed: durations are now taken from the cluster your casts land in, which ignores a mez broken early on its own. Measured on a real log, the delay between a mez ending and the next hit is zero whether it faded or was broken, so that delay was never evidence of anything."
+    ]
+  },
+  {
     "version": "1.31.3",
     "date": "2026-08-04",
     "highlights": [

@@ -67,55 +67,38 @@ via `AttachStore`, a `Changed` event, and replay-safety through log timestamps o
 
 **One entry per (target, spell).**
 
-**Opened by the cast, not the first tick.** This is the correction that matters. Opening on
-the tick means a full-health target never gets a chip — the exact case a healer still wants
-to see. So the cast opens the entry immediately, with **no target**, and the first tick
-*binds* a target to it and re-anchors the countdown precisely.
+**Opened by the first tick**, which names the target. One sentence describes the whole
+feature: *a chip appears when your HoT starts healing someone.*
 
-**A name earns HoT status by having been seen ticking or triggering**, seeded at
-`AttachStore` from the learned-duration store. `You begin casting X.` says only that
-something was cast; without this gate an ungated cast handler chips every nuke, mez and gate
-in the game.
-
-> **Known limitation — the cast path is currently inconsistent.** Only spells with a
-> *learned duration* are seeded at startup, and a duration is only learned from a completed
-> **Trigger**. A spell that has ticked but never completed is forgotten on restart, so
-> whether a full-health cast produces a chip depends on the player's history with that
-> particular spell. Reported from play: with a store holding only `Efflorescing Heal`, a
-> full-health `Blossoming Heal` produced no chip.
+> **Deliberate limitation: a HoT on a full-health target is not tracked, and cannot be.**
+> It heals nothing, so it logs nothing, and the cast line names nobody.
 >
-> This was missed because the verification seeded a completed HoT before the full-health
-> cast, which guaranteed the gate passed — it tested a constructed happy path, not the real
-> cold start.
+> An earlier revision opened a provisional chip on the *cast* to cover this, carrying the
+> spell name until a tick bound a target. It was removed. Two reasons. The player judged
+> full-health casts not worth tracking — the chip's value is knowing when a HoT on *someone
+> else* lapses. And the cast path could only ever be gated on "is this name a known HoT",
+> since `You begin casting X.` alone would chip every nuke and gate in the game; that set
+> was seeded from the learned-duration store, which holds only spells completed through a
+> Trigger, so whether a full-health cast produced a chip depended on the player's history
+> with that particular spell. Inconsistent is worse than absent: it reads as a flaky
+> feature rather than a documented boundary.
 >
-> The fix is small: persist the *set of names known to be HoTs* separately from the learned
-> durations, so one observed tick makes a name permanent. Until then the honest description
-> of the cast path is "works for spells you have already completed once", and a reviewer
-> should decide whether to take it that way, take the fix with it, or drop the cast path and
-> open chips on the first tick only.
+> Recorded here because the next reader will otherwise re-derive the gap and re-attempt the
+> same fix. If it is revisited, persisting the set of known-HoT names separately from the
+> learned durations is the piece that was missing.
 
 **Ended by the Trigger**, with the 5-tick/6s estimate as fallback — 128 of 712 runs have no
 visible Trigger (zoning, log truncation, the target dying), so the fallback carries ~18% of
-real cases. A Trigger that closes an un-bound chip teaches **no** duration: its anchor was
-an estimate, and a guessed measurement would poison a store that otherwise holds only real
+real cases. A Trigger naming a target with no open series ends nothing and teaches nothing,
+rather than guessing at a duration and poisoning a store that otherwise holds only measured
 ones.
-
-**Cancelled by interrupt or fizzle** — `SpellInterruptedEvent` (320 in the log) and
-`FizzleEvent` (231; note the line ends in `!`, not `.`). Both already exist in `LogParser`.
 
 **Durations are learned, longest-observed-wins**, exactly as `MezTracker` learns from
 land→fade gaps: an interrupted HoT measures short, nothing measures it long. Replaying the
 reference log learns 25s for four spells and 24s for Sprouting, against an independently
 computed ground truth of exactly 25s and 24s.
 
-### Two decisions worth reviewing
-
-**A cast while the same HoT already runs on a known target opens a second targetless chip
-rather than refreshing the first.** The log cannot distinguish "refresh on Daggo" from
-"fresh cast on Chickpea", so this is a choice of which way to be wrong. Refreshing promises
-a full duration on a chip that may lapse in ten seconds, and a healer trusting that lets the
-HoT drop — the silent failure the chip exists to prevent. A second chip claims only "another
-one is running", and resolves itself when ticks land.
+### A decision worth reviewing
 
 **Ticks never gap, so gaps cannot separate casts.** All 2972 in-run gaps are 5–7s *including
 across recasts* — a gap rule alone can never split a chain, and tick-*count* learning would
@@ -129,14 +112,13 @@ exactly the observed 10-tick runs.
 same split `MezChipPresentation` uses.
 
 - Icon `🌿`, distinct from `⏳` spawn and `💤` mez.
-- Name is the **target**, or the **spell** when no target is bound yet.
+- Name is the **target** — always known, since only a tick opens a chip.
 - Countdown is time until healing stops. Warns at **6s** — one tick, the last moment a recast
   still lands before the HoT ends, and the only moment a HoT chip is urgent.
 - Your own HoT is **emphasised**, not merged in: the chips that matter are the ones on people
   whose buff bar you cannot see. `AppSettings.ShowSelfHotChips` (default on) drops them
   entirely for a healer who mostly self-HoTs. `IsDue` outranks the self tint — a recast
   warning beats a self/other distinction.
-- Unbound chips are **never** hidden by `ShowSelfHotChips`, since they might be on anyone.
 
 `SpawnChip` gained a trailing `bool Emphasis = false` for this. Only HoT chips set it; mez
 and spawn rows keep their existing two-state colouring.
@@ -152,7 +134,7 @@ and spawn rows keep their existing two-state colouring.
 | Chip record | `src/EQBuddy.UI.Shared/SpawnsViewModel.cs` — `SpawnChip.Emphasis` | done |
 | Avalonia view | `src/EQBuddy.Avalonia/HotChipsWindow.cs` + `MainWindow` wiring + Options toggle | done |
 | **WPF view** | — | **not built** |
-| Tests | `HotTrackerTests` (29), `HotChipPresentationTests` (8), `ChipWindowRenderTests` (+3) | done |
+| Tests | `HotTrackerTests` (15), `HotChipPresentationTests` (6), `ChipWindowRenderTests` (+3) | done |
 
 ## What WPF still needs
 
@@ -186,7 +168,7 @@ longer reads as a break and a restart.
 
 ```
 dotnet build src/EQBuddy.Avalonia/EQBuddy.Avalonia.csproj -c Release
-dotnet test  tests/EQBuddy.Tests/EQBuddy.Tests.csproj -c Release            # 562
+dotnet test  tests/EQBuddy.Tests/EQBuddy.Tests.csproj -c Release            # 546
 dotnet test  tests/EQBuddy.Avalonia.Tests/EQBuddy.Avalonia.Tests.csproj -c Release   # 25
 ```
 `dotnet build EQBuddy.slnx` requires Windows (the WPF project targets `net10.0-windows`).
@@ -199,9 +181,6 @@ without playing":
   independently computed ground truth exactly.
 - Three concurrent HoTs on screen, self tinted apart from the others; toggling
   `ShowSelfHotChips` removed only the self chip.
-- A cast at full health with zero ticks renders `🌿 Blossoming Heal 0:30` — **but only for a
-  spell already in the learned-duration store**, which that scenario seeded. See the known
-  limitation above; in real play, with an unseeded spell, no chip appears.
 
 Note for reviewers: headless Avalonia tests do **not** load the X11 backend, so they cannot
 verify focus behaviour, click-through or multi-monitor placement. Those were checked by
@@ -209,11 +188,9 @@ running the real app.
 
 ## Open questions for the maintainer
 
-1. **Is the second-targetless-chip rule right?** It is the honest reading, but a healer may
-   find two chips for one spell more confusing than a refreshed one. Only play settles it.
-2. **Should the HoT catalog seed cover more spells?** `SpellCategory.HealOverTime` has
+1. **Should the HoT catalog seed cover more spells?** `SpellCategory.HealOverTime` has
    `Echoing Light`, `Budding Heal`, `Regeneration`, `Chloroplast`, `Regrowth`, but not the
    Sprouting/Blooming/Blossoming/Flowering/Efflorescing line this was developed against.
    Seeding it would remove the one-cast cold start; it was left alone deliberately.
-3. **Does the 6s warning threshold suit other classes?** It is one tick for a druid's bloom
+2. **Does the 6s warning threshold suit other classes?** It is one tick for a druid's bloom
    line. A HoT with a different tick rate may want a proportional threshold instead.

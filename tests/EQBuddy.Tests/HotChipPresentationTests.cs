@@ -81,35 +81,6 @@ public class HotChipPresentationTests
         Assert.Equal(["Chickpea", "Penuche"], chips.Select(c => c.Name));
     }
 
-    /// <summary>A cast on a full-health target heals nothing, so the log never names anyone —
-    /// no tick line exists and there is no "You have targeted X" line in EverQuest at all.
-    /// The chip still has to appear (that is the whole reported bug), so it shows the SPELL
-    /// until a tick binds a target to it.</summary>
-    [Fact]
-    public void AChipWithNoTargetYetShowsTheSpellInstead()
-    {
-        var t = Replay(Ev(0, "You begin casting Blossoming Heal."),
-                       Ev(1, "You healed Chickpea over time for 61 hit points by Blossoming Heal."),
-                       Ev(2, "You begin casting Blossoming Heal."));
-
-        var chips = HotChipPresentation.Chips(t.Snapshot(T0.AddSeconds(3)), T0.AddSeconds(3), "Daggo", showSelf: true);
-        var waiting = Assert.Single(chips, c => c.Name == "Blossoming Heal");
-        Assert.False(waiting.Emphasis);              // nothing is known about who it landed on
-        Assert.Contains("target", waiting.Detail, StringComparison.OrdinalIgnoreCase);
-    }
-
-    /// <summary>Hiding self-chips must not hide the ones we cannot attribute — an unbound
-    /// chip might be on anyone, and silently dropping it would recreate the reported bug.</summary>
-    [Fact]
-    public void TurningOffSelfChipsKeepsChipsWithNoTargetYet()
-    {
-        var t = Replay(Ev(0, "You healed Daggo over time for 130 hit points by Blossoming Heal."),
-                       Ev(1, "You begin casting Blossoming Heal."));
-
-        var chip = Assert.Single(HotChipPresentation.Chips(t.Snapshot(T0.AddSeconds(2)), T0.AddSeconds(2), "Daggo", showSelf: false));
-        Assert.Equal("Blossoming Heal", chip.Name);
-    }
-
     /// <summary>No character name yet (before the log names one) must not crash or silently
     /// treat every chip as self.</summary>
     [Fact]

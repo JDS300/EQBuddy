@@ -217,6 +217,128 @@ public class MezTrackerTests
         Assert.Equal("Wrathos", m.Caster);
     }
 
+    /// <summary>The 1.29.1 field report ("when the targets share the same name, the chip
+    /// shows up but then breaking one of them removes it for both"): RemoveTarget already
+    /// drops ONE entry per break (issue #32), but it runs once per damage EVENT and one
+    /// attack round is several lines — main hand, off hand, kick, a damage-shield proc,
+    /// all in the same log second, all naming the same creature. Each line ate another
+    /// twin. In the 690k-line fixture 54,999 of 83,299 (second, target-name) buckets carry
+    /// more than one break line, so this is the common case, not the corner.</summary>
+    [Fact]
+    public void OneAttackRoundOfSeveralLinesClearsOnlyOneOfTwoSameNamedChips()
+    {
+        var t = Replay(
+            Ev(0, "You begin casting Mesmerization."),
+            Ev(3, "an orc pawn has been mesmerized."),
+            Ev(3, "an orc pawn has been mesmerized."));
+        Assert.Equal(2, t.Snapshot(T0.AddSeconds(4)).Count);
+
+        // One round on ONE of them: two weapon swings, a kick, and the damage shield
+        // firing when it swung back — four lines, one creature, one break.
+        t.Apply(Ev(6, "You slash an orc pawn for 61 points of damage."));
+        t.Apply(Ev(6, "You kick an orc pawn for 22 points of damage."));
+        t.Apply(Ev(6, "Twiddley slashes an orc pawn for 9 points of damage."));
+        t.Apply(Ev(6, "An orc pawn is burned by YOUR flames for 5 points of non-melee damage."));
+
+        Assert.Single(t.Snapshot(T0.AddSeconds(7)));
+    }
+
+    /// <summary>The other half of the same rule: dedupe must not deafen the tracker. A
+    /// break on the second twin, once the first one's engagement window has lapsed, still
+    /// clears its chip.</summary>
+    [Fact]
+    public void ABreakOnTheSecondTwinAfterTheWindowStillClearsItsChip()
+    {
+        var t = Replay(
+            Ev(0, "You begin casting Mesmerization."),
+            Ev(3, "an orc pawn has been mesmerized."),
+            Ev(3, "an orc pawn has been mesmerized."),
+            Ev(6, "You slash an orc pawn for 61 points of damage."),
+            Ev(6, "You kick an orc pawn for 22 points of damage."));
+        Assert.Single(t.Snapshot(T0.AddSeconds(7)));
+
+        t.Apply(Ev(20, "Twiddley slashes an orc pawn for 12 points of damage."));
+        Assert.Empty(t.Snapshot(T0.AddSeconds(21)));
+    }
+
+    /// <summary>Regression guard for the ordinary single-mob case: one chip, one
+    /// multi-line round, chip gone. Deduping breaks must not make a real wake-up
+    /// invisible.</summary>
+    [Fact]
+    public void ASingleMezzedMobHitByAMultiLineRoundStillClears()
+    {
+        var t = Replay(
+            Ev(0, "You begin casting Mesmerize."),
+            Ev(2, "an orc pawn has been mesmerized."),
+            Ev(5, "You slash an orc pawn for 61 points of damage."),
+            Ev(5, "You kick an orc pawn for 22 points of damage."),
+            Ev(5, "An orc pawn is burned by YOUR flames for 5 points of non-melee damage."));
+
+        Assert.Empty(t.Snapshot(T0.AddSeconds(6)));
+    }
+
+    /// <summary>The reason the window slides instead of expiring on a fixed clock: in the
+    /// fixture, a run of damage on one target name (lines joined by gaps of 6s or less)
+    /// has a median length of 4s but a 75th percentile of 21s and a 90th of 47s. A fixed
+    /// short cooldown would let a long fight on ONE woken mob eat the sleeping twin's chip
+    /// every few seconds, which is the reported bug with extra steps.</summary>
+    [Fact]
+    public void ASustainedFightOnOneWokenMobDoesNotEatTheSleepingTwinsChip()
+    {
+        var t = Replay(
+            Ev(0, "You begin casting Fascination."),
+            Ev(3, "an orc pawn has been fascinated."),
+            Ev(3, "an orc pawn has been fascinated."));
+
+        // 18 seconds of continuous melee on the one that woke — swings, its swings back,
+        // and a DoT ticking on it. All the same creature.
+        for (var s = 6; s <= 24; s += 3)
+        {
+            t.Apply(Ev(s, "You slash an orc pawn for 61 points of damage."));
+            t.Apply(Ev(s, "Orc pawn hits YOU for 9 points of damage."));
+            t.Apply(Ev(s + 1, "An orc pawn has taken 12 damage from Poison Bolt by Twiddley."));
+        }
+
+        Assert.Single(t.Snapshot(T0.AddSeconds(25)));   // the twin is still asleep
+    }
+
+    /// <summary>A kill is one line per creature and must always land — but it arrives in
+    /// the same second as the killing blow 96% of the time in the fixture (2,504 of 2,624
+    /// kills), so it must not be counted as a SECOND break for that creature. Killing two
+    /// mezzed adds in sequence has to leave nothing behind.</summary>
+    [Fact]
+    public void KillingTwoMezzedAddsInSequenceClearsBothChips()
+    {
+        var t = Replay(
+            Ev(0, "You begin casting Mesmerization."),
+            Ev(3, "an orc pawn has been mesmerized."),
+            Ev(3, "an orc pawn has been mesmerized."));
+
+        t.Apply(Ev(6, "You slash an orc pawn for 61 points of damage."));
+        t.Apply(Ev(6, "You kick an orc pawn for 22 points of damage."));
+        t.Apply(Ev(6, "You have slain an orc pawn!"));
+        Assert.Single(t.Snapshot(T0.AddSeconds(7)));   // exactly one break, not two
+
+        // The second add, five seconds later — inside the engagement window, so the
+        // damage lines are deduped, but the kill still ends its chip.
+        t.Apply(Ev(11, "You slash an orc pawn for 58 points of damage."));
+        t.Apply(Ev(11, "You have slain an orc pawn!"));
+        Assert.Empty(t.Snapshot(T0.AddSeconds(12)));
+    }
+
+    /// <summary>A kill with no parsed damage in front of it (someone else's unlogged
+    /// swing landed the blow) still clears immediately.</summary>
+    [Fact]
+    public void AKillLineWithNoPrecedingDamageStillClearsTheChipImmediately()
+    {
+        var t = Replay(
+            Ev(0, "You begin casting Mesmerize."),
+            Ev(2, "an orc pawn has been mesmerized."),
+            Ev(5, "an orc pawn has been slain by Twiddley!"));
+
+        Assert.Empty(t.Snapshot(T0.AddSeconds(6)));
+    }
+
     [Fact]
     public void UnknownDurationChipsStillShowAndStillBreak()
     {

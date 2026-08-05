@@ -293,6 +293,15 @@ public sealed class OptionsWindow : Window
         panel.Children.Add(AppTheme.DimText(
             "While Options is open, the ★ alert banner tile is visible — drag it to where alerts should appear. During play it's click-through and never steals focus.",
             new Thickness(0, 4, 0, 0)));
+        // The tile is draggable ONLY while Options is open and click-through the rest of the
+        // time, so one parked on a monitor you no longer use has nothing to grab. Without
+        // this button the only way back is hand-editing settings.json.
+        var recall = AppTheme.IconButton("Bring the alert tile back next to the widget",
+            "Move the ★ tile beside the widget — use when it's on a monitor you can't reach");
+        recall.HorizontalAlignment = HorizontalAlignment.Left;
+        recall.Margin = new Thickness(0, 6, 0, 0);
+        recall.Click += (_, _) => _main.AlertTile.ResetPosition();
+        panel.Children.Add(recall);
 
         panel.Children.Add(Heading("Overlay cards", new Thickness(0, 14, 0, 2)));
         panel.Children.Add(_cardsPanel);

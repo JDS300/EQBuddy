@@ -204,4 +204,34 @@ public class WidgetRenderTests : IDisposable
         Assert.Equal(300, window.Position.Y);
         window.Close();
     }
+
+    /// <summary>The ★ alert tile is draggable ONLY while Options is open, and click-through
+    /// the rest of the time — so a tile saved onto a monitor you no longer use has nothing
+    /// to grab, and the only way back was editing settings.json by hand. Reported from play
+    /// with the tile at 809,322 while the widget sat on a different screen. The Options
+    /// button calls this.</summary>
+    [AvaloniaFact]
+    public void RecallingTheAlertTileBringsItBackBesideTheWidget()
+    {
+        File.WriteAllText(Path.Combine(_profile, "settings.json"),
+            $$"""
+              { "LogFolder": {{System.Text.Json.JsonSerializer.Serialize(Path.Combine(_profile, "logs"))}},
+                "TruncateLogs": false, "ShowTutorial": false, "Theme": "ParchmentBrass",
+                "WindowLeft": 400, "WindowTop": 300,
+                "AlertLeft": 9000, "AlertTop": 9000 }
+              """);
+
+        var window = new MainWindow();
+        window.Show();
+
+        window.AlertTile.ResetPosition();
+
+        // Back within reach of the widget, and persisted so it survives the next launch.
+        var saved = AppSettings.Load();
+        Assert.InRange(saved.AlertLeft, 0, 2000);
+        Assert.InRange(saved.AlertTop, 0, 2000);
+        Assert.Equal(window.AlertTile.Position.X, saved.AlertLeft);
+        Assert.Equal(window.AlertTile.Position.Y, saved.AlertTop);
+        window.Close();
+    }
 }

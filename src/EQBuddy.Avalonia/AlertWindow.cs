@@ -83,6 +83,23 @@ public sealed class AlertWindow : Window
         Topmost = true;
     }
 
+    /// <summary>Bring the tile back next to the widget. It is only draggable while Options
+    /// is open, and it is click-through the rest of the time, so a tile parked on a monitor
+    /// you no longer use — or one you simply cannot find — is otherwise unreachable: there
+    /// is nothing to grab. Reported from play, with the tile saved at 809,322 while the
+    /// widget sat on a different screen entirely.</summary>
+    public void ResetPosition()
+    {
+        // Clear the saved spot first: PositionFromSettings honours any position that lands
+        // on SOME screen, and the stale one does, so re-running it alone would change nothing.
+        _settings.AlertLeft = double.NaN;
+        _settings.AlertTop = double.NaN;
+        PositionFromSettings();
+        _settings.AlertLeft = Position.X;
+        _settings.AlertTop = Position.Y;
+        _settings.Save();
+    }
+
     /// <summary>Save the chosen location and restore play-mode click-through.</summary>
     public void ExitPlacement()
     {

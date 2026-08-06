@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.VisualTree;
 using EQBuddy.Core;
 using EQBuddy.UI.Shared;
@@ -197,6 +198,98 @@ public class OptionsRenderTests : IDisposable
         classCombo.SelectedIndex = (int)EQBuddy.Core.SpellFilter.Charm;
         Assert.False(matchBox.IsVisible);
         Assert.Equal(EQBuddy.Core.SpellFilter.Charm, main.Settings.TrackedRules[0].SpellFilter);
+
+        options.Close();
+        main.Close();
+    }
+
+    /// <summary>The bug report: "In the Spell fade, by name doesn't let me type or put
+    /// anything in, so I can't add a custom spell like Clarity." IsVisible was true the
+    /// whole time — the row simply had no room. The rule row's fixed 92 + 115 px name
+    /// columns and its five auto columns of toggles left the match cell 77 px in a 520 px
+    /// body, less than the class combo's own 104 px, so both the combo and the text box
+    /// spilled out of their cell and were painted over by the P/B toggles and the sound
+    /// picker that come after them in the row. Clicks landed on whatever sat on top, so
+    /// the box could never take focus. Geometry, not visibility, so the assertions are
+    /// about geometry: the cell contents stay inside the cell, the box keeps a width you
+    /// can type a spell name into, and a click in the middle of it reaches the box.</summary>
+    [AvaloniaFact]
+    public void ASpellFadeRuleWatchingANamedSpellHasAMatchBoxYouCanActuallyClick()
+    {
+        var main = new MainWindow();
+        main.Show();
+        main.Settings.TrackedRules.Clear();
+        main.Settings.TrackedRules.Add(new TrackedRule
+        {
+            Name = "Clarity", Pattern = "Clarity", Kind = WatchKind.SpellFade,
+            SpellFilter = EQBuddy.Core.SpellFilter.ByName,
+        });
+
+        var options = new OptionsWindow(main);
+        options.Show();
+        options.CaptureRenderedFrame();   // force a layout pass, so Bounds are real
+
+        var classCombo = options.GetVisualDescendants().OfType<ComboBox>()
+            .Single(c => c.Items.Contains(OptionsViewModel.SpellFilterNames[0]));
+        var matchArea = (Grid)classCombo.Parent!;
+        var matchBox = matchArea.Children.OfType<TextBox>().Single();
+        var row = (Grid)matchArea.Parent!;
+
+        // Wide enough for a spell name, not just a couple of characters.
+        Assert.True(matchBox.Bounds.Width >= 80,
+            $"match box is only {matchBox.Bounds.Width}px wide");
+
+        // Nothing in the match cell may reach into the toggles that follow it: that
+        // overlap is what swallowed the clicks.
+        var pinToggle = row.Children.OfType<ToggleButton>().First();
+        var cellRight = matchArea.Bounds.Right;
+        Assert.True(matchBox.TranslatePoint(new Point(matchBox.Bounds.Width, 0), row)!.Value.X <= cellRight,
+            $"match box runs past its {cellRight}px cell to "
+            + $"{matchBox.TranslatePoint(new Point(matchBox.Bounds.Width, 0), row)!.Value.X}px");
+        Assert.True(classCombo.Bounds.Width <= matchArea.Bounds.Width,
+            $"class combo is {classCombo.Bounds.Width}px in a {matchArea.Bounds.Width}px cell");
+        Assert.True(cellRight <= pinToggle.Bounds.Left,
+            $"match cell ends at {cellRight}px, past the P toggle at {pinToggle.Bounds.Left}px");
+
+        // The symptom itself: a click in the middle of the box has to reach the box.
+        var centre = matchBox.TranslatePoint(
+            new Point(matchBox.Bounds.Width / 2, matchBox.Bounds.Height / 2), options)!.Value;
+        var hit = options.InputHitTest(centre);
+        Assert.True(hit is Visual v && (v == matchBox || v.GetVisualAncestors().Contains(matchBox)),
+            $"a click at {centre} landed on {hit?.GetType().Name ?? "nothing"}, not the match box");
+
+        options.Close();
+        main.Close();
+    }
+
+    /// <summary>The same cell with a class filter chosen: the combo spans the whole cell
+    /// then, and it has to fit there rather than spilling over the toggles beside it.</summary>
+    [AvaloniaFact]
+    public void AClassFilterComboFitsInsideItsCell()
+    {
+        var main = new MainWindow();
+        main.Show();
+        main.Settings.TrackedRules.Clear();
+        main.Settings.TrackedRules.Add(new TrackedRule
+        {
+            Name = "mez broke", Kind = WatchKind.SpellFade,
+            SpellFilter = EQBuddy.Core.SpellFilter.Mesmerize,
+        });
+
+        var options = new OptionsWindow(main);
+        options.Show();
+        options.CaptureRenderedFrame();
+
+        var classCombo = options.GetVisualDescendants().OfType<ComboBox>()
+            .Single(c => c.Items.Contains(OptionsViewModel.SpellFilterNames[0]));
+        var matchArea = (Grid)classCombo.Parent!;
+        var row = (Grid)matchArea.Parent!;
+        var pinToggle = row.Children.OfType<ToggleButton>().First();
+
+        Assert.True(classCombo.Bounds.Width <= matchArea.Bounds.Width,
+            $"class combo is {classCombo.Bounds.Width}px in a {matchArea.Bounds.Width}px cell");
+        Assert.True(matchArea.Bounds.Right <= pinToggle.Bounds.Left,
+            $"match cell ends at {matchArea.Bounds.Right}px, past the P toggle at {pinToggle.Bounds.Left}px");
 
         options.Close();
         main.Close();

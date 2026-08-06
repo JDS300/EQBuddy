@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.31.5",
+    "date": "2026-08-05",
+    "highlights": [
+      "FIX (Linux): a Spell fade rule watching one named spell could not be given a spell name. The match box was drawn, but the rule row's columns left it 77 pixels in a 520-pixel window — less than the class picker beside it needs on its own — so both spilled out of their cell and under the P/B toggles and the sound picker, which took every click aimed at them. Options is wider now, with room to read a spell name in the box rather than just fit one.",
+      "The watch list also stopped clipping its widest kind to \"Spell fad\"."
+    ]
+  },
+  {
     "version": "1.31.4",
     "date": "2026-08-04",
     "highlights": [

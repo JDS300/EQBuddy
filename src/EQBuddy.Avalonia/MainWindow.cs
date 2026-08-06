@@ -249,6 +249,12 @@ public sealed class MainWindow : Window
             RegisterGlobalHotkeys();
             if (_settings.ShowTutorial)
                 new TutorialWindow(this).Show(this);
+            // Parity with the WPF hook of the same name (CONTRIBUTING's "Testing without
+            // the game"). Options is only reachable through the right-click menu, which
+            // makes the one window whose layout has to be checked by eye the one window
+            // nobody can screenshot from a script.
+            if (Environment.GetEnvironmentVariable("EQBUDDY_OPTIONS") == "1")
+                OnOptions(this, EventArgs.Empty);
         };
     }
 

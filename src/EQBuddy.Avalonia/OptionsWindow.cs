@@ -52,6 +52,23 @@ public sealed class OptionsWindow : Window
 
     private static readonly string[] SoundNames = Array.ConvertAll(MainWindow.AlertSounds, x => x.Name);
 
+    /// <summary>Width of the "Watch" column. 92 clipped the widest kind, "Spell fade", to
+    /// "Spell fad" at the real desktop font — headless measured it a hair narrower, so no
+    /// test saw it.</summary>
+    private const double KindColumnWidth = 106;
+
+    /// <summary>Width of the settings column. Driven by the watch-rule row, the widest
+    /// thing in this window and the one whose columns are unforgiving: 106 (kind) + 115
+    /// (name) + the match cell + 236 for the five auto columns that follow it (P, B, sound,
+    /// delay, delete). At the old 520 the match cell was left 77px — narrower than the
+    /// class combo's own 104px minimum — so a Spell fade row spilled its combo and its
+    /// match box sideways out of the cell, where the toggles and the sound picker painted
+    /// over them and swallowed every click: the box was visible but impossible to type in.
+    /// This leaves the cell ~223px: the combo, plus a match box wide enough to read a real
+    /// spell name in ("Clarity", "Color Shift") rather than one that technically accepts
+    /// typing. Anything added to a rule row has to come back through this number.</summary>
+    private const double BodyWidth = 680;
+
     public OptionsWindow(MainWindow main)
     {
         _main = main;
@@ -231,7 +248,7 @@ public sealed class OptionsWindow : Window
 
     private Control BuildBody()
     {
-        var panel = new StackPanel { Margin = new Thickness(16, 0, 16, 16), Width = 520 };
+        var panel = new StackPanel { Margin = new Thickness(16, 0, 16, 16), Width = BodyWidth };
 
         panel.Children.Add(Row("Theme", _themeCombo, new Thickness(0, 0, 0, 12)));
 
@@ -380,7 +397,7 @@ public sealed class OptionsWindow : Window
         foreach (var rule in _main.Settings.TrackedRules)
         {
             var row = new Grid { Margin = new Thickness(0, 5, 0, 3) };
-            row.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(92)));
+            row.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(KindColumnWidth)));
             row.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(115)));
             row.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
             for (var i = 0; i < 5; i++)   // pin, banner, sound, delay, delete

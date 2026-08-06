@@ -21,6 +21,10 @@ You don't need the game (or Windows) to exercise almost everything:
     polls every 500 ms. The status dot is green only if the file grew in the last 30 s.
 - **`EQBUDDY_EXPAND=1`** launches with every section expanded (plus a state dump in
   `<appdata>/debug.txt`) — good for screenshots and layout checks.
+- **`EQBUDDY_OPTIONS=1`** opens Options at launch (both UIs). Options is otherwise only
+  reachable through the right-click menu, which made the one window whose layout has to
+  be checked by eye the one window no script could open — and a Linux layout bug that
+  hid the spell-fade match box under the alert toggles survived a release because of it.
 - `docs/screenshots/` shows the current WPF rendering of each section for side-by-side
   comparison (regenerated with each release that changes visuals).
 
@@ -242,7 +246,10 @@ Anything needing sub-frame reaction — casting on a timer you can see coming �
 served by an in-game trigger. EQBuddy is honest about being a log reader.
 
 **Spell fade** matches "Your X spell has worn off (of Y)." and takes a second dropdown:
-- *By name…* — the original substring match against the spell name.
+- *By name…* — the original substring match against the spell name. This is the only
+  filter that still wants the match box, and the box sits immediately right of the
+  dropdown: type the spell there (`Clarity`, or any substring of it) or leave it empty
+  to fall back to the rule's display name.
 - *Any spell* — every fade, including buffs (which we can't classify).
 - *Any CC* / *Charm* / *Mez* / *Root* / *Lull* / *Stun* — matched by category
   via `SpellCatalog`, needing no match text at all. Ranks collapse onto the base name, so
@@ -536,11 +543,24 @@ title row sits outside the `ScrollViewer` so ✕ is always reachable.
 `SharedSizeGroup`s with every rule row inside a `Grid.IsSharedSizeScope` panel, so labels
 stay aligned however wide the combos render.
 
+**Linux: the width is fixed, so the rule row sets it.** The Avalonia window has no drag
+grips — it sizes to a constant body width (`OptionsWindow.BodyWidth`), and the watch-rule
+row is the widest thing in it. Its columns are fixed pixels (kind, name) plus five auto
+columns (P, B, sound, delay, delete) with the match cell taking whatever is left, so
+anything added to a rule row comes out of the match cell. When that cell fell below the
+class picker's own minimum, the picker and the match box overflowed sideways and came to
+rest *underneath* the toggles, which drew on top and took the clicks: the box was visible
+and could never be focused or typed into (1.31.5). `BodyWidth` carries that arithmetic in
+its doc comment; `OptionsRenderTests` pins the geometry and hit-tests the box.
+
 **Verify:** with two rules present (one Loot, one Spell fade set to a class), no field is
 clipped at the default width — check "Any CC" in particular, since the class combo shares
-the row with the alert toggles. Drag either edge wider, close, reopen: the width is
-remembered. Add rules until the content exceeds your screen: the window stops growing at
-the work-area height and a scrollbar appears rather than the bottom going off-screen.
+the row with the alert toggles, and check the kind dropdown reads "Spell fade" rather than
+"Spell fad". Then set a fade rule to *By name…*, click into the match box beside the
+dropdown and type: the click must land in the box, not on the P/B toggles. On Windows:
+drag either edge wider, close, reopen: the width is remembered. Add rules until the
+content exceeds your screen: the window stops growing at the work-area height and a
+scrollbar appears rather than the bottom going off-screen.
 
 ## Session history
 

@@ -99,6 +99,11 @@ public sealed class SessionStats
     /// same "your number wins" rule the spawn timers use.</summary>
     public int RegenPerTickOverride { get; set; }
 
+    private int _runeGainCount; private long _runeGainPoints;
+    /// <summary>Consecutive incoming melee attacks fully absorbed by the rune since the
+    /// last one that actually landed. Resets to 0 the moment melee damage gets through,
+    /// so it answers "how many hits did the rune eat before it broke."</summary>
+    private int _runeBlockStreak, _runeBlockStreakMax, _runeBlockCount;
     private string? _characterName;
 
     /// <summary>The watched character's name — needed to recognize self-heals
@@ -361,8 +366,9 @@ public sealed class SessionStats
                 _journalAppendsSincePrune = 0;
                 var cutoff = e.Time - CombatJournalRetention;
                 _journal.RemoveAll(j => j.Time < cutoff && j is DamageDealtEvent
-                    or DamageTakenEvent or MissEvent or ThirdMeleeEvent or ThirdDotEvent
-                    or ThirdSchoolEvent or ThirdMissEvent or HealEvent or RegenTickEvent);
+                    or DamageTakenEvent or MissEvent or RuneBlockEvent or ThirdMeleeEvent
+                    or ThirdDotEvent or ThirdSchoolEvent or ThirdMissEvent or HealEvent
+                    or RegenTickEvent);
             }
 
             SweepStaleFights(e.Time);
@@ -599,6 +605,12 @@ public sealed class SessionStats
                     _avoidedIncoming++;
                     TrackCombat(m.Time);
                     break;
+                case RuneBlockEvent rb:
+                    _avoidedIncoming++;
+                    _runeBlockCount++;
+                    if (++_runeBlockStreak > _runeBlockStreakMax) _runeBlockStreakMax = _runeBlockStreak;
+                    TrackCombat(rb.Time);
+                    break;
                 case DamageTakenEvent { Self: true } sdt:
                     // HP-cost casting, falls, drowning. Counted as damage taken so the
                     // Taken number is honest, but deliberately NOT a combat signal: no
@@ -613,7 +625,7 @@ public sealed class SessionStats
                     // A "pet" attacking us means the charm broke — stop crediting it.
                     if (IsPet(dt.Attacker)) _petName = null;
                     _damageTaken += dt.Amount;
-                    if (dt.Melee) _meleeHitsTaken++;
+                    if (dt.Melee) { _meleeHitsTaken++; _runeBlockStreak = 0; }
                     TouchFight(dt.Attacker, dt.Time, dmgIn: dt.Amount);
                     if (_activeFights.TryGetValue(dt.Attacker, out var inFight))
                         Ability(inFight.ByIncoming,
@@ -652,6 +664,7 @@ public sealed class SessionStats
                         var hv = _healsByHealer.TryGetValue(h.Healer, out var hc) ? hc : (0, 0L);
                         _healsByHealer[h.Healer] = (hv.Item1 + 1, hv.Item2 + h.Amount);
                     }
+                    if (h.Spell == "Rune") { _runeGainCount++; _runeGainPoints += h.Amount; }
                     // Incoming heals name the spell too ("healed you ... by Echoing
                     // Light") — a HoT someone keeps on you teaches the catalog even if
                     // you never cast one.
@@ -688,13 +701,21 @@ public sealed class SessionStats
                     Bump(Mob(l.Source).Loot, l.Item);
                     // Quest ledger rides the same event; the store's own filter and
                     // time high-water mark decide whether anything actually lands.
-                    QuestStore?.RecordLoot(AaCharacterKey, l.Item, l.Count, l.Time);
+                    // Loot-MERGE lines ("looted a Belt +2 ... to create a Belt +4") are
+                    // net zero for the quest count: the corpse's item and the held item
+                    // became one, so possession didn't change (David, 2026-08-07 —
+                    // "ready ×17" was counting every merge-consumed belt).
+                    if (l.UpgradeResult is null)
+                        QuestStore?.RecordLoot(AaCharacterKey, l.Item, l.Count, l.Time);
                     break;
                 case CraftEvent c:
                     Bump(_crafted, c.Item);
+                    // A manual merge turned two held items into one.
+                    QuestStore?.RecordConsumed(AaCharacterKey, c.Item, 1, c.Time);
                     break;
                 case ItemDestroyedEvent d:
                     _lastDestroyed = (d.Item, d.Count, d.Time);
+                    QuestStore?.RecordConsumed(AaCharacterKey, d.Item, d.Count, d.Time);
                     break;
                 case MoneyEvent { Vendor: true } m:
                     _vendorCopper += m.Copper; _salesCount++;
@@ -706,6 +727,11 @@ public sealed class SessionStats
                             : ("Loot window sale", 1);
                     var sv = _soldItems.TryGetValue(soldName, out var sc) ? sc : (0, 0L);
                     _soldItems[soldName] = (sv.Item1 + soldCount, sv.Item2 + m.Copper);
+                    // A NAMED sale is a held item leaving. Nameless loot-window sales
+                    // already subtracted via their preceding "successfully destroyed"
+                    // line — subtracting here too would double-count the exit.
+                    if (m.Item is { } soldItem)
+                        QuestStore?.RecordConsumed(AaCharacterKey, soldItem, 1, m.Time);
                     break;
                 case MoneyEvent m:
                     _copper += m.Copper; _coinDrops++;
@@ -1189,6 +1215,8 @@ public sealed class SessionStats
         _healingDone = 0; _healCount = 0; _healingReceived = 0;
         _healsByHealer.Clear(); _healsBySpell.Clear(); _regenTicks = 0;
         _regenEstimated = 0; _regenSpell = null; _lastRegenCast = null; _lastConsider = null;
+        _runeGainCount = 0; _runeGainPoints = 0;
+        _runeBlockStreak = 0; _runeBlockStreakMax = 0; _runeBlockCount = 0;
         _loot.Clear(); _lootCount = 0; _crafted.Clear();
         _copper = 0; _coinDrops = 0; _biggestDrop = 0;
         _vendorCopper = 0; _salesCount = 0; _soldItems.Clear();
@@ -1418,6 +1446,11 @@ public sealed class SessionStats
                 RegenTicks = _regenTicks,
                 RegenEstimatedHealed = _regenEstimated,
                 RegenSpell = _regenSpell ?? "",
+                RuneGainCount = _runeGainCount,
+                RuneGainPoints = _runeGainPoints,
+                RuneBlockCount = _runeBlockCount,
+                RuneBlockStreak = _runeBlockStreak,
+                RuneBlockStreakMax = _runeBlockStreakMax,
                 LootTotal = _lootCount,
                 Loot = _loot.OrderByDescending(kv => kv.Value.Count)
                     .Select(kv => new LootDetail(kv.Key, kv.Value.Count, kv.Value.LastSource)).ToList(),
@@ -1577,6 +1610,16 @@ public sealed class StatsSnapshot
     public long RegenEstimatedHealed { get; init; }
     /// <summary>The regen spell the ticks were attributed to ("" when no own cast seen).</summary>
     public string RegenSpell { get; init; } = "";
+    /// <summary>How many times the rune buff built its absorption pool ("You gain a rune
+    /// for N points of absorption."), and the total points gained — already folded into
+    /// HealingReceived/HealsByHealer["Rune"], broken out here for a dedicated readout.</summary>
+    public int RuneGainCount { get; init; }
+    public long RuneGainPoints { get; init; }
+    /// <summary>Incoming melee attacks the rune fully absorbed. Streak is the current run
+    /// since the last hit that actually landed; StreakMax is the longest run this session.</summary>
+    public int RuneBlockCount { get; init; }
+    public int RuneBlockStreak { get; init; }
+    public int RuneBlockStreakMax { get; init; }
     public int LootTotal { get; init; }
     public List<LootDetail> Loot { get; init; } = [];
     public List<NameCount> Crafted { get; init; } = [];

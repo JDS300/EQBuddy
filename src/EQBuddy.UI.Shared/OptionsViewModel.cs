@@ -187,6 +187,12 @@ public sealed class OptionsViewModel : INotifyPropertyChanged
     }
 
     // ---- toggles ----
+    public bool ArchiveLogs
+    {
+        get => _settings.ArchiveLogs;
+        set { _settings.ArchiveLogs = value; PersistAnd(); }
+    }
+
     public bool TruncateLogs
     {
         get => _settings.TruncateLogs;

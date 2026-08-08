@@ -82,6 +82,14 @@ public static partial class LogParser
     [GeneratedRegex(@"^(?<attacker>.+?) tries to (?:\w+)(?: on)? YOU, but (?<reason>.+)!(?: \([^)]+\))?$")]
     private static partial Regex MeleeInMissRx();
 
+    // A froglok shin knight tries to hit YOU, but YOUR magical skin absorbs the blow!
+    // Checked ahead of MeleeInMissRx: "YOUR magical skin absorbs" is the player's own
+    // rune blocking an incoming hit, distinct from a mob's OWN skin absorbing the
+    // player's outgoing attack ("... but a froglok tactician's magical skin absorbs
+    // the blow!", which MeleeMissRx already covers as an ordinary outgoing miss).
+    [GeneratedRegex(@"^(?<attacker>.+?) tries to \w+(?: on)? YOU, but YOUR magical skin absorbs the blow!(?: \([^)]+\))?$")]
+    private static partial Regex RuneBlockInRx();
+
     // YOU are burned by orc centurion's flames for 6 points of non-melee damage!
     [GeneratedRegex(@"^YOU are (?<how>.+?) for (?<dmg>\d+) points? of non-melee damage!$")]
     private static partial Regex NonMeleeInRx();
@@ -135,6 +143,11 @@ public static partial class LogParser
     // "(Lvl: N)" tail so a chat line can't satisfy it.)
     [GeneratedRegex(@"^(?<name>.+?) (?:scowls at you|regards you|glares at you|glowers at you|judges you|kindly considers you|looks upon you|looks your way).*\(Lvl: (?<level>\d+)\)$")]
     private static partial Regex ConsiderRx();
+
+    // You gain a rune for 8 points of absorption. — a berserker/rune buff building its
+    // absorption pool; functions as self-mitigation, so it's tracked as a self-heal.
+    [GeneratedRegex(@"^You gain a rune for (?<amount>\d+) points? of absorption\.$")]
+    private static partial Regex RuneAbsorbRx();
 
     // You assume a ranged stance. / You assume an offensive stance.
     [GeneratedRegex(@"^You assume an? (?<stance>.+?) stance\.$")]
@@ -427,6 +440,9 @@ public static partial class LogParser
         if ((r = MeleeMissRx().Match(msg)).Success)
             return new MissEvent(ts, Outgoing: true);
 
+        if ((r = RuneBlockInRx().Match(msg)).Success)
+            return new RuneBlockEvent(ts, Normalize(r.Groups["attacker"].Value));
+
         if ((r = MeleeInMissRx().Match(msg)).Success)
             return new MissEvent(ts, Outgoing: false);
 
@@ -441,6 +457,10 @@ public static partial class LogParser
 
         if (RegenTickRx().IsMatch(msg))
             return new RegenTickEvent(ts);
+
+        if ((r = RuneAbsorbRx().Match(msg)).Success)
+            return new HealEvent(ts, "You", int.Parse(r.Groups["amount"].Value), "Rune",
+                Outgoing: false, Healer: "Rune");
 
         if ((r = HealInByRx().Match(msg)).Success)
             return new HealEvent(ts, "You", int.Parse(r.Groups["amount"].Value),

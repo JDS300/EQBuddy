@@ -51,6 +51,43 @@ public class EqlWikiMobsTests
     }
 
     [Fact]
+    public async Task ZoneDisambiguatedPagesResolveAndTheCurrentZoneWins()
+    {
+        // The orc-legionnaire-mid-fight case (David, live, 2026-08-07): the bare-name
+        // page is a broken redirect (returns nothing), the real drops live at
+        // "Orc Legionnaire (Crushbone)" and "(Deathfist)". The zone-suffix-stripped
+        // fuzzy compare admits both; the player's zone picks Crushbone.
+        var fetched = new List<string>();
+        var svc = new EqlWikiMobService(
+            Path.Combine(Path.GetTempPath(), $"mobcache-{Guid.NewGuid():N}"),
+            title =>
+            {
+                fetched.Add(title);
+                return Task.FromResult<string?>(title switch
+                {
+                    "Orc Legionnaire (Crushbone)" =>
+                        "{{Namedmobpage\n| name = Orc Legionnaire\n| known_loot = \n{{:Crushbone Belt}}\n}}",
+                    "Orc Legionnaire (Deathfist)" =>
+                        "{{Namedmobpage\n| name = Orc Legionnaire\n| known_loot = \n{{:Deathfist Slashed Belt}}\n}}",
+                    _ => null,   // bare page: broken redirect, every exact candidate misses
+                });
+            },
+            _ => Task.FromResult(new List<string>
+                { "Orc legionnaire", "Orc Legionnaire (Deathfist)", "Orc Legionnaire (Crushbone)" }));
+
+        var result = await svc.LookupAsync("Orc legionnaire", currentZone: "Crushbone");
+        Assert.Equal(ItemLookupState.Live, result.State);
+        Assert.Equal("Crushbone Belt", result.Mob!.Drops.Single().Item);
+        // Zoneless bare page was still tried first (it outranks FOREIGN zones).
+        Assert.Contains("Orc legionnaire", fetched);
+
+        // Without a zone hint, the zoneless candidate still leads and the first
+        // resolvable zone page wins — no dead end, no wrong-first bias.
+        var noZone = await svc.LookupAsync("Orc legionnaireX".Replace("X", ""), "");
+        Assert.Equal(ItemLookupState.Cached, noZone.State);   // second call hits the cache
+    }
+
+    [Fact]
     public async Task TheNamedMobsResolveViaTheirArticle()
     {
         // Normalize strips "the " like any article, so The Prophet arrives as "Prophet" —

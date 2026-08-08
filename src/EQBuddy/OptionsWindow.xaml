@@ -92,6 +92,13 @@
             </CheckBox>
             <TextBlock Text="Turn off if you use GINA/GamParse or upload your log files elsewhere — they will grow forever, so clean them up yourself occasionally. (Cleanup already stands down whenever the game, GINA, or GamParse is running.)"
                        Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="20,2,0,0"/>
+            <CheckBox x:Name="ArchiveCheck" Margin="20,6,0,0"
+                      Checked="OnArchiveChanged" Unchecked="OnArchiveChanged">
+                <TextBlock Text="Keep a timestamped copy before emptying (Logs\archive)" FontSize="12"
+                           Foreground="{DynamicResource TextBrush}"/>
+            </CheckBox>
+            <TextBlock Text="Each finished session is saved as eqlog_name_server_YYYYMMDDHHMMSS.txt — the stamp is when the session ended. Archives are yours to keep or clean up; EQBuddy never deletes them."
+                       Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="40,2,0,0"/>
 
             <CheckBox x:Name="TutorialCheck" Margin="0,10,0,0"
                       Checked="OnTutorialToggled" Unchecked="OnTutorialToggled">
@@ -162,7 +169,7 @@
             </Border>
             <!-- Shared-size scope so the header row's Auto columns track the rule rows'. -->
             <StackPanel x:Name="RulesPanel" Margin="0,4,0,0" Grid.IsSharedSizeScope="True"/>
-            <Button x:Name="AddRuleBtn" Content="+ Add watch rule" Style="{StaticResource IconButton}"
+            <Button x:Name="AddRuleBtn" Content="+ Add watch rule" Style="{StaticResource ActionButton}"
                     HorizontalAlignment="Left" FontSize="12" Click="OnAddRule"/>
             <CheckBox x:Name="PinChipsCheck" Margin="0,6,0,0"
                       Checked="OnPinChipsChanged" Unchecked="OnPinChipsChanged">

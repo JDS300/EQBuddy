@@ -6,7 +6,11 @@ public class QuestTrackerTests : IDisposable
 {
     private readonly string _path = Path.Combine(Path.GetTempPath(), $"quest-ledger-{Guid.NewGuid():N}.json");
 
-    public void Dispose() { try { File.Delete(_path); } catch { } }
+    public void Dispose()
+    {
+        try { File.Delete(_path); } catch { }
+        try { File.Delete(_path + ".rules"); } catch { }
+    }
 
     private QuestLedgerStore Store() => new(_path) { TrackFilter = _ => true };
 
@@ -151,11 +155,15 @@ public class QuestTrackerTests : IDisposable
     [Fact]
     public void PreTrackingLedgerShapeMigrates()
     {
-        // The one-day-old shape: char → item → entry, no Tracked list.
+        // The one-day-old shape: char → item → entry, no Tracked list. Its items carry
+        // over — and because that shape predates the v2 counting rules, the rules bump
+        // clears the LOG-derived counter (replay rebuilds it) while the manual count,
+        // being the user's own statement, survives.
         File.WriteAllText(_path,
             """{"dranak_legends":{"Bone Chips":{"Looted":3,"Manual":1,"LastTime":"2026-08-07T12:00:00"}}}""");
         var store = new QuestLedgerStore(_path);
-        Assert.Equal(4, store.For("dranak_legends")["Bone Chips"].Total);
+        Assert.Equal(0, store.For("dranak_legends")["Bone Chips"].Looted);
+        Assert.Equal(1, store.For("dranak_legends")["Bone Chips"].Total);
         Assert.Empty(store.TrackedFor("dranak_legends"));
     }
 
@@ -219,6 +227,124 @@ public class QuestTrackerTests : IDisposable
         Assert.False(q.TouchesZone("Qeynos"));
         Assert.False(q.TouchesZone(""));
     }
+
+    [Fact]
+    public void SalesMergesAndDestroysSubtract()
+    {
+        var store = Store();
+        store.Normalize = QuestCatalog.BaseItemName;
+        store.RecordLoot("dranak_freeport", "Crushbone Belt +2", 1, T0);
+        store.RecordLoot("dranak_freeport", "Crushbone Belt +2", 1, T0.AddMinutes(1));
+        store.RecordLoot("dranak_freeport", "Crushbone Belt +2", 1, T0.AddMinutes(2));
+        // Manual merge: two belts became one.
+        store.RecordConsumed("dranak_freeport", "Crushbone Belt +4", 1, T0.AddMinutes(3));
+        Assert.Equal(2, store.For("dranak_freeport")["Crushbone Belt"].Total);
+        // Sold one.
+        store.RecordConsumed("dranak_freeport", "Crushbone Belt +4", 1, T0.AddMinutes(4));
+        Assert.Equal(1, store.For("dranak_freeport")["Crushbone Belt"].Total);
+        // Replay re-offers everything: the time gate bounces it all.
+        store.RecordConsumed("dranak_freeport", "Crushbone Belt +4", 1, T0.AddMinutes(3));
+        store.RecordLoot("dranak_freeport", "Crushbone Belt +2", 1, T0);
+        Assert.Equal(1, store.For("dranak_freeport")["Crushbone Belt"].Total);
+        // Consumption of pre-tracking items can't drive Total negative.
+        store.RecordConsumed("dranak_freeport", "Crushbone Belt", 9, T0.AddMinutes(9));
+        Assert.Equal(0, store.For("dranak_freeport")["Crushbone Belt"].Total);
+    }
+
+    [Fact]
+    public void CountingRulesBumpResetsLogCountersButKeepsUserStatements()
+    {
+        var store = Store();
+        store.RecordLoot("dranak_freeport", "Crushbone Belt", 5, T0);
+        store.SetManual("dranak_freeport", "Crushbone Belt", 2);
+        store.SetTracked("dranak_freeport", "Orc Vest", true);
+        // Simulate an old-rules ledger: remove the rules marker and reload.
+        File.Delete(_path + ".rules");
+        var reloaded = new QuestLedgerStore(_path);
+        var entry = reloaded.For("dranak_freeport")["Crushbone Belt"];
+        Assert.Equal(0, entry.Looted);            // log-derived: reset, replay rebuilds
+        Assert.Equal(2, entry.Manual);            // the user's statement survives
+        Assert.Equal(["Orc Vest"], reloaded.TrackedFor("dranak_freeport").ToArray());
+        // And the replay can now re-record from time zero.
+        reloaded.TrackFilter = _ => true;
+        reloaded.RecordLoot("dranak_freeport", "Crushbone Belt", 1, T0);
+        Assert.Equal(1, reloaded.For("dranak_freeport")["Crushbone Belt"].Looted);
+    }
+
+    [Fact]
+    public void UpgradeTiersFoldToTheBaseItem()
+    {
+        // David looted "Crushbone Shoulderpads +2" live and the tracker saw a stranger:
+        // Legends suffixes upgrade tiers, the wiki catalogs the base item.
+        Assert.Equal("Crushbone Shoulderpads", QuestCatalog.BaseItemName("Crushbone Shoulderpads +2"));
+        Assert.Equal("Crushbone Belt", QuestCatalog.BaseItemName("Crushbone Belt"));
+        Assert.Equal("Gold Ring +1", QuestCatalog.BaseItemName("Gold Ring +1 ") is var r && r == "Gold Ring" ? "Gold Ring +1" : "FAIL");
+
+        var cat = Catalog();
+        Assert.True(cat.IsTurnInItem("Bone Chips +3"));
+        Assert.Single(cat.QuestsWanting("Crushbone Belt +5"), q => q.Name == "Belt Collector");
+
+        // The ledger stores the base name, so quest matching just works.
+        var store = Store();
+        store.Normalize = QuestCatalog.BaseItemName;
+        store.RecordLoot("dranak_freeport", "Crushbone Belt +2", 1, T0);
+        store.RecordLoot("dranak_freeport", "Crushbone Belt +4", 1, T0.AddMinutes(1));
+        Assert.Equal(2, store.For("dranak_freeport")["Crushbone Belt"].Looted);
+    }
+
+    [Fact]
+    public void MulticlassFilterIsAUnion()
+    {
+        // Legends: up to three active classes — a quest ANY of them can do stays visible.
+        string[] pal = ["Paladin"];
+        string[] palNec = ["Paladin", "Necromancer"];
+        Assert.False(QuestClassFilter.MatchesAny("ALL except NEC WIZ MAG ENC", []) == false); // empty = no filter
+        Assert.True(QuestClassFilter.MatchesAny("Cleric, Paladin", pal));
+        Assert.True(QuestClassFilter.MatchesAny("ALL except PAL", palNec));   // the necro side passes
+        Assert.False(QuestClassFilter.MatchesAny("Cleric", palNec));
+        Assert.Equal("SHD", QuestClassFilter.Abbrev("Shadow Knight"));
+        Assert.Equal("BER", QuestClassFilter.Abbrev("Berserker"));
+    }
+
+    [Fact]
+    public void CharacterClassesPersistPerCharacter()
+    {
+        var store = Store();
+        store.SetClasses("dranak_legends", ["Paladin", "Necromancer", "paladin"]);   // dedup
+        var reloaded = new QuestLedgerStore(_path);
+        Assert.Equal(["Paladin", "Necromancer"], reloaded.ClassesFor("dranak_legends"));
+        Assert.Empty(reloaded.ClassesFor("vex_legends"));
+    }
+
+    [Fact]
+    public void BerserkerIsAKnownClass()
+    {
+        // twidget76's #61: the class dropdown builds from this array.
+        Assert.Contains("Berserker", QuestClassFilter.Classes);
+        Assert.True(QuestClassFilter.Matches("Berserker", "Berserker"));
+        Assert.True(QuestClassFilter.Matches("ALL except BER", "Warrior"));
+        Assert.False(QuestClassFilter.Matches("ALL except BER", "Berserker"));
+    }
+
+    [Theory]
+    [InlineData("Classic", "Kunark", true)]     // older content stays available
+    [InlineData("Kunark", "Kunark", true)]
+    [InlineData("Velious", "Kunark", false)]    // the future is hidden
+    [InlineData("Luclin", "Velious", false)]
+    [InlineData("", "Kunark", true)]            // unmarked quests fail open
+    [InlineData("Sky", "", true)]               // no ceiling = everything
+    [InlineData("Weirdland", "Kunark", true)]   // unknown era fails open
+    public void EraLadderHidesOnlyTheFuture(string questEra, string through, bool expected)
+        => Assert.Equal(expected, QuestEraLadder.Allowed(questEra, through));
+
+    [Theory]
+    [InlineData(1.0, 1, 1.1)]
+    [InlineData(1.0, -1, 0.9)]
+    [InlineData(2.5, 1, 2.5)]     // clamps high
+    [InlineData(0.6, -1, 0.6)]    // clamps low
+    [InlineData(1.0, 120, 1.1)]   // raw wheel delta = one step, not twelve
+    public void ZoomStepsTenPercentClamped(double current, int delta, double expected)
+        => Assert.Equal(expected, EQBuddy.UI.Shared.WindowZoomMath.Step(current, delta), 3);
 
     [Fact]
     public void QuestItemMarkerCoversTurnInsAndCategory()

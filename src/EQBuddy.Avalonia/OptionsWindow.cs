@@ -27,6 +27,7 @@ public sealed class OptionsWindow : Window
     private readonly CheckBox _trackSpawnsCheck = new() { Margin = new Thickness(0, 10, 0, 0) };
     private readonly CheckBox _selfHotCheck = new() { Margin = new Thickness(0, 10, 0, 0) };
     private readonly ComboBox _themeCombo = new() { Width = 130, FontSize = 12 };
+    private readonly StackPanel _customColorsPanel = new() { IsVisible = false };
     private readonly ComboBox _windowCombo = new() { Width = 90, FontSize = 12 };
     private readonly ComboBox _soundCombo = new() { Width = 120, FontSize = 12 };
     private readonly TextBlock _soundFileNote = AppTheme.DimText("");
@@ -72,6 +73,7 @@ public sealed class OptionsWindow : Window
     public OptionsWindow(MainWindow main)
     {
         _main = main;
+        _main.RegisterOptionsWindow(this);
         Title = "EQBuddy Options";
         SizeToContent = SizeToContent.WidthAndHeight;
         WindowDecorations = global::Avalonia.Controls.WindowDecorations.None;
@@ -198,6 +200,7 @@ public sealed class OptionsWindow : Window
 
         BuildRulesEditor();
         BuildCardsEditor();
+        UpdateCustomColorsPanel();
         // Restore before _ready so this doesn't count as the user changing it.
         ToggleGuide(main.Settings.ShowWatchGuide, persist: false);
         UpdateLabels();
@@ -213,7 +216,10 @@ public sealed class OptionsWindow : Window
     }
 
     /// <summary>Title row (fixed) over a scrolling body — the split that keeps the close
-    /// button reachable no matter how far the watch-rules section grows underneath it.</summary>
+    /// button reachable no matter how far the watch-rules section grows underneath it.
+    /// This supersedes upstream's single whole-window ScrollViewer: same goal (bound the
+    /// height, put the overflow in a scroller), but the close button lives outside the
+    /// scroller instead of scrolling away with everything else.</summary>
     private Control BuildChrome()
     {
         var grid = new Grid();
@@ -251,6 +257,7 @@ public sealed class OptionsWindow : Window
         var panel = new StackPanel { Margin = new Thickness(16, 0, 16, 16), Width = BodyWidth };
 
         panel.Children.Add(Row("Theme", _themeCombo, new Thickness(0, 0, 0, 12)));
+        panel.Children.Add(_customColorsPanel);
 
         AddSlider(panel, "Widget size", _scaleLabel, _scaleSlider);
         AddSlider(panel, "Background see-through", _bgOpacityLabel, _bgOpacitySlider,
@@ -259,10 +266,9 @@ public sealed class OptionsWindow : Window
             "Fades everything, text included.");
         panel.Children.Add(_truncateCheck);
         panel.Children.Add(AppTheme.DimText(
-            "Turn off if you upload your log files elsewhere - they will grow forever, so clean them up yourself occasionally.",
+            "Turn off if you use GINA/GamParse or upload your logs elsewhere - they will grow forever, so clean them up yourself occasionally. Cleanup already stands down whenever the game, GINA, or GamParse is running.",
             new Thickness(20, 2, 0, 0)));
         panel.Children.Add(_tutorialCheck);
-
         panel.Children.Add(_trackSpawnsCheck);
         panel.Children.Add(AppTheme.DimText(
             "Kill a named - or its placeholder - and a small countdown chicklet appears (⏳ Asaka L`Rei 3:12). Chicklets stack, drag anywhere as one, show every timer you have running in any zone, and flip to DUE for a minute (click to dismiss sooner). Double-click one (or right-click → Spawn timers...) for the full zone list, which follows you zone to zone. We captured the respawn times we could from community sources - if you notice a discrepancy in game, type over the duration: your number wins and survives updates.",
@@ -435,6 +441,8 @@ public sealed class OptionsWindow : Window
             // picker: one named spell, or a whole class that keeps working as the
             // character levels into new spells and ranks. Nested in its own Grid, matching
             // the WPF layout, so the combo can claim the whole cell when the text box hides.
+            // A class-wide filter ignores match text, so the box is hidden without being
+            // cleared: switching back to By name restores exactly what was typed.
             var matchArea = new Grid();
             matchArea.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
             matchArea.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
@@ -663,6 +671,97 @@ public sealed class OptionsWindow : Window
         _main.PersistSettings();
         AppTheme.Apply(_main.Settings);
         _main.RefreshTheme();
+        UpdateCustomColorsPanel();
+    }
+
+    private static readonly string[] SwatchColors =
+    [
+        "#000000", "#1A1A1A", "#20242B", "#26211A", "#002B36", "#FDF6E3", "#FFFFFF",
+        "#EAEAEA", "#E3B341", "#FFD24D", "#5FA8D3", "#3FCFBE", "#7FBF5F", "#E0654A",
+        "#C080D0", "#9C9C9C",
+    ];
+
+    private void UpdateCustomColorsPanel()
+    {
+        _customColorsPanel.IsVisible = _main.Settings.Theme == CustomTheme.Key;
+        _customColorsPanel.Children.Clear();
+        if (!_customColorsPanel.IsVisible) return;
+
+        _customColorsPanel.Margin = new Thickness(0, -7, 0, 10);
+        _customColorsPanel.Children.Add(ColorRow("Background",
+            _main.Settings.CustomThemeBg ?? CustomTheme.DefaultBg,
+            value => _main.Settings.CustomThemeBg = value));
+        _customColorsPanel.Children.Add(ColorRow("Text",
+            _main.Settings.CustomThemeText ?? CustomTheme.DefaultText,
+            value => _main.Settings.CustomThemeText = value));
+        _customColorsPanel.Children.Add(ColorRow("Accent",
+            _main.Settings.CustomThemeAccent ?? CustomTheme.DefaultAccent,
+            value => _main.Settings.CustomThemeAccent = value));
+    }
+
+    private Control ColorRow(string label, string initial, Action<string> store)
+    {
+        var current = initial;
+        var row = new Grid { Margin = new Thickness(0, 3) };
+        row.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(78)));
+        row.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+        row.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(76)));
+        row.Children.Add(new TextBlock
+        {
+            Text = label, FontSize = 11, Foreground = AppTheme.TextBrush,
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+
+        var hex = DarkBox(current, "#RRGGBB");
+        hex.Width = 74;
+        void Commit(string? value)
+        {
+            if (CustomTheme.Valid(value) is not { } valid)
+            {
+                hex.Text = current;
+                return;
+            }
+            current = valid;
+            hex.Text = valid;
+            store(valid);
+            _main.PersistSettings();
+            AppTheme.Apply(_main.Settings);
+            _main.RefreshTheme();
+        }
+
+        var swatches = new WrapPanel { Margin = new Thickness(2, 0, 6, 0) };
+        foreach (var color in SwatchColors)
+        {
+            var swatch = new Border
+            {
+                Width = 15, Height = 15, Margin = new Thickness(1),
+                CornerRadius = new CornerRadius(2), BorderThickness = new Thickness(1),
+                BorderBrush = AppTheme.DimBrush,
+                Background = new SolidColorBrush(Color.Parse(color)),
+                Cursor = new Cursor(StandardCursorType.Hand),
+            };
+            ToolTip.SetTip(swatch, color);
+            swatch.PointerPressed += (_, e) =>
+            {
+                if (!e.GetCurrentPoint(swatch).Properties.IsLeftButtonPressed) return;
+                Commit(color);
+                e.Handled = true;
+            };
+            swatches.Children.Add(swatch);
+        }
+        Grid.SetColumn(swatches, 1);
+        row.Children.Add(swatches);
+
+        hex.LostFocus += (_, _) => Commit(hex.Text);
+        hex.KeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Enter) return;
+            Commit(hex.Text);
+            e.Handled = true;
+        };
+        Grid.SetColumn(hex, 2);
+        row.Children.Add(hex);
+        return row;
     }
 
     private async void OnSoundChanged(object? sender, SelectionChangedEventArgs e)

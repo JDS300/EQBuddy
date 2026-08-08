@@ -78,4 +78,43 @@ public class EqConfigTests : IDisposable
         Assert.Equal(0, new FileInfo(stale).Length);
         Assert.Equal("recent line", File.ReadAllText(fresh));
     }
+
+    [Fact]
+    public void ArchivesBeforeTruncatingWhenAsked()
+    {
+        var stale = Path.Combine(LogsDir, "eqlog_Dranak_legends.txt");
+        File.WriteAllText(stale, "a whole session of lines");
+        var ended = new DateTime(2026, 6, 7, 14, 32, 19);
+        File.SetLastWriteTime(stale, ended);
+
+        var count = EqConfig.TruncateStaleLogs(LogsDir, TimeSpan.FromMinutes(60),
+            ignoreGameCheck: true, archive: true);
+
+        Assert.Equal(1, count);
+        Assert.Equal(0, new FileInfo(stale).Length);
+        // joeymavity's exact naming (discussion #52): stamp is the session's END time,
+        // and the copy lives in archive\ so the next sweep can never eat it.
+        var archived = Path.Combine(LogsDir, "archive", "eqlog_Dranak_legends_20260607143219.txt");
+        Assert.Equal("a whole session of lines", File.ReadAllText(archived));
+
+        // A second session ending the same second keeps both copies.
+        File.WriteAllText(stale, "second session");
+        File.SetLastWriteTime(stale, ended);
+        EqConfig.TruncateStaleLogs(LogsDir, TimeSpan.FromMinutes(60),
+            ignoreGameCheck: true, archive: true);
+        Assert.Equal("second session", File.ReadAllText(
+            Path.Combine(LogsDir, "archive", "eqlog_Dranak_legends_20260607143219-2.txt")));
+    }
+
+    [Fact]
+    public void ArchiveOffLeavesNoCopies()
+    {
+        var stale = Path.Combine(LogsDir, "eqlog_Dranak_legends.txt");
+        File.WriteAllText(stale, "lines");
+        File.SetLastWriteTime(stale, DateTime.Now.AddHours(-2));
+
+        EqConfig.TruncateStaleLogs(LogsDir, TimeSpan.FromMinutes(60), ignoreGameCheck: true);
+
+        Assert.False(Directory.Exists(Path.Combine(LogsDir, "archive")));
+    }
 }

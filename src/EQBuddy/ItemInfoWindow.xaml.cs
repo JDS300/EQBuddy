@@ -18,9 +18,10 @@ public partial class ItemInfoWindow : Window
     private string? _currentUrl;
     private int _requestSeq;
 
-    public ItemInfoWindow(EqlWikiItemService service)
+    public ItemInfoWindow(EqlWikiItemService service, AppSettings settings)
     {
         InitializeComponent();
+        WindowZoom.Attach(this, "iteminfo", settings);
         _service = service;
         var wa = SystemParameters.WorkArea;
         Left = wa.Right - Width - 60;

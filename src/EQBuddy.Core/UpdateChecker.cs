@@ -8,8 +8,11 @@ namespace EQBuddy.Core;
 
 /// <summary>SetupPath is a local file ready to install as-is (the OneDrive path). DownloadUrl
 /// is set instead for a GitHub-sourced update — StageForInstall fetches it over HTTP first,
-/// then installs the same way. Both null means no update is available.</summary>
-public sealed record UpdateInfo(Version Latest, string? SetupPath, string? DownloadUrl = null, string? Sha256Url = null);
+/// then installs the same way. Both null means no update is available. LinuxTarballUrl is the
+/// release's EQBuddy-linux-x64.tar.gz asset when one is attached: nothing here stages or runs
+/// it, the Linux UI just hands it to the browser so users land on the right file instead of a
+/// Windows installer (issue #56).</summary>
+public sealed record UpdateInfo(Version Latest, string? SetupPath, string? DownloadUrl = null, string? Sha256Url = null, string? LinuxTarballUrl = null);
 
 /// <summary>
 /// Local-first update checker: looks for a newer EQBuddySetup.exe in the family's
@@ -20,6 +23,7 @@ public static class UpdateChecker
 {
     private const string FolderName = "EQBuddyDownload";
     private const string SetupName = "EQBuddySetup.exe";
+    public const string LinuxTarballName = "EQBuddy-linux-x64.tar.gz";
     private const string GitHubLatestApi = "https://api.github.com/repos/DranakCorps-bot/EQBuddy/releases/latest";
     public const string GitHubLatestPage = "https://github.com/DranakCorps-bot/EQBuddy/releases/latest";
 
@@ -155,41 +159,53 @@ public static class UpdateChecker
         return web.Latest > local.Latest ? web : local;
     }
 
-    /// <summary>Latest GitHub release, including the installer asset's download URL when
-    /// the release publishes one (SetupName, optionally with a sibling .sha256 for
-    /// integrity checking) — null if unreachable, unparseable, or no installer is attached
-    /// (e.g. a release that only ships the Linux tarball).</summary>
+    /// <summary>Latest GitHub release — null if unreachable or unparseable. See
+    /// <see cref="ParseRelease"/> for which assets end up in the result.</summary>
     public static async Task<UpdateInfo?> CheckGitHubAsync()
     {
         try
         {
-            var json = await Http.GetStringAsync(GitHubLatestApi);
-            using var doc = JsonDocument.Parse(json);
-            var tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
-            if (!Version.TryParse(tag.TrimStart('v', 'V'), out var v)) return null;
-
-            string? downloadUrl = null, sha256Url = null;
-            foreach (var asset in doc.RootElement.GetProperty("assets").EnumerateArray())
-            {
-                var name = asset.GetProperty("name").GetString() ?? "";
-                var url = asset.GetProperty("browser_download_url").GetString();
-                if (name.Equals(SetupName, StringComparison.OrdinalIgnoreCase)) downloadUrl = url;
-                else if (name.Equals(SetupName + ".sha256", StringComparison.OrdinalIgnoreCase)) sha256Url = url;
-            }
-
-            // Fail closed: an installer we can't verify is not one we'll download and run
-            // on the user's behalf. Dropping the URL (rather than the whole update) leaves
-            // the banner offering the release page, so the user still learns an update
-            // exists and can fetch it deliberately. release.ps1 always publishes the hash,
-            // so in practice this only fires on a hand-made or half-uploaded release.
-            if (sha256Url is null) downloadUrl = null;
-
-            return new UpdateInfo(Normalize(v), SetupPath: null, downloadUrl, sha256Url);
+            return ParseRelease(await Http.GetStringAsync(GitHubLatestApi));
         }
         catch
         {
             return null;
         }
+    }
+
+    /// <summary>A releases-API response as an UpdateInfo: the installer asset's download
+    /// URL when the release publishes one (SetupName, with its sibling .sha256 for
+    /// integrity checking), and the Linux tarball's URL when that asset is attached (it
+    /// lands a few minutes after the release, from CI — absent means "release page only"
+    /// for Linux users, not "no update"). Null when the tag isn't a version. Split out
+    /// from <see cref="CheckGitHubAsync"/> so asset selection is testable without a
+    /// network.</summary>
+    public static UpdateInfo? ParseRelease(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
+        if (!Version.TryParse(tag.TrimStart('v', 'V'), out var v)) return null;
+
+        string? downloadUrl = null, sha256Url = null, linuxTarballUrl = null;
+        foreach (var asset in doc.RootElement.GetProperty("assets").EnumerateArray())
+        {
+            var name = asset.GetProperty("name").GetString() ?? "";
+            var url = asset.GetProperty("browser_download_url").GetString();
+            if (name.Equals(SetupName, StringComparison.OrdinalIgnoreCase)) downloadUrl = url;
+            else if (name.Equals(SetupName + ".sha256", StringComparison.OrdinalIgnoreCase)) sha256Url = url;
+            else if (name.Equals(LinuxTarballName, StringComparison.OrdinalIgnoreCase)) linuxTarballUrl = url;
+        }
+
+        // Fail closed: an installer we can't verify is not one we'll download and run
+        // on the user's behalf. Dropping the URL (rather than the whole update) leaves
+        // the banner offering the release page, so the user still learns an update
+        // exists and can fetch it deliberately. release.ps1 always publishes the hash,
+        // so in practice this only fires on a hand-made or half-uploaded release.
+        // The tarball is exempt: it's never staged or executed by us, only handed to
+        // the browser — the same trust as clicking the asset on the release page.
+        if (sha256Url is null) downloadUrl = null;
+
+        return new UpdateInfo(Normalize(v), SetupPath: null, downloadUrl, sha256Url, linuxTarballUrl);
     }
 
     /// <summary>

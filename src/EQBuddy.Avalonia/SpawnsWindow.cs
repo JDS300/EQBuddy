@@ -63,7 +63,11 @@ internal sealed class SpawnsWindow : Window
         _settings = main.Settings;
 
         Title = "EQBuddy Spawns";
-        Width = 470;
+        // Rows can carry start, bell, sound, clear, and delete actions, and which of those
+        // exist changes as timers start and stop. Upstream widened the window and gave the
+        // action lane a fixed width so that starting a timer (which adds ✕) can no longer
+        // reflow the duration and "died ago" boxes out from under the cursor.
+        Width = 740;
         SizeToContent = SizeToContent.Height;
         WindowDecorations = global::Avalonia.Controls.WindowDecorations.None;
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
@@ -82,9 +86,14 @@ internal sealed class SpawnsWindow : Window
         };
         _zoneCombo = new ComboBox { FontSize = 11, HorizontalAlignment = HorizontalAlignment.Stretch };
         ToolTip.SetTip(_zoneCombo, "Which zone's named to show");
+        // Plain string content, not a TextBlock: the label has to stay readable as the
+        // CheckBox's own Content for anything inspecting it, so the foreground is set on
+        // the control instead of on a nested block.
         _followCheck = new CheckBox
         {
-            Content = new TextBlock { Text = "Follow", FontSize = 11, Foreground = AppTheme.TextBrush },
+            Content = "Follow",
+            FontSize = 11,
+            Foreground = AppTheme.TextBrush,
             Margin = new Thickness(10, 2, 0, 0),
         };
         ToolTip.SetTip(_followCheck, "Switch to whatever zone the log says you are in");
@@ -234,12 +243,14 @@ internal sealed class SpawnsWindow : Window
         }
 
         var zone = SelectedZone;
-        _titleText.Text = zone.Length > 0 ? $"🕒 Spawns — {zone}" : "🕒 Spawns";
+        _titleText.Text = zone.Length > 0 ? $"🕒 Spawns - {zone}" : "🕒 Spawns";
         if (zone.Length == 0) return;
 
         var now = DateTime.Now;
         _rows = _vm.RowsFor(zone, now);
-        var signature = zone + "" + string.Join("",
+        // U+0001 rather than an empty joiner: a separator no mob name can contain, so
+        // two different row lists cannot collapse to the same signature and skip a rebuild.
+        var signature = zone + "\u0001" + string.Join("\u0001",
             _rows.Select(r => $"{r.DisplayName}|{r.HasActiveTimer}|{r.IsDue}|{r.DurationText}|{r.Alert}|{r.SoundName}|{r.IsCustom}"));
         if (signature != _signature)
         {
@@ -279,10 +290,12 @@ internal sealed class SpawnsWindow : Window
         {
             var grid = new Grid { Margin = new Thickness(0, 1, 0, 1) };
             grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
-            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(62)));   // countdown
-            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(56)));   // duration
-            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(34)));   // ago
-            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));      // buttons
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(72)));    // countdown
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(70)));    // duration
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(60)));    // ago
+            // Fixed, not Auto: the buttons a row carries change as timers start and stop,
+            // and an Auto lane would resize the whole row underneath the boxes when it did.
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(232)));   // buttons
 
             var name = new TextBlock
             {
@@ -313,17 +326,24 @@ internal sealed class SpawnsWindow : Window
 
             var duration = DarkBox(row.DurationText,
                 "Respawn time: 22 (minutes), 90s, 12h, 3d, 6:40 — edits persist as yours");
+            duration.Margin = new Thickness(0, 0, 6, 0);
             duration.LostFocus += (_, _) => CommitDuration(duration, row);
             duration.KeyDown += (_, e) => { if (e.Key == Key.Enter) CommitDuration(duration, row); };
             Grid.SetColumn(duration, 2);
             grid.Children.Add(duration);
 
             var ago = DarkBox("", "Died how long ago? (5m, 90s) Empty = just now");
-            ago.Margin = new Thickness(4, 0, 0, 0);
+            ago.Margin = new Thickness(0, 0, 8, 0);
             Grid.SetColumn(ago, 3);
             grid.Children.Add(ago);
 
-            var buttons = new StackPanel { Orientation = Orientation.Horizontal };
+            // Left-aligned inside the fixed lane, so a row with fewer buttons keeps the
+            // ones it has in the same place as every other row.
+            var buttons = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Left,
+            };
             buttons.Children.Add(RowButton("▶", "Start the countdown from a kill you saw yourself",
                 () => { _vm.StartNow(row.Zone, row.Name, ago.Text ?? ""); Kick(); }));
             var bell = RowButton(row.Alert ? "🔔" : "🔕",
@@ -353,7 +373,7 @@ internal sealed class SpawnsWindow : Window
         var combo = new ComboBox
         {
             FontSize = 10,
-            Width = 66,
+            Width = 78,
             Margin = new Thickness(4, 0, 0, 0),
         };
         foreach (var item in (string[])["Default", "Off", .. AlertSoundCatalog.Names, "Custom…"])

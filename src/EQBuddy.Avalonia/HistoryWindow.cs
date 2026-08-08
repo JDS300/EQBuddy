@@ -1,6 +1,9 @@
+using Avalonia;
+using Avalonia.Controls.Shapes;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using EQBuddy.Core;
 using EQBuddy.UI.Shared;
@@ -14,6 +17,15 @@ public sealed partial class HistoryWindow : Window
 
     public HistoryWindow(SessionRepository repository)
     {
+        Resources["BgBrush"] = AppTheme.BgBrush;
+        Resources["PanelBrush"] = AppTheme.PanelBrush;
+        Resources["PanelHoverBrush"] = AppTheme.PanelHoverBrush;
+        Resources["BorderBrush"] = AppTheme.BorderBrush;
+        Resources["TextBrush"] = AppTheme.TextBrush;
+        Resources["DimBrush"] = AppTheme.DimBrush;
+        Resources["AccentBrush"] = AppTheme.AccentBrush;
+        Resources["BadBrush"] = AppTheme.BadBrush;
+        Resources["ComboBoxBrush"] = AppTheme.ComboBoxBrush;
         _viewModel = new HistoryViewModel(repository);
         InitializeComponent();
         DataContext = _viewModel;
@@ -41,6 +53,7 @@ public sealed partial class HistoryWindow : Window
             _viewModel.SelectSession(removed.Row.Id, additive: true);
         foreach (var added in e.AddedItems.OfType<HistorySessionItem>())
             _viewModel.SelectSession(added.Row.Id, additive: true);
+        RenderDpsGraph(_viewModel.SelectedDetail?.Timeline);
     }
 
     private void RefreshSessions()
@@ -50,6 +63,7 @@ public sealed partial class HistoryWindow : Window
         {
             _viewModel.RefreshSessions();
             SessionList.SelectedItems?.Clear();
+            RenderDpsGraph(null);
         }
         finally
         {
@@ -112,5 +126,38 @@ public sealed partial class HistoryWindow : Window
     private void OnDelete(object? sender, RoutedEventArgs e)
     {
         _viewModel.DeleteSelected();
+        RenderDpsGraph(null);
+    }
+
+    private IReadOnlyList<TimelinePoint>? _graphTimeline;
+
+    internal void RenderDpsGraph(IReadOnlyList<TimelinePoint>? timeline)
+    {
+        _graphTimeline = timeline;
+        DpsGraphCanvas.Children.Clear();
+        var width = DpsGraphCanvas.Bounds.Width > 0 ? DpsGraphCanvas.Bounds.Width : 300;
+        var graph = timeline is null
+            ? null
+            : HistoryPresentation.BuildDpsGraph(timeline, width, DpsGraphCanvas.Height - 8);
+        DpsGraphLabel.IsVisible = DpsGraphBorder.IsVisible = graph is not null;
+        if (graph is null) return;
+
+        DpsGraphLabel.Text = $"DPS over time — peak {graph.PeakDps:0.#}/s " +
+            $"({graph.Start:h:mm tt}–{graph.End:h:mm tt}, per minute)";
+        var line = new Polyline
+        {
+            Stroke = AppTheme.AccentBrush,
+            StrokeThickness = 1.5,
+            StrokeJoin = PenLineJoin.Round,
+        };
+        foreach (var (x, y) in graph.Points)
+            line.Points.Add(new Point(x, y + 4));
+        DpsGraphCanvas.Children.Add(line);
+    }
+
+    private void OnGraphSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        if (_graphTimeline is { } timeline && e.NewSize.Width > 0)
+            RenderDpsGraph(timeline);
     }
 }

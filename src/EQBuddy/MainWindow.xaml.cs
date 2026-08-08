@@ -53,7 +53,7 @@ public partial class MainWindow : Window
         QuestCatalog = QuestCatalog.LoadEmbedded();
         ZoneGraph = ZoneGraph.LoadEmbedded();
         QuestLedger = new QuestLedgerStore(AppPaths.File("quest-ledger.json"))
-        { TrackFilter = QuestCatalog.IsTurnInItem };
+        { TrackFilter = QuestCatalog.IsTurnInItem, Normalize = QuestCatalog.BaseItemName };
         _stats.QuestStore = QuestLedger;
         _watcher = new LogWatcher(_stats);
         _watcher.Mez = _mezTracker;
@@ -116,6 +116,7 @@ public partial class MainWindow : Window
 
         VersionMenuItem.Header = $"EQBuddy v{UpdateChecker.DisplayVersion}";
 
+        WindowZoom.Route(this, () => _settings.UiScale, SetUiScale);
         foreach (var (key, star) in StarButtons())
             star.IsChecked = _settings.MiniStats.Contains(key);
         ApplySectionLayout();
@@ -135,10 +136,11 @@ public partial class MainWindow : Window
         if (_settings.LogFolder is { } lf)
         {
             var prune = _settings.TruncateLogs && !_settings.ShowTutorial;
+            var archive = _settings.ArchiveLogs;
             Task.Run(() =>
             {
                 EqConfig.EnsureLoggingEnabled(lf);
-                if (prune) EqConfig.TruncateStaleLogs(lf, SessionStats.SessionGap);
+                if (prune) EqConfig.TruncateStaleLogs(lf, SessionStats.SessionGap, archive: archive);
             });
         }
 
@@ -154,6 +156,10 @@ public partial class MainWindow : Window
         // Screenshot/debug hook, same family as EQBUDDY_OPTIONS: open the Quest Tracker
         // after the startup replay has fed the ledger. "1" opens the default view;
         // "zone"/"all" open that mode directly.
+        if (Environment.GetEnvironmentVariable("EQBUDDY_DROPS") == "1")
+            Loaded += (_, _) => Dispatcher.BeginInvoke(() => OnDropsWindow(this, new RoutedEventArgs()),
+                System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
         if (Environment.GetEnvironmentVariable("EQBUDDY_QUESTS") is { Length: > 0 } questsMode)
             Loaded += (_, _) => Dispatcher.BeginInvoke(() =>
             {
@@ -295,28 +301,43 @@ public partial class MainWindow : Window
     /// from here.</summary>
     internal string CurrentZoneName { get; private set; } = "";
 
-    /// <summary>A turn-in for at least one quest this character hasn't dismissed — the
-    /// signal behind the green tint and the 🗺 badge. Narrowed twice from "in the Quest
-    /// Items category" (David, 2026-08-07): only parsed turn-ins, and hiding every quest
-    /// that wants an item un-greens it.</summary>
+    /// <summary>Followed character identity for window titles and exports.</summary>
+    internal (string Character, string Server) Identity =>
+        (_stats.CharacterName ?? "", _stats.ServerName ?? "");
+
+    /// <summary>A fresh stats snapshot, for windows that refresh on their own cadence.</summary>
+    internal StatsSnapshot CurrentSnapshot() => _stats.Snapshot();
+
+    /// <summary>The 🗺 badge signal: a known quest's turn-in OR a member of the wiki's
+    /// Quest Items category (back to the broad set once the loud green retired — a
+    /// quiet glyph can afford the coverage; David's Crushbone pass, 2026-08-07). When
+    /// known quests want the item and ALL are dismissed, the badge goes too.</summary>
     internal bool IsActiveQuestItem(string name)
     {
         var wanting = QuestCatalog.QuestsWanting(name);
-        if (wanting.Count == 0) return false;
+        if (wanting.Count == 0) return QuestCatalog.IsQuestItem(name);
         var hidden = QuestLedger?.HiddenFor(QuestCharacterKey);
         return hidden is not { Count: > 0 } || wanting.Any(q => !hidden.Contains(q.Name));
     }
 
-    internal Brush? QuestItemBrush(string name) =>
-        IsActiveQuestItem(name) ? (Brush)FindResource("GoodBrush") : null;
+    /// <summary>Badge click, one behavior everywhere: quests we can name open in the
+    /// Quest Tracker; a category-only item opens its own wiki page, where the quest
+    /// that wants it is documented.</summary>
+    internal void OpenQuestInfoForItem(string itemName)
+    {
+        var baseName = QuestCatalog.BaseItemName(itemName);
+        if (QuestCatalog.QuestsWanting(baseName).Count > 0) ShowQuestsWindow(baseName);
+        else OpenWikiPage(baseName);
+    }
 
     /// <summary>Prefix an item tooltip with the quest marker so the green explains itself.</summary>
     internal string? QuestAwareTooltip(string name, string? baseTip)
     {
         if (!IsActiveQuestItem(name)) return baseTip;
-        const string marker = "🗺 Part of a quest — click the 🗺 to see which.";
+        const string marker = "🗺 Part of a quest — click the 🗺 to see its quests in the Quest Tracker.";
         return baseTip is { Length: > 0 } ? marker + "\n" + baseTip : marker;
     }
+
 
     public double UiScale => _settings.UiScale;
 
@@ -456,7 +477,7 @@ public partial class MainWindow : Window
     public void ShowItemInfo(string itemName)
     {
         if (_itemWindow is not { IsLoaded: true })
-            _itemWindow = new ItemInfoWindow(_wikiItems) { Owner = this };
+            _itemWindow = new ItemInfoWindow(_wikiItems, _settings) { Owner = this };
         _itemWindow.Show();
         _itemWindow.Activate();
         _itemWindow.Lookup(itemName);
@@ -483,11 +504,25 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, MobLookupResult?> _targetResults =
         new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>DropsWindow's window into the target-drops memo (WIKI-NEW, #65): the
+    /// Drops view flags observations the wiki doesn't know, reusing the same lookups
+    /// and cache the Loot card fires — no extra wiki traffic for creatures already
+    /// seen, and anything it does request benefits the Loot card too.</summary>
+    internal MobLookupResult? WikiMobResult(string name) =>
+        _targetResults.GetValueOrDefault(name);
+
+    internal void EnsureMobLookup(string name)
+    {
+        if (_targetResults.ContainsKey(name)) return;
+        _targetResults[name] = null;
+        _ = LookupTargetAsync(name);
+    }
+
     private async Task LookupTargetAsync(string name)
     {
         try
         {
-            var result = await _wikiMobs.LookupAsync(name);
+            var result = await _wikiMobs.LookupAsync(name, CurrentZoneName);
             _targetResults[name] = result;
             RefreshUi();
         }
@@ -501,6 +536,27 @@ public partial class MainWindow : Window
     /// is targeted; picking one made the list cycle — David's live report), and items
     /// fold to their base names so "Leather Whip +2" and the wiki's "Leather Whip"
     /// are one row (David's screenshot, same session). "" header = no target.</summary>
+    /// <summary>Why the target-drops list is empty, in words that say what we actually
+    /// know: a wiki page with no drops recorded is an invitation, not a failure
+    /// (David vs the orc thaumaturgist, 2026-08-07 — page exists, loot fields blank).</summary>
+    internal string TargetEmptyNote(StatsSnapshot s)
+    {
+        var targets = s.CurrentTargets;
+        if (targets.Count != 1) return "Nothing known for these creatures yet.";
+        return _targetResults.GetValueOrDefault(targets[0]) switch
+        {
+            null => "Looking up on eqlwiki…",
+            { State: ItemLookupState.Offline } => "Wiki unreachable — drops will fill in when it's back.",
+            { State: ItemLookupState.NotFound } =>
+                $"{targets[0]} has no eqlwiki page yet.",
+            { Mob.Drops.Count: 0 } =>
+                $"The wiki page for {targets[0]} lists no drops yet — nothing you loot\n" +
+                "is wasted though: Drops by creature… (right-click menu) exports your\n" +
+                "observations, and the wiki takes edits.",
+            _ => "Nothing known for this creature yet.",
+        };
+    }
+
     internal (string Header, List<(string Name, string Value)> Rows) TargetDropsContent(StatsSnapshot s)
     {
         var targets = _settings.ShowTargetDrops ? s.CurrentTargets : [];
@@ -579,8 +635,7 @@ public partial class MainWindow : Window
         TargetBlock.Visibility = Visibility.Visible;
         TargetHeader.Text = header;
         FillList(TargetDropsList, rows, onNameClick: ShowItemInfo,
-            tooltip: n => QuestAwareTooltip(n, ItemHoverStats(n)), nameBrush: QuestItemBrush,
-            questBadges: true);
+            tooltip: n => QuestAwareTooltip(n, ItemHoverStats(n)), questBadges: true);
     }
 
     /// <summary>Full tooltip text for an item, FETCHING from the wiki when the cache is
@@ -667,6 +722,16 @@ public partial class MainWindow : Window
     private void OnSpawnsWindow(object sender, RoutedEventArgs e) => ShowSpawnsWindow();
 
     private QuestsWindow? _questsWindow;
+    private DropsWindow? _dropsWindow;
+
+    private void OnDropsWindow(object sender, RoutedEventArgs e)
+    {
+        if (_dropsWindow is not { IsLoaded: true })
+            _dropsWindow = new DropsWindow(this);
+        _dropsWindow.Update(_stats.Snapshot());
+        _dropsWindow.Show();
+        _dropsWindow.Activate();
+    }
 
     private void OnQuestsWindow(object sender, RoutedEventArgs e) => ShowQuestsWindow();
 
@@ -810,6 +875,7 @@ public partial class MainWindow : Window
         // Spawn timers crossing zero: banner always, sound only if one is chosen. Runs
         // off the shared tick so a hidden window can't silence a camp.
         if (_questsWindow is { IsLoaded: true, IsVisible: true } qw) qw.MaybeRefresh();
+        if (_dropsWindow is { IsLoaded: true, IsVisible: true } dw) dw.MaybeRefresh();
 
         if (_settings.TrackSpawns)
         {
@@ -851,7 +917,7 @@ public partial class MainWindow : Window
         {
             if (_mezWindow is not { IsLoaded: true })
             {
-                _mezWindow = new MezChipsWindow(_settings, MezChips);
+                _mezWindow = new MezChipsWindow(_settings, MezChips, SetChipScale);
                 _mezWindow.Show();
             }
             _mezWindow.RefreshChips(DateTime.Now);
@@ -881,10 +947,11 @@ public partial class MainWindow : Window
         {
             _lastJanitorRun = DateTime.Now;
             var prune = _settings.TruncateLogs;
+            var archive = _settings.ArchiveLogs;
             Task.Run(() =>
             {
                 EqConfig.EnsureLoggingEnabled(folder);
-                if (prune) EqConfig.TruncateStaleLogs(folder, SessionStats.SessionGap);
+                if (prune) EqConfig.TruncateStaleLogs(folder, SessionStats.SessionGap, archive: archive);
             });
         }
 
@@ -1022,7 +1089,12 @@ public partial class MainWindow : Window
                 (s.Recent is { Hps: > 0 } rh
                     ? $"\nLast {(int)rh.Window.TotalMinutes}m: {rh.Hps:0.#} hps"
                     : "") +
-                (s.RegenTicks > 0 ? "\n" + RegenLine(s) : "");
+                (s.RegenTicks > 0 ? "\n" + RegenLine(s) : "") +
+                (s.RuneBlockCount > 0
+                    ? $"\nRune absorbed {s.RuneBlockCount} hit{(s.RuneBlockCount == 1 ? "" : "s")}" +
+                      $" (best streak {s.RuneBlockStreakMax}" +
+                      (s.RuneBlockStreak > 0 ? $", current {s.RuneBlockStreak}" : "") + ")"
+                    : "");
             var showSpells = s.HealsBySpell.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             HealSpellsLabel.Visibility = showSpells;
             HealSortBar.Visibility = showSpells;
@@ -1064,8 +1136,7 @@ public partial class MainWindow : Window
                 ? s.Loot.OrderBy(l => l.Item, StringComparer.OrdinalIgnoreCase).AsEnumerable()
                 : s.Loot;
             FillList(LootList, loot.Select(l => (l.Item, $"×{l.Count}")), onNameClick: ShowItemInfo,
-                tooltip: n => QuestAwareTooltip(n, ItemHoverStats(n)), nameBrush: QuestItemBrush,
-                questBadges: true);
+                tooltip: n => QuestAwareTooltip(n, ItemHoverStats(n)), questBadges: true);
             CraftedLabel.Visibility = s.Crafted.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             FillList(CraftedList, s.Crafted.Select(c => (c.Name, $"×{c.Count}")));
             RenderTargetDrops(s);
@@ -1543,7 +1614,7 @@ public partial class MainWindow : Window
             _historyWindow.Activate();
             return;
         }
-        _historyWindow = new HistoryWindow(_repo);
+        _historyWindow = new HistoryWindow(_repo, _settings);
         _historyWindow.Show();
     }
 
@@ -1675,7 +1746,9 @@ public partial class MainWindow : Window
                 "motes" => Motes.Summarize(s.Loot, s.Elapsed) is { Total: > 0 } mo
                     ? $"\U0001F52E {mo.Total} · {mo.PerHour:0.#}/hr" : "\U0001F52E 0",
                 "money" => $"\U0001F4B0 {StatsSnapshot.FormatCoin(s.Copper)}",
-                "xp" => $"\U0001F4C8 {s.XpPercent:0.0}%" +
+                // Rate, not total: minimized is farming mode, and "how fast am I
+                // gaining" is the number a farmer watches (MorrolanTV, discussion #63).
+                "xp" => $"\U0001F4C8 {s.XpPerHour:0.#}%/hr" +
                         (s.HoursToLevel is { } eta ? $" · lvl {FormatEta(eta)}" : ""),
                 "deaths" => $"☠ {s.Deaths.Count}",
                 _ => "",
@@ -1926,21 +1999,22 @@ public partial class MainWindow : Window
             }
             if (questBadges && IsActiveQuestItem(name))
             {
-                // 🗺 next to quest loot: one click shows which quests want the item, each
-                // with its 📌 as the invitation to track (David, 2026-08-07).
+                // 🗺 next to quest loot → the Quest Tracker, filtered to this item's
+                // quests; each card's name opens the wiki walkthrough from there
+                // (David's final shape, 2026-08-07: item click = item page, 🗺 = tracker).
                 var badgeName = name;
                 var badge = new TextBlock
                 {
                     Text = "🗺", FontSize = 11, Margin = new Thickness(0, 1, 6, 1),
                     Cursor = System.Windows.Input.Cursors.Hand,
-                    ToolTip = "Show quests that want this item",
+                    ToolTip = "Part of a quest — click for its quest info",
                 };
                 badge.SetResourceReference(TextBlock.ForegroundProperty, "GoodBrush");
                 badge.MouseLeftButtonDown += (_, ev) => ev.Handled = true;
                 badge.MouseLeftButtonUp += (_, ev) =>
                 {
                     ev.Handled = true;
-                    ShowQuestsWindow(badgeName);
+                    OpenQuestInfoForItem(badgeName);
                 };
                 Grid.SetColumn(badge, 1);
                 grid.Children.Add(badge);

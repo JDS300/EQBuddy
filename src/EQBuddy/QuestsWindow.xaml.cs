@@ -28,9 +28,12 @@ public partial class QuestsWindow : Window
         InitializeComponent();
         _main = main;
         _settings = main.Settings;
-        ClassCombo.Items.Add("Any class");
-        foreach (var c in QuestClassFilter.Classes) ClassCombo.Items.Add(c);
-        ClassCombo.SelectedIndex = 0;
+        WindowZoom.Attach(this, "quests", _settings);
+        BuildClassChecks();
+        EraCombo.Items.Add("Any era");
+        foreach (var era in QuestEraLadder.Eras) EraCombo.Items.Add($"≤ {era}");
+        var savedEra = Array.IndexOf(QuestEraLadder.Eras, _settings.QuestEraFilter);
+        EraCombo.SelectedIndex = savedEra >= 0 ? savedEra + 1 : 0;
         ApplyModeVisual();
         ChipScale.Apply(this, 1.0);   // quests read at widget size, not chip size
         if (ScreenGuard.OnScreen(_settings.QuestsLeft, _settings.QuestsTop, Width, 200))
@@ -89,10 +92,75 @@ public partial class QuestsWindow : Window
         }
     }
 
-    private void OnClassChanged(object sender, SelectionChangedEventArgs e) => Refresh(force: true);
+    // ---- multiclass filter (Legends: up to three active classes; David 2026-08-07) ----
 
-    private string SelectedClass =>
-        ClassCombo.SelectedItem is string s && s != "Any class" ? s : "";
+    private readonly List<CheckBox> _classChecks = [];
+
+    private void BuildClassChecks()
+    {
+        foreach (var cls in QuestClassFilter.Classes)
+        {
+            var check = new CheckBox { Margin = new Thickness(0, 1, 0, 1) };
+            var label = new TextBlock { Text = cls, FontSize = 12 };
+            label.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
+            check.Content = label;
+            check.Checked += (_, _) => OnClassCheckChanged();
+            check.Unchecked += (_, _) => OnClassCheckChanged();
+            _classChecks.Add(check);
+            ClassChecks.Children.Add(check);
+        }
+    }
+
+    private List<string> SelectedClasses() =>
+        _classChecks.Where(c => c.IsChecked == true)
+            .Select(c => ((TextBlock)c.Content).Text).ToList();
+
+    private bool _syncingClasses;
+
+    private void OnClassCheckChanged()
+    {
+        if (_syncingClasses) return;
+        var selected = SelectedClasses();
+        var key = _main.QuestCharacterKey;
+        if (_main.QuestLedger is { } ledger && key.Length > 0)
+            ledger.SetClasses(key, selected);
+        UpdateClassButton(selected);
+        Refresh(force: true);
+    }
+
+    private void UpdateClassButton(List<string> selected) =>
+        ClassBtn.Content = selected.Count switch
+        {
+            0 => "Any class",
+            1 => selected[0],
+            _ => string.Join(" · ", selected.Select(QuestClassFilter.Abbrev)),
+        };
+
+    /// <summary>Load the character's saved classes into the checkboxes (character
+    /// switches included — the selection follows the ledger, not the window).</summary>
+    private void SyncClassChecks(List<string> saved)
+    {
+        var current = SelectedClasses();
+        if (current.SequenceEqual(saved, StringComparer.OrdinalIgnoreCase)) return;
+        _syncingClasses = true;
+        foreach (var check in _classChecks)
+            check.IsChecked = saved.Contains(((TextBlock)check.Content).Text,
+                StringComparer.OrdinalIgnoreCase);
+        _syncingClasses = false;
+        UpdateClassButton(saved);
+    }
+
+    private void OnClassBtn(object sender, RoutedEventArgs e) =>
+        ClassPopup.IsOpen = !ClassPopup.IsOpen;
+
+    private void OnEraChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (EraCombo.SelectedIndex < 0) return;
+        _settings.QuestEraFilter = EraCombo.SelectedIndex == 0
+            ? "" : QuestEraLadder.Eras[EraCombo.SelectedIndex - 1];
+        _settings.Save();
+        Refresh(force: true);
+    }
 
     /// <summary>Called from MainWindow's 1 s tick while visible; cheap unless the ledger
     /// or filters actually changed (signature idiom, same as the chip windows).</summary>
@@ -119,9 +187,10 @@ public partial class QuestsWindow : Window
         var completed = _main.QuestLedger?.CompletedFor(key)
             ?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var filter = FilterBox.Text.Trim();
-        var cls = SelectedClass;
+        var classes = _main.QuestLedger?.ClassesFor(key) ?? [];
+        SyncClassChecks(classes);
 
-        var sig = $"{key}|{filter}|{_mode}|{cls}|{_main.CurrentZoneName}" +
+        var sig = $"{key}|{filter}|{_mode}|{string.Join("+", classes)}|{_settings.QuestEraFilter}|{_main.CurrentZoneName}" +
             $"|{string.Join(";", tracked.Order(StringComparer.OrdinalIgnoreCase))}" +
             $"|{string.Join(";", hidden.Order(StringComparer.OrdinalIgnoreCase))}" +
             $"|{string.Join(";", completed.Select(kv => $"{kv.Key}:{kv.Value}"))}" +
@@ -131,7 +200,10 @@ public partial class QuestsWindow : Window
 
         QuestsPanel.Children.Clear();
 
-        bool ClassOk(QuestEntry q) => cls.Length == 0 || QuestClassFilter.Matches(q.Classes, cls);
+        var era = _settings.QuestEraFilter;
+        bool ClassOk(QuestEntry q) =>
+            QuestClassFilter.MatchesAny(q.Classes, classes)
+            && QuestEraLadder.Allowed(q.Era, era);
         QuestMatch Progressed(QuestEntry quest)
         {
             var progress = quest.Items

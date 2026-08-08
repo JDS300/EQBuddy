@@ -23,6 +23,7 @@
                 <MenuItem Header="Session history…" Click="OnHistory"/>
                 <MenuItem Header="Spawn timers…" Click="OnSpawnsWindow"/>
                 <MenuItem Header="Quest tracker…" Click="OnQuestsWindow"/>
+                <MenuItem Header="Drops by creature…" Click="OnDropsWindow"/>
                 <MenuItem x:Name="TrackSpawnsItem" Header="Track spawns (named respawn timers)"
                           IsCheckable="True" Click="OnTrackSpawns"/>
                 <MenuItem x:Name="ClickThroughItem" Header="Click-through (game clicks pass through)"

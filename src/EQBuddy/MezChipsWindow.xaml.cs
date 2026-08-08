@@ -22,12 +22,15 @@ public partial class MezChipsWindow : Window
     private List<SpawnChip> _chips = [];
     private readonly Func<DateTime, List<SpawnChip>> _source;
 
-    public MezChipsWindow(AppSettings settings, Func<DateTime, List<SpawnChip>> source)
+    public MezChipsWindow(AppSettings settings, Func<DateTime, List<SpawnChip>> source,
+        Action<double>? setChipScale = null)
     {
         InitializeComponent();
         _settings = settings;
         _source = source;
         ChipScale.Apply(this, _settings.ChipScale);
+        if (setChipScale is not null)
+            WindowZoom.Route(this, () => _settings.ChipScale, setChipScale);
         if (ScreenGuard.OnScreen(_settings.MezChipsLeft, _settings.MezChipsTop, Width, Height))
         { Left = _settings.MezChipsLeft; Top = _settings.MezChipsTop; }
         else { Left = SystemParameters.WorkArea.Left + 40; Top = SystemParameters.WorkArea.Top + 120; }

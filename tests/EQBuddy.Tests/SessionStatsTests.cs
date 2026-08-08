@@ -116,6 +116,31 @@ public class SessionStatsTests
         Assert.Equal(16, s.HealingReceived);
     }
 
+    /// <summary>Rune gains show up as healing received under "Rune", and the block
+    /// counter tracks how many incoming melee hits the rune ate in a row before one got
+    /// through — the streak resets the moment real melee damage lands, and the running
+    /// max remembers the best streak of the session.</summary>
+    [Fact]
+    public void RuneGainsAndBlockStreakAreTracked()
+    {
+        var s = Replay("Tickel",
+            At(0, 0, "You gain a rune for 8 points of absorption."),
+            At(0, 1, "You gain a rune for 5 points of absorption."),
+            At(0, 2, "A froglok shin knight tries to hit YOU, but YOUR magical skin absorbs the blow!"),
+            At(0, 3, "A froglok shin knight tries to bash YOU, but YOUR magical skin absorbs the blow!"),
+            At(0, 4, "A froglok shin knight hits YOU for 4 points of damage."),
+            At(0, 5, "A froglok shin knight tries to hit YOU, but YOUR magical skin absorbs the blow!")).Snapshot();
+
+        Assert.Equal((2, 13), (s.RuneGainCount, s.RuneGainPoints));
+        Assert.Equal(13, s.HealingReceived);
+        var rune = Assert.Single(s.HealsByHealer, h => h.Name == "Rune");
+        Assert.Equal((2, 13), (rune.Hits, rune.Total));
+
+        Assert.Equal(3, s.RuneBlockCount);
+        Assert.Equal(2, s.RuneBlockStreakMax);   // two blocks before the hit landed
+        Assert.Equal(1, s.RuneBlockStreak);      // one block since
+    }
+
     [Fact]
     public void PetDamageAndKillsCreditedToPlayer()
     {

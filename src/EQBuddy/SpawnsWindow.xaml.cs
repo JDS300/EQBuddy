@@ -37,6 +37,7 @@ public partial class SpawnsWindow : Window
     public SpawnsWindow(MainWindow main, SpawnsViewModel vm, string? initialZone = null)
     {
         InitializeComponent();
+        WindowZoom.Attach(this, "spawns", main.Settings);
         _main = main;
         _vm = vm;
         _settings = main.Settings;

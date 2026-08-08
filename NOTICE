@@ -43,3 +43,32 @@ Zone-line connections are derived from the eqltools.com Zone Atlas
 files; boat and port routes supplement from eqlwiki.com (CC BY-SA 4.0).
 Quest and item knowledge derives from eqlwiki.com, the community wiki.
 --------------------------------------------------------------------------------
+
+Design inspirations (no code copied)
+--------------------------------------------------------------------------------
+EQ Legends Companion
+https://jmoyers.github.io/everquest-companion (product)
+https://github.com/jmoyers/everquest-companion (source)
+by Josh Moyers
+
+Two alert-polish behaviors in EQBuddy follow designs we first saw in EQ Legends
+Companion's source (its FSL-1.1-MIT license does not permit code use in a
+competing product, and none was used — EQBuddy's implementations in
+src/EQBuddy.UI.Shared/AlertThrottle.cs were written independently):
+
+  - Alert cooldowns scoped per matched label, so the same rule firing on a
+    DIFFERENT mob is not silenced by the cooldown from the previous one.
+  - A sound gate where the first alert sound in a short window wins and plays
+    to completion, instead of overlapping alerts cutting each other off.
+
+Good designs deserve naming their source. Thanks, Josh.
+--------------------------------------------------------------------------------
+
+Lineage
+--------------------------------------------------------------------------------
+EQBuddy reads the log file the game already writes and nothing else — the
+approach GamParse (https://gambosoft.eqresource.com) and nParse
+(https://github.com/nomns/nparse) proved safe and useful across two decades
+of classic EverQuest. Neither project's code is used here; the debt is the
+idea that a log file is enough.
+--------------------------------------------------------------------------------

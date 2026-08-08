@@ -97,6 +97,8 @@ public sealed class MainWindow : Window
     private readonly TextBlock _soldLabel = AppTheme.Heading("Sold to merchants");
     private readonly TextBlock _recentFightsLabel = AppTheme.Heading("Recent fights");
     private readonly ItemsControl _recentFightsList = new();
+    private readonly TextBlock _areaSpellLabel = AppTheme.Heading("Area spells (per cast)");
+    private readonly ItemsControl _areaSpellList = new();
     private readonly TextBlock _stanceLabel = AppTheme.Heading("By stance");
     private readonly ItemsControl _stanceList = new();
     private readonly TextBlock _invocationLabel = AppTheme.Heading("By invocation");
@@ -133,6 +135,7 @@ public sealed class MainWindow : Window
     private HistoryWindow? _historyWindow;
     private OptionsWindow? _optionsWindow;
     private AlertWindow? _alertWindow;
+    private IReadOnlyList<WhatsNewEntry> _whatsNewNotes = [];
     private readonly MezTracker _mezTracker = new();
     private readonly HotTracker _hotTracker = new();
     private readonly SpawnTimers _spawnTimers;
@@ -230,6 +233,8 @@ public sealed class MainWindow : Window
                 section.IsExpanded = true;
         FollowActiveCharacter();
 
+        PrepareWhatsNew();
+
         if (_settings.LogFolder is { } lf)
         {
             // Page one of the launch tour is the log-truncation consent question.
@@ -242,6 +247,18 @@ public sealed class MainWindow : Window
             });
         }
 
+        if (Environment.GetEnvironmentVariable("EQBUDDY_CCLOG") == "1")
+            StartCrowdControlCapture();
+
+        // 1.20.0 could turn Follow off on a selection event the user never made.
+        // Repair affected profiles once; subsequent user choices are left alone.
+        if (!_settings.SpawnFollowRepaired)
+        {
+            _settings.SpawnFollowZone = true;
+            _settings.SpawnFollowRepaired = true;
+            _settings.Save();
+        }
+
         _uiTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _uiTimer.Tick += (_, _) => RefreshUi();
         _uiTimer.Start();
@@ -251,6 +268,8 @@ public sealed class MainWindow : Window
             RegisterGlobalHotkeys();
             if (_settings.ShowTutorial)
                 new TutorialWindow(this).Show(this);
+            else if (_whatsNewNotes.Count > 0)
+                new WhatsNewWindow(_whatsNewNotes).Show(this);
             // Parity with the WPF hook of the same name (CONTRIBUTING's "Testing without
             // the game"). Options is only reachable through the right-click menu, which
             // makes the one window whose layout has to be checked by eye the one window
@@ -260,12 +279,61 @@ public sealed class MainWindow : Window
         };
     }
 
+    /// <summary>Records the running version before displaying release notes, so an
+    /// interrupted launch cannot show the same popup forever. Fresh installs use the
+    /// tutorial instead; installs predating this feature see only the current release.</summary>
+    private void PrepareWhatsNew()
+    {
+        var currentVersion = UpdateChecker.CurrentVersion.ToString();
+        if (_settings.ShowTutorial || _settings.LastSeenVersion == currentVersion)
+        {
+            if (_settings.LastSeenVersion != currentVersion)
+            {
+                _settings.LastSeenVersion = currentVersion;
+                _settings.Save();
+            }
+            return;
+        }
+
+        var lastSeen = _settings.LastSeenVersion.Length > 0
+            ? _settings.LastSeenVersion
+            : PreviousVersionBaseline(currentVersion);
+        _whatsNewNotes = WhatsNewCatalog.EntriesBetween(lastSeen, currentVersion);
+        _settings.LastSeenVersion = currentVersion;
+        _settings.Save();
+    }
+
+    internal static string PreviousVersionBaseline(string current) =>
+        Version.TryParse(current, out var version)
+            ? new Version(version.Major, Math.Max(0, version.Minor - 1), 0).ToString()
+            : current;
+
     public double UiScale => _settings.UiScale;
     public double WidgetOpacity => Opacity;
     public double BackgroundOpacityValue => _settings.BackgroundOpacity;
     public bool TruncateLogsValue => _settings.TruncateLogs;
     public AppSettings Settings => _settings;
     public void PersistSettings() => _settings.Save();
+
+    /// <summary>
+    /// Opt-in capture for CC-looking lines whose EQ Legends wording is not known yet.
+    /// Keep only distinct lines and cap the file so diagnostics cannot grow without bound.
+    /// </summary>
+    private static void StartCrowdControlCapture()
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var path = AppPaths.File("cc-candidates.txt");
+        var gate = new object();
+        LogParser.UnmatchedCandidateSink = message =>
+        {
+            lock (gate)
+            {
+                if (seen.Count >= 500 || !seen.Add(message)) return;
+                try { File.AppendAllText(path, message + Environment.NewLine); }
+                catch { /* diagnostics must never interrupt log tailing */ }
+            }
+        };
+    }
 
     internal static readonly (string Key, string Title)[] SectionCatalog =
     [
@@ -493,6 +561,10 @@ public sealed class MainWindow : Window
         body.Children.Add(SortHeader("Damage by attack", out _dmgOutSortTotal, out _dmgOutSortHits,
             out _dmgOutSortAvg, out _dmgOutSortDps, OnSortDmgOut, rateText: "dps"));
         body.Children.Add(_damageSourceList);
+        _petAbilityLabel.Cursor = new Cursor(StandardCursorType.Hand);
+        ToolTip.SetTip(_petAbilityLabel,
+            "What your pet is using, split out of its Pet row above — click to expand");
+        _petAbilityLabel.PointerPressed += OnPetAbilitiesToggled;
         body.Children.Add(_petAbilityLabel);
         body.Children.Add(_petAbilityList);
         body.Children.Add(SortHeader("Damage taken from", out _dmgInSortTotal, out _dmgInSortHits,
@@ -501,6 +573,10 @@ public sealed class MainWindow : Window
         _recentFightsLabel.Margin = new Thickness(0, 6, 0, 0);
         body.Children.Add(_recentFightsLabel);
         body.Children.Add(_recentFightsList);
+        _areaSpellLabel.Margin = new Thickness(0, 6, 0, 0);
+        _areaSpellLabel.IsVisible = false;
+        body.Children.Add(_areaSpellLabel);
+        body.Children.Add(_areaSpellList);
         _stanceLabel.Margin = new Thickness(0, 6, 0, 0);
         body.Children.Add(_stanceLabel);
         body.Children.Add(_stanceList);
@@ -517,6 +593,15 @@ public sealed class MainWindow : Window
         set(!current);
         PersistSettings();
         RefreshUi();
+    }
+
+    private void OnPetAbilitiesToggled(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(_petAbilityLabel).Properties.IsLeftButtonPressed) return;
+        _settings.ShowPetAbilities = !_settings.ShowPetAbilities;
+        PersistSettings();
+        RefreshUi();
+        e.Handled = true;
     }
 
     private void ApplySessionSubsections()
@@ -1016,11 +1101,12 @@ public sealed class MainWindow : Window
     /// headless render tests can exercise the code path every refresh takes — which is where
     /// a card that mis-formats or dereferences null actually breaks — without a log folder,
     /// a network, or a five-second wait.</summary>
-    internal void RenderSnapshotForTest(StatsSnapshot s)
+    internal void RenderSnapshotForTest(StatsSnapshot s,
+        IReadOnlyDictionary<string, DateTime>? dueByRule = null)
     {
         ApplySessionSubsections();
         RefreshExpandedSections(s);
-        RenderTracked(s);
+        RenderTracked(s, dueByRule);
     }
 
     private void RefreshExpandedSections(StatsSnapshot s)
@@ -1044,12 +1130,25 @@ public sealed class MainWindow : Window
                 $"Biggest hit: {s.MaxHit:N0} ({s.MaxHitDesc})\n" +
                 $"Taken {s.DamageTaken:N0} - avoided {s.AvoidedIncoming} of {incomingSwings} melee attacks ({avoidance:0}%)" +
                 (s.SpecialHits.Count > 0 ? "\n" + string.Join(" - ", s.SpecialHits.Select(x => $"{x.Name} {x.Count}")) : "") +
-                (s.Fizzles + s.Resists > 0 ? $"\nFizzles {s.Fizzles} - resists {s.Resists}" : "") +
+                (s.DotDamage + s.DirectSpellDamage > 0
+                    ? $"\nYour spells: {s.DotDamage:N0} over time / {s.DirectSpellDamage:N0} direct"
+                    : "") +
+                (s.CastCompletion is { } completion
+                    ? $"\nCasts {s.CastsStarted} · {completion * 100:0}% completed" +
+                      $" ({s.CastsInterrupted} interrupted · {s.Fizzles} fizzled · {s.Resists} resisted)"
+                    : s.Fizzles + s.Resists > 0 ? $"\nFizzles {s.Fizzles} - resists {s.Resists}" : "") +
                 (s.CurrentStance.Length > 0 ? $"\nStance: {s.CurrentStance}" : "");
             FillBreakdown(_damageSourceList, s.DamageBySource, _dmgOutSort, s.CombatSeconds, "dps");
             // Shares the damage sort bar above it — it's the same rows, one level down.
+            // The overall Pet row is already visible above, so keep this potentially long
+            // per-ability list folded until the player asks for it.
             _petAbilityLabel.IsVisible = s.PetAbilities.Count > 0;
-            FillBreakdown(_petAbilityList, s.PetAbilities, _dmgOutSort, s.CombatSeconds, "dps");
+            _petAbilityLabel.Text = _settings.ShowPetAbilities
+                ? "▾ Pet abilities"
+                : $"▸ Pet abilities ({s.PetAbilities.Count})";
+            _petAbilityList.IsVisible = _settings.ShowPetAbilities && s.PetAbilities.Count > 0;
+            if (_petAbilityList.IsVisible)
+                FillBreakdown(_petAbilityList, s.PetAbilities, _dmgOutSort, s.CombatSeconds, "dps");
             FillStatList(_damageTakenList, s.DamageByAttacker, _dmgInSort, "hit");
             _recentFightsLabel.IsVisible = s.RecentEncounters.Count > 0;
             var topFightDps = Math.Max(0.1, s.RecentEncounters.Count > 0
@@ -1060,6 +1159,12 @@ public sealed class MainWindow : Window
                 $"{f.DurationSeconds:0}s - {f.Dps:0.#} dps{(f.Outcome == "Timeout" ? " - ?" : "")}",
                 f.Dps / topFightDps, fightBrush,
                 $"{f.DamageOut:N0} damage over {f.DurationSeconds:0}s")).ToList();
+            // Per cast, not per target: one cast's total damage is the useful comparison
+            // when deciding whether an area spell is worthwhile for the pull size.
+            _areaSpellLabel.IsVisible = s.AreaSpells.Count > 0;
+            FillList(_areaSpellList, s.AreaSpells.Select(x =>
+                (x.Name, $"{x.DamagePerCast:N0}/cast - x{x.Casts} - {x.AvgTargets:0.#} targets" +
+                         (x.MaxTargets > x.AvgTargets + 0.05 ? $" (best {x.MaxTargets})" : ""))));
             _stanceLabel.IsVisible = s.Stances.Count > 0;
             FillList(_stanceList, s.Stances.Select(x =>
                 (x.Name, $"{x.Damage:N0} dmg - {(int)x.CombatSeconds}s - {x.Dps:0.#} dps")));
@@ -1074,7 +1179,12 @@ public sealed class MainWindow : Window
                 _healFightList, healing: true, _settings.ShowHealFight);
             _healingSummary.Text = $"Done {s.HealingDone:N0} - received {s.HealingReceived:N0}" +
                 (s.Recent is { Hps: > 0 } rh ? $"\nLast {(int)rh.Window.TotalMinutes}m: {rh.Hps:0.#} hps" : "") +
-                (s.RegenTicks > 0 ? $"\n{s.RegenTicks} regen/hymn ticks (game logs no amounts for these)" : "");
+                (s.RegenTicks > 0 ? $"\n{s.RegenTicks} regen/hymn ticks (game logs no amounts for these)" : "") +
+                (s.RuneBlockCount > 0
+                    ? $"\nRune absorbed {s.RuneBlockCount} hit{(s.RuneBlockCount == 1 ? "" : "s")}" +
+                      $" (best streak {s.RuneBlockStreakMax}" +
+                      (s.RuneBlockStreak > 0 ? $", current {s.RuneBlockStreak}" : "") + ")"
+                    : "");
             var showSpells = s.HealsBySpell.Count > 0;
             _healSpellsLabel.IsVisible = showSpells;
             _healSortBar.IsVisible = showSpells;
@@ -1178,6 +1288,7 @@ public sealed class MainWindow : Window
     // Keyed by TrackedRule.Id — a display name can be shared by two rules, and keying
     // on it made same-named rules share baselines and cooldowns.
     private readonly Dictionary<string, int> _ruleBaseline = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _watchExpandedRules = new(StringComparer.Ordinal);
     private readonly EQBuddy.UI.Shared.AlertCooldowns _ruleCooldowns = new();
     private readonly EQBuddy.UI.Shared.SoundGate _soundGate = new();
     private string? _alertBaselinePath;
@@ -1185,7 +1296,8 @@ public sealed class MainWindow : Window
     /// <summary>The floating alert tile, created on first use and owned by the widget.</summary>
     internal AlertWindow AlertTile => _alertWindow ??= new AlertWindow(_settings, this);
 
-    private void RenderTracked(StatsSnapshot s)
+    private void RenderTracked(StatsSnapshot s,
+        IReadOnlyDictionary<string, DateTime>? dueOverride = null)
     {
         var haveRules = _settings.TrackedRules.Count > 0 && !_settings.HiddenSections.Contains("tracked");
         if (_sections.TryGetValue("tracked", out var section))
@@ -1196,35 +1308,62 @@ public sealed class MainWindow : Window
         if (!_sections["tracked"].IsExpanded) return;
 
         _trackedPanel.Children.Clear();
+        var now = DateTime.Now;
+        var dueByRule = dueOverride ?? _delayedAlerts.NextDueByRule(now);
         foreach (var r in s.Tracked)
         {
             var head = new Grid { Margin = new Thickness(0, 4, 0, 0) };
             head.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
             head.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            var counting = dueByRule.TryGetValue(r.Id, out var dueAt);
             head.Children.Add(new TextBlock
             {
-                Text = r.Name.ToUpperInvariant(),
+                Text = counting
+                    ? $"{r.Name.ToUpperInvariant()} ⏳ {EQBuddy.UI.Shared.Countdown.Format(dueAt - now)}"
+                    : r.Name.ToUpperInvariant(),
                 FontSize = 11,
                 FontWeight = FontWeight.SemiBold,
-                Foreground = AppTheme.AccentBrush,
+                Foreground = counting ? AppTheme.WarnBrush : AppTheme.AccentBrush,
             });
             var rate = AppTheme.DimText($"{r.TotalQuantity} total - {r.PerHour:0.#}/hr - {r.PerActiveHour:0.#}/active hr");
             Grid.SetColumn(rate, 1);
             head.Children.Add(rate);
             _trackedPanel.Children.Add(head);
 
-            foreach (var item in r.Items)
-                _trackedPanel.Children.Add(new TextBlock
-                {
-                    Text = $"{item.Name}   x{item.Count}",
-                    FontSize = 12,
-                    Foreground = AppTheme.TextBrush,
-                    Margin = new Thickness(6, 1, 0, 0),
-                    TextTrimming = TextTrimming.CharacterEllipsis,
-                });
             _trackedPanel.Children.Add(AppTheme.DimText(
-                r.LastMatch is { } lm ? $"last match {FormatAge(DateTime.Now - lm)} ago" : "no matches yet",
+                r.LastMatch is { } lm && !string.IsNullOrWhiteSpace(r.LastItem)
+                    ? $"last: {r.LastItem} · {FormatAge(now - lm)} ago"
+                    : "no matches yet",
                 new Thickness(6, 1, 0, 2)));
+
+            if (r.Items.Count > 1)
+            {
+                var expanded = _watchExpandedRules.Contains(r.Id);
+                if (expanded)
+                    foreach (var item in r.Items)
+                        _trackedPanel.Children.Add(new TextBlock
+                        {
+                            Text = $"{item.Name}   x{item.Count}",
+                            FontSize = 12,
+                            Foreground = AppTheme.TextBrush,
+                            Margin = new Thickness(12, 1, 0, 0),
+                            TextTrimming = TextTrimming.CharacterEllipsis,
+                        });
+
+                var ruleId = r.Id;
+                var toggle = AppTheme.DimText(
+                    expanded ? "▾ less" : $"▸ all {r.Items.Count} kinds",
+                    new Thickness(6, 1, 0, 2));
+                toggle.Cursor = new Cursor(StandardCursorType.Hand);
+                toggle.PointerPressed += (_, e) =>
+                {
+                    if (!_watchExpandedRules.Remove(ruleId))
+                        _watchExpandedRules.Add(ruleId);
+                    RenderTracked(CurrentSnapshot());
+                    e.Handled = true;
+                };
+                _trackedPanel.Children.Add(toggle);
+            }
         }
     }
 
@@ -1492,6 +1631,10 @@ public sealed class MainWindow : Window
         AlertTile.EnterPlacement();
     }
 
+    /// <summary>Lets an OptionsWindow built outside OnOptions (the render tests do exactly
+    /// that) still be the one SetTrackSpawns calls back into.</summary>
+    internal void RegisterOptionsWindow(OptionsWindow window) => _optionsWindow = window;
+
     private void OnTutorial(object? sender, EventArgs e) => new TutorialWindow(this).Show(this);
 
     private void OnHistory(object? sender, EventArgs e)
@@ -1616,12 +1759,7 @@ public sealed class MainWindow : Window
                 if (info is not null && UpdateChecker.IsNewer(info))
                 {
                     _pendingUpdate = info;
-                    // "Click here to install" is only true where the staged installer can
-                    // actually run (Windows); Linux always goes to the download page.
-                    _updateText.Text = OperatingSystem.IsWindows()
-                            && (info.SetupPath is not null || info.DownloadUrl is not null)
-                        ? $"Update v{info.Latest} is ready - click here to install."
-                        : $"Update v{info.Latest} is available - click to open the download page.";
+                    _updateText.Text = UpdateOffer.OfferText(info, OperatingSystem.IsWindows());
                     _updateBanner.IsVisible = true;
                 }
                 else if (manual)
@@ -1672,18 +1810,25 @@ public sealed class MainWindow : Window
                 { } other => other,
             };
             var named = Array.Find(AlertSounds, x => x.Name == choice);
-            var file = named.File is { } systemFile ? FindFreeDesktopSound(systemFile) : choice;
+            var file = named.File is { } systemFile
+                ? FindDesktopSound(systemFile)
+                : choice;
+            // Sound themes are not required to carry every freedesktop event. A named
+            // built-in should still make noise when its preferred clip is absent.
+            if (file.Length == 0 && named.File is not null)
+                file = FindDesktopSound("bell.oga");
             if (file.Length > 0 && File.Exists(file))
             {
-                if (TryStart("pw-play", file) || TryStart("paplay", file) || TryStart("aplay", file))
-                    return;
+                _ = Task.Run(() => PlaySoundFile(file));
+                return;
             }
+            App.LogError($"Alert sound file was not found: {choiceOrPath}");
             Console.Beep();
         }
         catch (Exception ex) { App.LogError(ex); }
     }
 
-    private static string FindFreeDesktopSound(string fileName)
+    private static string FindDesktopSound(string fileName)
     {
         var dataDirs = new List<string>();
         var userData = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
@@ -1702,17 +1847,66 @@ public sealed class MainWindow : Window
             var path = System.IO.Path.Combine(dataDir, "sounds", "freedesktop", "stereo", fileName);
             if (File.Exists(path)) return path;
         }
+
+        // Ubuntu, Fedora, and desktop environments often install the clip only in the
+        // active theme (Yaru, Oxygen, etc.). Prefer freedesktop above for consistency,
+        // then accept the same event from any installed theme.
+        foreach (var dataDir in dataDirs)
+        {
+            var sounds = System.IO.Path.Combine(dataDir, "sounds");
+            if (!Directory.Exists(sounds)) continue;
+            try
+            {
+                var match = Directory.EnumerateFiles(sounds, fileName, SearchOption.AllDirectories)
+                    .FirstOrDefault();
+                if (match is not null) return match;
+            }
+            catch { /* an unreadable theme must not prevent the remaining locations */ }
+        }
         return "";
     }
 
-    private static bool TryStart(string command, string file)
+    /// <summary>Try Linux audio backends in order and verify their exit status. Merely
+    /// starting pw-play is not success: it can launch and immediately fail to connect or
+    /// decode an .oga file, which used to swallow the alert without trying paplay.</summary>
+    private static void PlaySoundFile(string file)
+    {
+        var players = new (string Command, string[] Args)[]
+        {
+            ("canberra-gtk-play", ["--file", file]),
+            ("pw-play", [file]),
+            ("paplay", [file]),
+            ("aplay", [file]),
+        };
+        foreach (var (command, args) in players)
+            if (TryPlay(command, args)) return;
+
+        try { Console.Beep(); }
+        catch { }
+        App.LogError($"Alert sound could not be played by any available backend: {file}");
+    }
+
+    private static bool TryPlay(string command, IReadOnlyList<string> args)
     {
         try
         {
-            var start = new ProcessStartInfo(command) { UseShellExecute = false };
-            start.ArgumentList.Add(file);
-            Process.Start(start);
-            return true;
+            var start = new ProcessStartInfo(command)
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardError = true,
+            };
+            foreach (var arg in args) start.ArgumentList.Add(arg);
+            using var process = Process.Start(start);
+            if (process is null) return false;
+            _ = process.StandardError.ReadToEndAsync(); // drain it so a noisy failure cannot block WaitForExit
+            if (!process.WaitForExit(10_000))
+            {
+                try { process.Kill(entireProcessTree: true); }
+                catch { }
+                return false;
+            }
+            return process.ExitCode == 0;
         }
         catch { return false; }
     }
@@ -1722,28 +1916,21 @@ public sealed class MainWindow : Window
         e.Handled = true;
         if (_pendingUpdate is not { } info || _installingUpdate) return;
 
-        // The staged file is always a Windows EQBuddySetup.exe run with an Inno Setup
-        // /SILENT flag — there's nothing installable that way on Linux, so a GitHub-sourced
-        // update there always goes to the release page, same as when no installer asset
-        // is attached at all. OneDrive-sourced updates (SetupPath) predate this and are a
-        // Windows-only distribution channel already, so they're unaffected by this check.
-        var canAutoInstall = OperatingSystem.IsWindows() && (info.SetupPath is not null || info.DownloadUrl is not null);
-        if (!canAutoInstall)
+        if (!UpdateOffer.CanAutoInstall(info, OperatingSystem.IsWindows()))
         {
+            var target = UpdateOffer.BrowserTarget(info, OperatingSystem.IsWindows());
             try
             {
-                Process.Start(new ProcessStartInfo(UpdateChecker.GitHubLatestPage) { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
                 _pendingUpdate = null;
-                // On Linux the setup exe means nothing — say what actually works there
-                // (issue #30: the old text told Linux users to run a Windows installer).
-                _updateText.Text = OperatingSystem.IsWindows()
-                    ? "Download page opened - run the new EQBuddySetup.exe to update."
-                    : "Download page opened - get EQBuddy-linux-x64.tar.gz and extract it over this install.";
+                _updateText.Text = UpdateOffer.OpenedText(info, OperatingSystem.IsWindows());
                 _upToDateNoticeUntil = DateTime.Now.AddSeconds(10);
             }
             catch (Exception ex)
             {
                 App.LogError(ex);
+                // A URL the user must retype should be the short release page, even when
+                // the click would have gone straight to the tarball asset.
                 _updateText.Text = $"Couldn't open browser - visit {UpdateChecker.GitHubLatestPage}";
             }
             return;

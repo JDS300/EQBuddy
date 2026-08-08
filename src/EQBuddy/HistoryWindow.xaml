@@ -29,7 +29,7 @@
                      ToolTip="Search character, zone, notes, tags, loot, or creature names"/>
             <TextBlock x:Name="CountText" Grid.Column="2" Style="{StaticResource Dim}"
                        VerticalAlignment="Center" Margin="8,0,0,0"/>
-            <Button Grid.Column="3" Content="Import log…" Style="{StaticResource IconButton}"
+            <Button Grid.Column="3" Content="Import log…" Style="{StaticResource ActionButton}"
                     FontSize="12" Margin="8,0,0,0" Click="OnImportLog"
                     ToolTip="Parse an existing eqlog file into session history (Ctrl-click two sessions to compare them)"/>
         </Grid>
@@ -103,10 +103,10 @@
                              ToolTip="Comma-separated, e.g. solo, basement, new weapon"/>
                 </Grid>
                 <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                    <Button Content="Save notes" Style="{StaticResource IconButton}" FontSize="12" Click="OnSaveMeta"/>
-                    <Button Content="Copy summary" Style="{StaticResource IconButton}" FontSize="12" Click="OnCopySummary" Margin="8,0,0,0"/>
-                    <Button Content="Export JSON" Style="{StaticResource IconButton}" FontSize="12" Click="OnExportJson" Margin="8,0,0,0"/>
-                    <Button Content="Delete session" Style="{StaticResource IconButton}" FontSize="12" Click="OnDelete" Margin="24,0,0,0"
+                    <Button Content="Save notes" Style="{StaticResource ActionButton}" Click="OnSaveMeta"/>
+                    <Button Content="Copy summary" Style="{StaticResource ActionButton}" Click="OnCopySummary" Margin="8,0,0,0"/>
+                    <Button Content="Export JSON" Style="{StaticResource ActionButton}" Click="OnExportJson" Margin="8,0,0,0"/>
+                    <Button Content="Delete session" Style="{StaticResource ActionButton}" Click="OnDelete" Margin="24,0,0,0"
                             Foreground="{DynamicResource BadBrush}"/>
                 </StackPanel>
             </StackPanel>

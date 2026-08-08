@@ -97,9 +97,15 @@ public static class EqConfig
     /// <summary>
     /// Empty every character log whose last activity is older than <paramref name="staleAfter"/>.
     /// A stale log is a finished play session; wiping it keeps files session-sized forever.
+    /// With <paramref name="archive"/>, the content is first copied to
+    /// Logs\archive\eqlog_name_server_yyyyMMddHHmmss.txt (stamp = the log's last write,
+    /// i.e. when the session actually ended) — joeymavity's ask, discussion #52. The
+    /// archive SUBFOLDER is load-bearing: a timestamped copy in the log folder itself
+    /// would match this very method's glob next sweep and get truncated too.
     /// Returns the number of files truncated.
     /// </summary>
-    public static int TruncateStaleLogs(string logFolder, TimeSpan staleAfter, bool ignoreGameCheck = false)
+    public static int TruncateStaleLogs(string logFolder, TimeSpan staleAfter,
+        bool ignoreGameCheck = false, bool archive = false)
     {
         if (!ignoreGameCheck && (IsGameRunning() || IsLogReaderRunning())) return 0;
         if (!Directory.Exists(logFolder)) return 0;
@@ -111,6 +117,7 @@ public static class EqConfig
                 var fi = new FileInfo(f);
                 if (fi.Length > 0 && DateTime.Now - fi.LastWriteTime > staleAfter)
                 {
+                    if (archive) ArchiveCopy(fi);
                     using var fs = new FileStream(f, FileMode.Open, FileAccess.Write,
                         FileShare.ReadWrite | FileShare.Delete);
                     fs.SetLength(0);
@@ -120,5 +127,19 @@ public static class EqConfig
             catch { /* file busy — skip, try next sweep */ }
         }
         return truncated;
+    }
+
+    private static void ArchiveCopy(FileInfo log)
+    {
+        var dir = Path.Combine(log.DirectoryName!, "archive");
+        Directory.CreateDirectory(dir);
+        var stamp = log.LastWriteTime.ToString("yyyyMMddHHmmss");
+        var dest = Path.Combine(dir,
+            $"{Path.GetFileNameWithoutExtension(log.Name)}_{stamp}.txt");
+        // Same second twice (clock oddities, manual copies): keep both rather than clobber.
+        for (var n = 2; File.Exists(dest); n++)
+            dest = Path.Combine(dir,
+                $"{Path.GetFileNameWithoutExtension(log.Name)}_{stamp}-{n}.txt");
+        log.CopyTo(dest);
     }
 }

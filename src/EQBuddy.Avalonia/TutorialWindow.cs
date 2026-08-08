@@ -37,8 +37,9 @@ public sealed class TutorialWindow : Window
             "Because logging stays on permanently, EQBuddy automatically EMPTIES a character's " +
             "log after it has been quiet for 60+ minutes (a finished play session), so the files " +
             "never grow forever.\n\n" +
-            "If you keep your logs — for example to upload them to another parser — turn that " +
-            "off below. You can change this any time in ⚙ Options.",
+            "If you keep your logs because you run GINA or GamParse, or upload them to another " +
+            "parser, turn that off below. Cleanup never runs while the game, GINA, or GamParse " +
+            "is open. You can change this any time in ⚙ Options.",
             null, TruncationChoice: true),
 
         new("The widget",
@@ -64,6 +65,16 @@ public sealed class TutorialWindow : Window
             "Matches count on the 🎯 Watch card with per-hour rates. The banner tile is " +
             "click-through and movable — drag it while Options is open.",
             "t-watch.png"),
+
+        new("Spawn timers",
+            "Kill a named mob - or its placeholder - and a compact countdown chip appears: " +
+            "⏳ Asaka L`Rei 3:12. Chips stack, drag anywhere as one, and keep every timer " +
+            "running across zones. At zero a chip turns DUE for one minute, with a sound if " +
+            "that named's bell is enabled, then clears itself. Double-click a chip - or use " +
+            "right-click -> Spawn timers - for the full " +
+            "zone list. Community times are editable there and your correction survives updates; " +
+            "▶ starts a timer manually and + adds a missing named.",
+            null),
 
         new("Mini mode & hotkeys",
             "Star ★ the stats you care about, then minimize: a tiny pill shows just those, " +

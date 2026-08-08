@@ -25,6 +25,7 @@ public partial class OptionsWindow : Window
         Width = Math.Clamp(_vm.OptionsWidth, MinWidth, MaxWidth);
         // The handle only exists once the window is sourced; re-clamp on move because the
         // user may drag it to a monitor with a different size or DPI.
+        WindowZoom.Attach(this, "options", _main.Settings);
         SourceInitialized += (_, _) => ClampToMonitor();
         LocationChanged += (_, _) => ClampToMonitor();
 
@@ -36,6 +37,7 @@ public partial class OptionsWindow : Window
         OpacitySlider.Value = _vm.Opacity;
         BgOpacitySlider.Value = _vm.BackgroundOpacity;
         TruncateCheck.IsChecked = _vm.TruncateLogs;
+        ArchiveCheck.IsChecked = _vm.ArchiveLogs;
         PinChipsCheck.IsChecked = _vm.PinWatchChips;
         TutorialCheck.IsChecked = _vm.ShowTutorial;
         TargetDropsCheck.IsChecked = _vm.ShowTargetDrops;
@@ -120,6 +122,11 @@ public partial class OptionsWindow : Window
     private void OnTruncateChanged(object sender, RoutedEventArgs e)
     {
         if (_ready) _vm.TruncateLogs = TruncateCheck.IsChecked == true;
+    }
+
+    private void OnArchiveChanged(object sender, RoutedEventArgs e)
+    {
+        if (_ready) _vm.ArchiveLogs = ArchiveCheck.IsChecked == true;
     }
 
     private void OnTutorialToggled(object sender, RoutedEventArgs e)

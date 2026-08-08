@@ -17,9 +17,10 @@ public partial class HistoryWindow : Window
     private readonly HistoryViewModel _vm;
     private bool _syncing;
 
-    public HistoryWindow(SessionRepository repo)
+    public HistoryWindow(SessionRepository repo, AppSettings settings)
     {
         InitializeComponent();
+        WindowZoom.Attach(this, "history", settings);
         _vm = new HistoryViewModel(repo);
 
         CharFilter.ItemsSource = _vm.Filters;

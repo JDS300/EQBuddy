@@ -1,0 +1,234 @@
+using System.Text;
+
+namespace EQBuddy.Core;
+
+/// <summary>Where an observed drop stands against the creature's eqlwiki page.</summary>
+public enum WikiDropStatus
+{
+    /// <summary>Lookup pending, or the wiki was unreachable — say nothing rather than guess.</summary>
+    Unknown,
+    /// <summary>The page already lists this item.</summary>
+    Known,
+    /// <summary>Page exists, item is not in its loot list — a meaningful update.</summary>
+    NewToPage,
+    /// <summary>Page exists but records no loot at all — the blank pages David kept
+    /// meeting live ("the wiki page lists no drops yet"); everything looted is news.</summary>
+    PageHasNoLoot,
+    /// <summary>No page at all — the biggest contribution of the three.</summary>
+    PageMissing,
+}
+
+/// <summary>
+/// Turns session drop observations into eqlwiki-ready contributions (discussion #65,
+/// Frankthetankk). Copy/paste-first by design: nothing here talks to the wiki — it
+/// classifies what's new against the pages EQBuddy already fetched for Target Drops,
+/// and builds a "contribution pack" of paste blocks in the wiki's own house style
+/// (surveyed from live {{Namedmobpage}} pages + eqlwiki Help:Contents, 2026-08-08),
+/// each headed by a direct edit link. Auto-publish waits for the wiki admins' blessing.
+///
+/// Honesty rules: rarity labels use the wiki's published bands (Always 100% ·
+/// Common ≥50% · Uncommon ≥25% · Rare ≥5% · Ultra Rare &lt;5%) and are suggested only
+/// when the sample can carry them — 10+ kills, 20+ for "Always". Below that the span
+/// is omitted and the editor decides; the observed numbers always ride along as a
+/// suggested edit summary, denominator and all.
+/// </summary>
+public static class WikiContribution
+{
+    /// <summary>Tier suffixes fold ("Vest +2" → "Vest") and backticks drop (wikis
+    /// strip EQ's backticks — the Skeleton L`rodd lesson), then case-insensitive.</summary>
+    private static string Fold(string item) =>
+        QuestCatalog.BaseItemName(item).Replace("`", "");
+
+    public static WikiDropStatus Classify(MobLookupResult? lookup, string item) => lookup switch
+    {
+        null => WikiDropStatus.Unknown,
+        { State: ItemLookupState.Offline } => WikiDropStatus.Unknown,
+        { State: ItemLookupState.NotFound } => WikiDropStatus.PageMissing,
+        { Mob: null } => WikiDropStatus.Unknown,
+        { Mob.Drops.Count: 0 } => WikiDropStatus.PageHasNoLoot,
+        { Mob: { } mob } => mob.Drops.Any(d =>
+                string.Equals(Fold(d.Item), Fold(item), StringComparison.OrdinalIgnoreCase))
+            ? WikiDropStatus.Known
+            : WikiDropStatus.NewToPage,
+    };
+
+    /// <summary>A wiki rarity label the observation can honestly support, or null when
+    /// the sample is too thin to label (the editor decides; the numbers still travel
+    /// in the edit summary).</summary>
+    public static string? SuggestRarity(double? pct, int kills)
+    {
+        if (pct is not { } p || kills < 10) return null;
+        if (p >= 100) return kills >= 20 ? "Always" : "Common";
+        if (p >= 50) return "Common";
+        if (p >= 25) return "Uncommon";
+        if (p >= 5) return "Rare";
+        return "Ultra Rare";
+    }
+
+    /// <summary>Parens and apostrophes are URL-legal and MediaWiki keeps them raw —
+    /// "(Crushbone)" pages should paste as readable links, not %28 soup.</summary>
+    public static string EditUrl(string pageTitle) =>
+        "https://eqlwiki.com/index.php?title="
+        + Uri.EscapeDataString(pageTitle.Trim().Replace(' ', '_'))
+            .Replace("%28", "(").Replace("%29", ")").Replace("%27", "'")
+        + "&action=edit";
+
+    /// <summary>One creature's worth of input: the session summary plus whatever the
+    /// Target-Drops lookup already knows about its wiki page (null = never looked up).</summary>
+    public readonly record struct MobObservation(MobSummary Mob, MobLookupResult? Lookup);
+
+    /// <summary>The paste-ready contribution pack. Only creatures with something the
+    /// wiki doesn't know make the cut; creatures still Unknown are listed at the end
+    /// so nobody mistakes "not checked" for "nothing new".</summary>
+    public static string BuildExport(IEnumerable<MobObservation> observations,
+        string character, string server, string currentZone, DateTime now)
+    {
+        var sb = new StringBuilder();
+        var who = character.Length > 0 ? $"{character} ({server})" : "unknown character";
+        sb.AppendLine($"EQBuddy → eqlwiki contribution pack — {who} — {now:yyyy-MM-dd HH:mm}");
+        sb.AppendLine("Everything below was observed in your own loot log. Nothing publishes");
+        sb.AppendLine("automatically: open each edit link, paste the block, review, save.");
+        sb.AppendLine("Rarity labels use the wiki's own bands (Always 100% · Common ≥50% ·");
+        sb.AppendLine("Uncommon ≥25% · Rare ≥5% · Ultra Rare <5%) and are only suggested from");
+        sb.AppendLine("10+ kills — thinner samples leave the label to the page's editors.");
+
+        var unknown = new List<string>();
+        var wroteAny = false;
+        foreach (var (mob, lookup) in observations.Select(o => (o.Mob, o.Lookup)))
+        {
+            if (mob.Loot.Count == 0) continue;
+            var news = mob.Loot
+                .Select(l => (Loot: l, Status: Classify(lookup, l.Item)))
+                .Where(x => x.Status is WikiDropStatus.NewToPage
+                    or WikiDropStatus.PageHasNoLoot or WikiDropStatus.PageMissing)
+                .ToList();
+            if (news.Count == 0)
+            {
+                if (mob.Loot.Any(l => Classify(lookup, l.Item) == WikiDropStatus.Unknown))
+                    unknown.Add(mob.Name);
+                continue;
+            }
+            wroteAny = true;
+            WriteMobSection(sb, mob, lookup, news, currentZone);
+        }
+
+        if (!wroteAny)
+        {
+            sb.AppendLine();
+            sb.AppendLine(unknown.Count > 0
+                ? "Nothing confirmed new yet — some creatures are still being checked against the wiki."
+                : "Everything you looted this session is already on the wiki. Nothing to contribute — nice when that happens.");
+        }
+        if (unknown.Count > 0 && wroteAny)
+        {
+            sb.AppendLine();
+            sb.AppendLine($"Not checked against the wiki yet (lookup pending or wiki offline): {string.Join(", ", unknown)}.");
+        }
+        return sb.ToString();
+    }
+
+    private static void WriteMobSection(StringBuilder sb, MobSummary mob,
+        MobLookupResult? lookup, List<(MobLoot Loot, WikiDropStatus Status)> news,
+        string currentZone)
+    {
+        var status = news[0].Status;
+        // A resolved page keeps its real title (edit links must hit the page that
+        // answered, "(Zone)" suffix and all); a missing page is created at the
+        // observed name — named mobs live at bare names per the wiki's own habit.
+        var pageTitle = lookup?.Mob?.PageTitle is { Length: > 0 } t ? t : mob.Name;
+
+        sb.AppendLine();
+        sb.AppendLine($"=== {mob.Name} — " + status switch
+        {
+            WikiDropStatus.PageMissing => "no wiki page yet ===",
+            WikiDropStatus.PageHasNoLoot => "wiki page lists no loot yet ===",
+            _ => $"{news.Count} drop{(news.Count == 1 ? "" : "s")} not in the wiki's list ===",
+        });
+        sb.AppendLine((status == WikiDropStatus.PageMissing ? "Create page:  " : "Edit page:  ")
+                      + EditUrl(pageTitle));
+
+        switch (status)
+        {
+            case WikiDropStatus.NewToPage:
+                sb.AppendLine("Add inside the known_loot <ul> list:");
+                sb.AppendLine();
+                foreach (var (l, _) in news)
+                    sb.AppendLine("<li> " + LootEntry(l, mob.Kills) + "</li>");
+                break;
+            case WikiDropStatus.PageHasNoLoot:
+                sb.AppendLine("Replace the empty known_loot field with:");
+                sb.AppendLine();
+                sb.AppendLine(KnownLootBlock(news.Select(n => n.Loot), mob.Kills));
+                break;
+            case WikiDropStatus.PageMissing:
+                sb.AppendLine("Paste as the whole new page:");
+                sb.AppendLine();
+                sb.AppendLine(PageSkeleton(mob, news.Select(n => n.Loot), currentZone));
+                break;
+        }
+        sb.AppendLine();
+        sb.AppendLine("Suggested edit summary: EQBuddy-observed drops — " +
+            string.Join("; ", news.Select(n =>
+                $"{n.Loot.Item} ×{n.Loot.Count} in {mob.Kills} kill{(mob.Kills == 1 ? "" : "s")}"
+                + (n.Loot.DropRatePct is { } pct ? $" ({pct:0.#}%)" : ""))) + ".");
+    }
+
+    /// <summary>One loot entry in page style: {{:Item}} transclusion (their tooltip
+    /// idiom) plus the rarity span only when the sample supports one.</summary>
+    private static string LootEntry(MobLoot l, int kills)
+    {
+        var item = QuestCatalog.BaseItemName(l.Item);
+        var rarity = SuggestRarity(l.DropRatePct, kills);
+        return "{{:" + item + "}}" + (rarity is null ? "" : $" <span class='drare'>({rarity})</span>");
+    }
+
+    /// <summary>The known_loot field in the wiki's own multiline chaining style.</summary>
+    private static string KnownLootBlock(IEnumerable<MobLoot> loot, int kills)
+    {
+        var entries = loot.Select(l => LootEntry(l, kills)).ToList();
+        var sb = new StringBuilder();
+        sb.AppendLine("| known_loot = ");
+        sb.AppendLine();
+        sb.Append("<ul><li> ").Append(entries[0]);
+        foreach (var e in entries.Skip(1))
+            sb.AppendLine().Append("</li><li> ").Append(e);
+        sb.AppendLine().Append("</li></ul>");
+        return sb.ToString();
+    }
+
+    /// <summary>A fresh {{Namedmobpage}} with what the session actually knows — name,
+    /// zone, loot — and every other field left blank for editors who know the mob.
+    /// Field list mirrors live pages (Ambassador Dvinn survey, 2026-08-08).</summary>
+    private static string PageSkeleton(MobSummary mob, IEnumerable<MobLoot> loot, string zone)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("{{Namedmobpage");
+        sb.AppendLine();
+        sb.AppendLine($"| name          = {mob.Name}");
+        sb.AppendLine("| race          = ");
+        sb.AppendLine("| class         = ");
+        sb.AppendLine("| level         = ");
+        sb.AppendLine();
+        sb.AppendLine($"| zone          = {(zone.Length > 0 ? $"[[{zone}]]" : "")}");
+        sb.AppendLine("| location      = ");
+        sb.AppendLine("| respawn_time  = ");
+        sb.AppendLine();
+        sb.AppendLine("| description = ");
+        sb.AppendLine();
+        sb.AppendLine(KnownLootBlock(loot, mob.Kills));
+        sb.AppendLine();
+        sb.AppendLine("| factions = ");
+        sb.AppendLine();
+        sb.AppendLine("| opposing_factions = ");
+        sb.AppendLine();
+        sb.AppendLine("| related_quests = ");
+        sb.AppendLine();
+        sb.AppendLine("}}");
+        if (zone.Length > 0)
+        {
+            sb.AppendLine();
+            sb.Append($"[[Category:{zone}]]");
+        }
+        return sb.ToString();
+    }
+}

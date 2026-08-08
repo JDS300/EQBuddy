@@ -24,9 +24,7 @@
         </ScrollViewer>
 
         <Button Grid.Row="2" Content="Nice — got it" HorizontalAlignment="Right"
-                Padding="14,4" FontSize="12" Click="OnClose"
-                Background="{DynamicResource PanelBrush}" Foreground="{DynamicResource TextBrush}"
-                BorderBrush="{DynamicResource BorderBrush}"/>
+                Style="{StaticResource ActionButton}" Padding="14,4" Click="OnClose"/>
       </Grid>
     </Border>
 </Window>

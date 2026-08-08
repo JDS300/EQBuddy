@@ -34,31 +34,48 @@
                     <ColumnDefinition Width="52"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBox x:Name="AddItemBox" Grid.Column="0" FontSize="12"
+                <TextBox x:Name="AddItemBox" Grid.Column="0" Style="{StaticResource InputBox}"
                          TextChanged="OnAddItemTyped" KeyDown="OnAddItemKey"
                          ToolTip="Item you already have in inventory (from before EQBuddy could see it)"/>
-                <TextBox x:Name="AddQtyBox" Grid.Column="1" FontSize="12" Text="1"
+                <TextBox x:Name="AddQtyBox" Grid.Column="1" Style="{StaticResource InputBox}" Text="1"
                          Margin="6,0,0,0" HorizontalContentAlignment="Center"
                          ToolTip="How many"/>
-                <Button x:Name="AddBtn" Grid.Column="2" Content="+ I have this" FontSize="12"
-                        Style="{StaticResource IconButton}" Margin="6,0,0,0" Click="OnAddItem"/>
+                <Button x:Name="AddBtn" Grid.Column="2" Content="+ I have this"
+                        Style="{StaticResource ActionButton}" Margin="6,0,0,0" Click="OnAddItem"/>
             </Grid>
             <ListBox x:Name="SuggestList" MaxHeight="120" FontSize="12" Visibility="Collapsed"
+                     Background="{DynamicResource ComboBoxBrush}" Foreground="{DynamicResource TextBrush}"
+                     BorderBrush="{DynamicResource BorderBrush}"
                      MouseUp="OnSuggestPicked"/>
             <Grid Margin="0,6,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBox x:Name="FilterBox" Grid.Column="0" FontSize="12" TextChanged="OnFilterChanged"
+                <TextBox x:Name="FilterBox" Grid.Column="0" Style="{StaticResource InputBox}" TextChanged="OnFilterChanged"
                          ToolTip="Filter quests by name, zone, giver, or item"/>
-                <ComboBox x:Name="ClassCombo" Grid.Column="1" Width="92" FontSize="11"
-                          Margin="6,0,0,0" SelectionChanged="OnClassChanged"
-                          ToolTip="Only quests this class can do (the wiki's restriction text decides)"/>
+                <ComboBox x:Name="EraCombo" Grid.Column="1" Width="104" FontSize="11"
+                          Margin="6,0,0,0" SelectionChanged="OnEraChanged"
+                          ToolTip="Hide quests from later eras than the world has (unmarked quests always show)"/>
+                <!-- Multiclass filter (Legends: up to 3 active classes): a checkbox
+                     popup, selection remembered per character. -->
+                <Button x:Name="ClassBtn" Grid.Column="2" Content="Any class"
+                        Style="{StaticResource ActionButton}" FontSize="11" Padding="8,2"
+                        Margin="6,0,0,0" Click="OnClassBtn"
+                        ToolTip="Pick your class(es) — quests any of them can do stay visible"/>
+                <Popup x:Name="ClassPopup" PlacementTarget="{Binding ElementName=ClassBtn}"
+                       Placement="Bottom" StaysOpen="False" AllowsTransparency="True">
+                    <Border Background="{DynamicResource PopupBrush}" CornerRadius="6"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                            Padding="10,8">
+                        <StackPanel x:Name="ClassChecks"/>
+                    </Border>
+                </Popup>
                 <!-- mine = your items + 📌 pins · zone = doable where you're standing ·
                      all = the whole catalog -->
-                <Border Grid.Column="2" BorderBrush="{DynamicResource BorderBrush}"
+                <Border Grid.Column="3" BorderBrush="{DynamicResource BorderBrush}"
                         BorderThickness="1" CornerRadius="9" Margin="6,0,0,0"
                         VerticalAlignment="Center" Padding="1">
                     <StackPanel Orientation="Horizontal">
@@ -82,7 +99,7 @@
         </ScrollViewer>
 
         <TextBlock Grid.Row="3" Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="16,8,16,14"
-                   Text="Counts items you loot plus what you add above. Hand-ins aren't in the log — after turning items in, right-click an item row here to clear its count. Click a quest name for the full wiki walkthrough."/>
+                   Text="Counts what you loot, minus what the log sees leave (sales, merges, destroys), plus what you add above. Hand-ins aren't in the log — click ✔ ready when you turn in, or right-click an item row to clear it. Click a quest name for the full wiki walkthrough."/>
       </Grid>
     </Border>
 </Window>

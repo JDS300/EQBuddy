@@ -37,6 +37,8 @@ public sealed class FadeMessageCatalog
 
     public int Count => _byMessage.Count;
 
+    public IEnumerable<Entry> Entries => _byMessage.Values;
+
     public Entry? Find(string message) =>
         _byMessage.TryGetValue(message, out var e) ? e : null;
 

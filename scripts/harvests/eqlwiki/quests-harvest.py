@@ -142,11 +142,22 @@ def parse_quest(title, wikitext, quest_item_set):
     lvl = re.search(r"\d+", q["minLevel"] or "")
     q["minLevel"] = int(lvl.group(0)) if lvl else 0
 
-    # Turn-in items: only lines that hand something to an NPC, so reward links and
-    # narrative item mentions don't pollute the required set.
+    # Turn-in items: lines that hand something to an NPC, plus requirement BULLETS —
+    # pages like The Falchion list what to collect as "* [[Blue Orc Head]] (from …)"
+    # with no give-verb at all (David's Crushbone pass, 2026-08-07). Reward-section
+    # bullets are excluded so prize lists don't read as requirements.
     items = {}
+    section = ""
     for line in wikitext.splitlines():
-        if not re.search(r"\b(give|hand|turn\s*in|return)\b", line, re.IGNORECASE):
+        heading = re.match(r"^=+\s*(.+?)\s*=+\s*$", line)
+        if heading:
+            section = heading.group(1).lower()
+            continue
+        # Bullets are requirement lists ("* [[Blue Orc Head]] (from the Orc Prophet)")
+        # EXCEPT inside the reward section, where they're prizes.
+        in_rewards = "reward" in section
+        is_bullet = line.lstrip().startswith("*") and not in_rewards
+        if not is_bullet and not re.search(r"\b(give|hand|turn\s*in|return)\b", line, re.IGNORECASE):
             continue
         for qty, name in re.findall(r"(\d+)\s*x\s*" + LINK, line):
             name = name.strip()
@@ -184,6 +195,14 @@ def parse_quest(title, wikitext, quest_item_set):
         r"!\s*'*\s*Related\s*Zones?\s*:?\s*'*\s*\n\|\s*([^\n]*)", wikitext, re.IGNORECASE)
     q["relatedZones"] = sorted({z.strip() for z in
                                 re.findall(LINK, related.group(1))} if related else set())
+
+    # Era banner template ({{Velious Era}}, {{Classic Era}}, …) → normalized era name.
+    # Case and naming drift on the wiki: "kunark Era", "EpicQuests Era", "Chardok Era".
+    era = re.search(r"\{\{\s*([A-Za-z' ]+?)\s+Era\s*\}\}", wikitext, re.IGNORECASE)
+    raw_era = era.group(1).strip().title() if era else ""
+    q["era"] = {
+        "Epicquests": "Epics", "Chardok": "Chardok Revamp", "Unknown": "",
+    }.get(raw_era, raw_era)
 
     # Repeatable: the category is the reliable marker; a "Repeatable:" infobox row
     # exists on a couple of pages as backup.

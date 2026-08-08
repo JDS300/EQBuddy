@@ -28,16 +28,16 @@
             </Border>
             <Grid Margin="0,18,0,0">
                 <StackPanel Orientation="Horizontal">
-                    <Button Content="Never show again" Style="{StaticResource IconButton}"
+                    <Button Content="Never show again" Style="{StaticResource ActionButton}"
                             FontSize="12" Click="OnNever" Foreground="{DynamicResource DimBrush}"/>
-                    <Button Content="Skip for now" Style="{StaticResource IconButton}"
+                    <Button Content="Skip for now" Style="{StaticResource ActionButton}"
                             FontSize="12" Click="OnSkip" Margin="10,0,0,0"
                             Foreground="{DynamicResource DimBrush}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button x:Name="PrevBtn" Content="◀ Previous" Style="{StaticResource IconButton}"
+                    <Button x:Name="PrevBtn" Content="◀ Previous" Style="{StaticResource ActionButton}"
                             FontSize="12" Click="OnPrev"/>
-                    <Button x:Name="NextBtn" Content="Next ▶" Style="{StaticResource IconButton}"
+                    <Button x:Name="NextBtn" Content="Next ▶" Style="{StaticResource ActionButton}"
                             FontSize="12" FontWeight="SemiBold" Click="OnNext" Margin="14,0,0,0"
                             Foreground="{DynamicResource AccentBrush}"/>
                 </StackPanel>

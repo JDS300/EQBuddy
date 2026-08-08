@@ -231,6 +231,39 @@ public class LogParserTests
     public void RegenTickHasNoAmount() =>
         Parse<RegenTickEvent>("Your wounds begin to heal.");
 
+    /// <summary>"You gain a rune for N points of absorption." — a berserker/rune buff
+    /// building its absorption pool. Tracked as a self-heal so it shows on Healing
+    /// rather than vanishing entirely.</summary>
+    [Fact]
+    public void RuneAbsorptionIsHealing()
+    {
+        var e = Parse<HealEvent>("You gain a rune for 8 points of absorption.");
+        Assert.Equal(("You", 8, "Rune", false, "Rune"), (e.Target, e.Amount, e.Spell, e.Outgoing, e.Healer));
+    }
+
+    /// <summary>"YOUR magical skin absorbs the blow!" — an incoming melee attack fully
+    /// blocked by the player's own rune. Must NOT fall through to a generic MissEvent
+    /// (which would blur "absorbed by rune" into ordinary dodges/parries).</summary>
+    [Fact]
+    public void RuneBlocksIncomingHit()
+    {
+        var e = Parse<RuneBlockEvent>("A froglok shin knight tries to hit YOU, but YOUR magical skin absorbs the blow!");
+        Assert.Equal("Froglok shin knight", e.Attacker);
+    }
+
+    [Fact]
+    public void RuneBlocksIncomingHitWithNote()
+    {
+        var e = Parse<RuneBlockEvent>("A vampire bat tries to bite YOU, but YOUR magical skin absorbs the blow! (Riposte)");
+        Assert.Equal("Vampire bat", e.Attacker);
+    }
+
+    /// <summary>A mob's OWN rune blocking the player's outgoing attack is an ordinary
+    /// outgoing miss, not the player's rune — must not be mistaken for a block.</summary>
+    [Fact]
+    public void TargetsOwnRuneIsOrdinaryOutgoingMiss() =>
+        Parse<MissEvent>("You try to strike a froglok tactician, but a froglok tactician's magical skin absorbs the blow!");
+
     [Fact]
     public void ThirdPartyHealsIgnored() =>
         AssertIgnored("Guard Meadom healed Guard Legver for 0 (63) hit points by Center.");

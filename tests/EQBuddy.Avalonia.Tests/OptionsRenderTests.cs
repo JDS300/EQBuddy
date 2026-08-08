@@ -34,7 +34,9 @@ public class OptionsRenderTests : IDisposable
             $$"""
               {
                 "LogFolder": {{System.Text.Json.JsonSerializer.Serialize(Path.Combine(_profile, "logs"))}},
-                "TruncateLogs": false, "ShowTutorial": false, "Theme": "ParchmentBrass",
+                "TruncateLogs": false, "ShowTutorial": false, "TrackSpawns": false,
+                "LastSeenVersion": {{System.Text.Json.JsonSerializer.Serialize(UpdateChecker.CurrentVersion.ToString())}},
+                "Theme": "ParchmentBrass",
                 "_comment": "DefaultRulesVersion is set so loading doesn't inject the built-in CC broke rule and change the rule count out from under these tests",
                 "DefaultRulesVersion": 1,
                 "TrackedRules": [
@@ -42,7 +44,11 @@ public class OptionsRenderTests : IDisposable
                     "AlertBanner": true, "AlertSound": true, "AlertSoundName": "Ding" },
                   { "Name": "CAST NOW", "Pattern": "CH -->", "Kind": 6, "Enabled": true,
                     "AlertBanner": true, "AlertSound": true, "AlertSoundName": "Alarm",
-                    "AlertDelaySeconds": 2.5 }
+                    "AlertDelaySeconds": 2.5 },
+                  { "Name": "Befriend dropped", "Pattern": "Befriend", "Kind": 5,
+                    "SpellFilter": 0, "Enabled": true },
+                  { "Name": "Any mez dropped", "Pattern": "keep this", "Kind": 5,
+                    "SpellFilter": 4, "Enabled": true }
                 ]
               }
               """);
@@ -76,6 +82,58 @@ public class OptionsRenderTests : IDisposable
         main.Close();
     }
 
+    [AvaloniaFact]
+    public void SpawnTrackingToggleUpdatesTheSharedSetting()
+    {
+        var (main, options) = Open();
+        var toggle = options.GetVisualDescendants().OfType<CheckBox>()
+            .Single(c => (c.Content as TextBlock)?.Text?.Contains("Track spawns") == true);
+
+        Assert.False(toggle.IsChecked);
+        toggle.IsChecked = true;
+        Assert.True(main.Settings.TrackSpawns);
+
+        main.SetTrackSpawns(false);
+        Assert.False(toggle.IsChecked);
+        Assert.False(main.Settings.TrackSpawns);
+
+        options.Close();
+        main.Close();
+    }
+
+    [AvaloniaFact]
+    public void LongOptionsContentHasABoundedScrollableViewport()
+    {
+        var main = new MainWindow();
+        main.Show();
+        for (var i = 0; i < 30; i++)
+            main.Settings.TrackedRules.Add(new TrackedRule
+            {
+                Name = $"extra rule {i}", Pattern = $"pattern {i}", Kind = WatchKind.Text,
+            });
+
+        var options = new OptionsWindow(main);
+        options.Show();
+        // The body scroller is the direct ScrollViewer child of the chrome Grid. Upstream
+        // found it by its content's hard-coded 520px width; the merged window's body is
+        // wider (OptionsWindow.BodyWidth), and every TextBox template contributes another
+        // ScrollViewer to the tree, so walk the chrome instead of matching on a number.
+        var chromeGrid = (Grid)((Border)options.Content!).Child!;
+        var scroll = chromeGrid.Children.OfType<ScrollViewer>().Single();
+        Assert.IsType<StackPanel>(scroll.Content);
+
+        Assert.Equal(global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            scroll.VerticalScrollBarVisibility);
+        Assert.True(scroll.MaxHeight < double.PositiveInfinity);
+        Assert.True(scroll.Extent.Height > scroll.Viewport.Height,
+            $"content {scroll.Extent.Height}px should exceed viewport {scroll.Viewport.Height}px");
+        scroll.Offset = new global::Avalonia.Vector(0, 100);
+        Assert.True(scroll.Offset.Y > 0);
+
+        options.Close();
+        main.Close();
+    }
+
     /// <summary>Each rule offers a real sound choice, not just on/off — and the two rules in
     /// the fixture keep their different sounds.</summary>
     [AvaloniaFact]
@@ -87,7 +145,7 @@ public class OptionsRenderTests : IDisposable
             .Where(c => c.Items.Contains(AlertSoundCatalog.CustomChoice))
             .ToList();
 
-        Assert.Equal(2, soundPickers.Count);   // one per rule
+        Assert.Equal(main.Settings.TrackedRules.Count, soundPickers.Count); // one per rule
         Assert.NotEqual(soundPickers[0].SelectedIndex, soundPickers[1].SelectedIndex);
         options.Close();
         main.Close();
@@ -104,6 +162,28 @@ public class OptionsRenderTests : IDisposable
             .Select(t => t.Text ?? "").ToList();
 
         Assert.Contains("2.5", texts);
+        options.Close();
+        main.Close();
+    }
+
+    [AvaloniaFact]
+    public void CustomThemeShowsEditableColorsAndSwatches()
+    {
+        var (main, options) = Open();
+        var theme = options.GetVisualDescendants().OfType<ComboBox>()
+            .Single(c => c.Items.Contains(OptionsViewModel.ThemeLabels[0]));
+
+        theme.SelectedIndex = ThemeCatalog.IndexOf(CustomTheme.Key);
+
+        Assert.Equal(CustomTheme.Key, main.Settings.Theme);
+        var text = options.GetVisualDescendants().OfType<TextBox>()
+            .Select(t => t.Text).ToList();
+        Assert.Contains(CustomTheme.DefaultBg, text);
+        Assert.Contains(CustomTheme.DefaultText, text);
+        Assert.Contains(CustomTheme.DefaultAccent, text);
+        Assert.True(options.GetVisualDescendants().OfType<Border>()
+            .Count(b => b.Width == 15 && b.Height == 15) >= 16 * 3);
+
         options.Close();
         main.Close();
     }
@@ -328,6 +408,41 @@ public class OptionsRenderTests : IDisposable
         main.Close();
     }
 
+    /// <summary>Upstream's companion to the two class-filter tests above, run against the
+    /// shared fixture rather than a hand-built rule list: every row offers the whole class
+    /// list, only the Spell fade rows show it, and a class-wide row's match text is hidden
+    /// rather than discarded.</summary>
+    [AvaloniaFact]
+    public void SpellFadeRulesOfferEveryClassAndHideIgnoredMatchText()
+    {
+        var (main, options) = Open();
+
+        var filterPickers = options.GetVisualDescendants().OfType<ComboBox>()
+            .Where(c => c.Items.Contains(OptionsViewModel.SpellFilterNames[0]))
+            .ToList();
+        Assert.Equal(main.Settings.TrackedRules.Count, filterPickers.Count);
+        Assert.All(filterPickers, picker =>
+            Assert.Equal(Enum.GetValues<SpellFilter>().Length, picker.Items.Count));
+        Assert.Equal(2, filterPickers.Count(picker => picker.IsVisible));
+
+        var namedPattern = options.GetVisualDescendants().OfType<TextBox>()
+            .Single(t => t.Text == "Befriend");
+        var classPattern = options.GetVisualDescendants().OfType<TextBox>()
+            .Single(t => t.Text == "keep this");
+        Assert.True(namedPattern.IsVisible);
+        Assert.False(classPattern.IsVisible);
+
+        var kindPickers = options.GetVisualDescendants().OfType<ComboBox>()
+            .Where(c => c.Items.Contains(OptionsViewModel.KindNames[0]))
+            .ToList();
+        kindPickers[0].SelectedIndex = (int)WatchKind.SpellFade;
+        Assert.Equal(WatchKind.SpellFade, main.Settings.TrackedRules[0].Kind);
+        Assert.True(filterPickers[0].IsVisible);
+
+        options.Close();
+        main.Close();
+    }
+
     /// <summary>The bug report: with the watch-rules section expanded (a long rule list
     /// plus the worked-examples guide), this undecorated window used to grow past the
     /// screen's usable height — carrying its own title bar and close button out of reach
@@ -383,6 +498,32 @@ public class OptionsRenderTests : IDisposable
         var closeTop = close.TranslatePoint(new Point(0, 0), options);
         Assert.True(closeTop is { Y: >= 0 and < 80 },
             $"close button top landed at {closeTop}, expected near the top of the window");
+
+        options.Close();
+        main.Close();
+    }
+
+    [AvaloniaFact]
+    public void ChangingSpellFilterPersistsAndPreservesTheNamedPattern()
+    {
+        var (main, options) = Open();
+        var rule = main.Settings.TrackedRules.Single(r => r.Name == "Befriend dropped");
+        var filterPicker = options.GetVisualDescendants().OfType<ComboBox>()
+            .Where(c => c.Items.Contains(OptionsViewModel.SpellFilterNames[0]))
+            .Single(c => c.SelectedIndex == (int)SpellFilter.ByName && c.IsVisible);
+        var pattern = options.GetVisualDescendants().OfType<TextBox>()
+            .Single(t => t.Text == "Befriend");
+
+        filterPicker.SelectedIndex = (int)SpellFilter.Charm;
+
+        Assert.Equal(SpellFilter.Charm, rule.SpellFilter);
+        Assert.Equal("Befriend", rule.Pattern);
+        Assert.False(pattern.IsVisible);
+        Assert.Contains("\"SpellFilter\": 3", File.ReadAllText(Path.Combine(_profile, "settings.json")));
+
+        filterPicker.SelectedIndex = (int)SpellFilter.ByName;
+        Assert.True(pattern.IsVisible);
+        Assert.Equal("Befriend", pattern.Text);
 
         options.Close();
         main.Close();

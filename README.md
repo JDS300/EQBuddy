@@ -329,4 +329,13 @@ Third-party credits are in [NOTICE](NOTICE). The original crowd-control spell se
 is adapted from [Spyxy's DPS Meter](https://github.com/khadesh/SpyxysDPSMeter) by khadesh
 (MIT) — thanks for making it open source. Spell, AA, spawn, item, and mob knowledge is
 harvested from the [EQ Legends community wiki](https://eqlwiki.com) — the harvest data
-and rerunnable scripts live in `scripts/harvests/`.
+and rerunnable scripts live in `scripts/harvests/`. Zone connections come from the
+[eqltools.com Zone Atlas](https://eqltools.com/atlas).
+
+Two alert behaviors (per-target cooldown scoping and the first-sound-wins gate) were
+inspired by designs in [EQ Legends Companion](https://jmoyers.github.io/everquest-companion)
+by Josh Moyers ([source](https://github.com/jmoyers/everquest-companion)) — reimplemented
+independently, since its license doesn't permit code reuse, but the ideas were his first
+and they made EQBuddy's alerts better. More broadly, the whole read-the-log-and-nothing-else
+approach stands on what [GamParse](https://gambosoft.eqresource.com) and
+[nParse](https://github.com/nomns/nparse) proved across two decades of classic EverQuest.

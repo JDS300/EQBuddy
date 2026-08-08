@@ -24,6 +24,11 @@ public record DamageDealtEvent(DateTime Time, string Target, int Amount, DamageK
 public record DamageTakenEvent(DateTime Time, string Attacker, int Amount, bool Melee, bool Self = false, string Ability = "", bool OverTime = false) : GameEvent(Time);
 public record MissEvent(DateTime Time, bool Outgoing) : GameEvent(Time);
 public record HealEvent(DateTime Time, string Target, int Amount, string Spell, bool Outgoing, string Healer = "", bool OverTime = false) : GameEvent(Time);
+/// <summary>"X tries to hit YOU, but YOUR magical skin absorbs the blow!" — an incoming
+/// melee attack fully absorbed by the player's own rune (not the generic dodge/parry
+/// text a plain <see cref="MissEvent"/> carries, and not a mob's OWN rune blocking the
+/// player's outgoing attack, which names the mob's skin instead of "YOUR").</summary>
+public record RuneBlockEvent(DateTime Time, string Attacker) : GameEvent(Time);
 /// <summary>"Your wounds begin to heal." — a regen/hymn tick; the log gives no amount, so we can only count them.</summary>
 public record RegenTickEvent(DateTime Time) : GameEvent(Time);
 /// <summary>A /consider line — deliberate targeting, so it can drive the target-drops

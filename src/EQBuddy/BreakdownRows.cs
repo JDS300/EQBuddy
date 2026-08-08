@@ -21,7 +21,7 @@ internal static class BreakdownRows
 
     /// <summary>One breakdown row: a bar sized to frac behind "name … value".</summary>
     public static Grid Row(FrameworkElement resources, string name, string value, double frac,
-        Brush barBrush, string? tooltip, Brush? nameBrush = null)
+        Brush barBrush, string? tooltip, Brush? nameBrush = null, UIElement? nameBadge = null)
     {
         frac = Math.Clamp(frac, 0.004, 1.0);
         var row = new Grid { Margin = new Thickness(0, 1, 0, 0), HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -37,17 +37,23 @@ internal static class BreakdownRows
         var content = new Grid { Margin = new Thickness(4, 1, 0, 1) };
         content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         content.Children.Add(new TextBlock
         {
             Text = name, FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis,
             Foreground = nameBrush ?? (Brush)resources.FindResource("TextBrush"),
         });
+        if (nameBadge is not null)
+        {
+            Grid.SetColumn(nameBadge, 1);
+            content.Children.Add(nameBadge);
+        }
         var right = new TextBlock
         {
             Text = value, FontSize = 11, Foreground = (Brush)resources.FindResource("DimBrush"),
             Margin = new Thickness(8, 1, 2, 0),
         };
-        Grid.SetColumn(right, 1);
+        Grid.SetColumn(right, 2);
         content.Children.Add(right);
         row.Children.Add(content);
         if (tooltip is not null) row.ToolTip = tooltip;

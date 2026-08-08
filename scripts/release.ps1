@@ -21,6 +21,9 @@ if (-not ($whatsNew | Where-Object { $_.version -eq $version })) {
     throw "No What's-new entry for $version in src\EQBuddy.Core\Data\WhatsNew.json — add one before releasing."
 }
 
+# Remember the running app so it comes back at the end — this kill used to be silent,
+# and David's widget vanished mid-fight when v1.39.0 shipped (2026-08-07).
+$runningApp = (Get-Process EQBuddy -ErrorAction SilentlyContinue | Select-Object -First 1).Path
 Get-Process EQBuddy -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Seconds 1
 
@@ -62,8 +65,28 @@ Copy-Item "$repo\dist\EQBuddySetup.exe", "$repo\dist\EQBuddySetup.exe.sha256", "
 Write-Host "Released $version to $oneDrive (family widgets will offer the update within 6 h)"
 
 if ($Tag) {
+    # Issue #56 (sahaq): `gh release create` tags whatever GitHub-side main happens to
+    # be — if the release commit was never pushed, the tag lands on the PREVIOUS
+    # release's commit and CI ships a stale Linux binary under the new version number.
+    # So: push first, tag HEAD explicitly, push the tag, and refuse to release unless
+    # the tag's own Directory.Build.props agrees with the version being released.
+    git push origin main
+    if ($LASTEXITCODE -ne 0) { throw 'git push failed - the release commit must be on origin/main' }
+    git tag $Tag
+    if ($LASTEXITCODE -ne 0) { throw "git tag $Tag failed (already exists? delete it or pick the next version)" }
+    git push origin $Tag
+    if ($LASTEXITCODE -ne 0) { throw "pushing tag $Tag failed" }
+    $tagProps = git show "${Tag}:Directory.Build.props" | Out-String
+    if ($tagProps -notmatch [regex]::Escape("<Version>$version</Version>")) {
+        throw "Tag $Tag does not contain <Version>$version</Version> - refusing to release a mismatched build"
+    }
     gh release create $Tag "$repo\dist\EQBuddySetup.exe" "$repo\dist\EQBuddySetup.exe.sha256" "$repo\dist\EQBuddy-portable.zip" `
         --title "EQBuddy $Tag" --generate-notes
     if ($LASTEXITCODE -ne 0) { throw 'gh release failed' }
     Write-Host "GitHub release $Tag published"
+}
+
+if ($runningApp -and (Test-Path $runningApp)) {
+    Start-Process -FilePath $runningApp | Out-Null
+    Write-Host "Relaunched $runningApp"
 }

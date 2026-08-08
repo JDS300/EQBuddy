@@ -19,11 +19,23 @@ public sealed class AppSettings
     public double ChipScale { get; set; } = 1.0;
     public double QuestsLeft { get; set; } = double.NaN;
     public double QuestsTop { get; set; } = double.NaN;
+    /// <summary>Quest Tracker era ceiling ("" = any): quests after this era are hidden
+    /// (discussion #62). Persisted app-wide — the world's era isn't per character.</summary>
+    public string QuestEraFilter { get; set; } = "";
+    /// <summary>Per-window Ctrl+wheel zoom factors, keyed by window kind ("drops",
+    /// "breakout:Damage", …) — the universal text-scaling answer (discussion #59;
+    /// David: "a more permanent scaling solution").</summary>
+    public Dictionary<string, double> WindowZooms { get; set; } = new();
     /// <summary>Opacity of the widget's background panel only — text stays fully opaque.</summary>
     public double BackgroundOpacity { get; set; } = 0.95;
     /// <summary>Empty finished-session logs automatically. Off = logs grow forever
     /// (for players who upload their logs elsewhere).</summary>
     public bool TruncateLogs { get; set; } = true;
+    /// <summary>Copy a log's content to Logs\archive\eqlog_name_server_STAMP.txt before
+    /// the janitor empties it — for players who want the raw history kept (discussion
+    /// #52, joeymavity). Off by default: most players run EQBuddy precisely so logs
+    /// stop accumulating.</summary>
+    public bool ArchiveLogs { get; set; }
     /// <summary>User-defined tracked-loot rules (TRACK-018: persisted).</summary>
     public List<TrackedRule> TrackedRules { get; set; } = [];
     /// <summary>Highest version of the built-in default watch rules already applied.

@@ -26,8 +26,11 @@ public sealed class QuestLedgerStore
     {
         public int Looted { get; set; }
         public int Manual { get; set; }
+        /// <summary>Items the log saw leave: merchant sales, destroys, and merges (two
+        /// become one). Hand-ins still aren't logged — that stays the ✔ click.</summary>
+        public int Consumed { get; set; }
         public DateTime LastTime { get; set; }
-        public int Total => Looted + Manual;
+        public int Total => Math.Max(0, Looted + Manual - Consumed);
     }
 
     /// <summary>One character's slice: owned items plus the quests they chose to 📌-track
@@ -41,6 +44,10 @@ public sealed class QuestLedgerStore
         public List<string> Hidden { get; set; } = [];
         /// <summary>Quest name → how many times it's been marked completed.</summary>
         public Dictionary<string, int> Completed { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>The character's classes for quest filtering — Legends allows up to
+        /// three active classes (David, 2026-08-07), and a character's classes don't
+        /// change per session, so the selection belongs to the character.</summary>
+        public List<string> Classes { get; set; } = [];
     }
 
     private readonly string _path;
@@ -51,10 +58,45 @@ public sealed class QuestLedgerStore
     /// the catalog in — a ledger that can't identify quest items shouldn't guess.</summary>
     public Func<string, bool> TrackFilter { get; set; } = _ => false;
 
+    /// <summary>Canonicalizes item names before storing/matching — wired to
+    /// QuestCatalog.BaseItemName so "Crushbone Shoulderpads +2" counts toward the quest
+    /// that wants plain "Crushbone Shoulderpads". Identity by default.</summary>
+    public Func<string, string> Normalize { get; set; } = s => s;
+
+    /// <summary>Bump when the counting rules change enough that stored loot counters
+    /// are wrong. v2: sales/merges/destroys subtract, loot-merge lines net zero (David,
+    /// 2026-08-07: "ready ×17" counted every merge-consumed belt). On mismatch the
+    /// LOG-DERIVED counters reset (Looted/Consumed/LastTime) so the next full-log
+    /// replay rebuilds them under the current rules; manual counts, pins, hides,
+    /// completions, and classes are user statements and always survive.</summary>
+    private const int CountingRulesVersion = 2;
+
     public QuestLedgerStore(string path)
     {
         _path = path;
         _byCharacter = Load(path);
+        ResetCountersIfRulesChanged();
+    }
+
+    private void ResetCountersIfRulesChanged()
+    {
+        var marker = _path + ".rules";
+        try
+        {
+            if (File.Exists(marker) &&
+                int.TryParse(File.ReadAllText(marker).Trim(), out var v) &&
+                v >= CountingRulesVersion)
+                return;
+            foreach (var entry in _byCharacter.Values.SelectMany(c => c.Items.Values))
+            {
+                entry.Looted = 0;
+                entry.Consumed = 0;
+                entry.LastTime = DateTime.MinValue;
+            }
+            Save();
+            File.WriteAllText(marker, CountingRulesVersion.ToString());
+        }
+        catch (Exception ex) { CoreLog.Error(ex); }
     }
 
     private static Dictionary<string, CharacterLedger> Load(string path)
@@ -71,7 +113,8 @@ public sealed class QuestLedgerStore
                 // reparse it and carry the items over (no tracked quests existed yet).
                 if (stored.Count > 0
                     && stored.Values.All(c => c.Items.Count == 0 && c.Tracked.Count == 0
-                                              && c.Hidden.Count == 0 && c.Completed.Count == 0))
+                                              && c.Hidden.Count == 0 && c.Completed.Count == 0
+                                              && c.Classes.Count == 0))
                 {
                     try
                     {
@@ -97,6 +140,7 @@ public sealed class QuestLedgerStore
                         Tracked = kv.Value.Tracked,
                         Hidden = kv.Value.Hidden,
                         Completed = new Dictionary<string, int>(kv.Value.Completed, StringComparer.OrdinalIgnoreCase),
+                        Classes = kv.Value.Classes,
                     }),
                 StringComparer.OrdinalIgnoreCase);
     }
@@ -105,12 +149,30 @@ public sealed class QuestLedgerStore
     /// timestamp beats the item's high-water mark (see class remarks).</summary>
     public void RecordLoot(string characterKey, string item, int count, DateTime time)
     {
+        item = Normalize(item);
         if (characterKey.Length == 0 || count <= 0 || !TrackFilter(item)) return;
         lock (_lock)
         {
             var entry = EntryFor(characterKey, item);
             if (time <= entry.LastTime) return;
             entry.Looted += count;
+            entry.LastTime = time;
+            Save();
+        }
+    }
+
+    /// <summary>The item left the world: a merchant sale, a destroy, or a merge (two
+    /// tiers became one). Same filter, normalization, and replay-safe time gate as
+    /// <see cref="RecordLoot"/> — the startup replay re-offers these too.</summary>
+    public void RecordConsumed(string characterKey, string item, int count, DateTime time)
+    {
+        item = Normalize(item);
+        if (characterKey.Length == 0 || count <= 0 || !TrackFilter(item)) return;
+        lock (_lock)
+        {
+            var entry = EntryFor(characterKey, item);
+            if (time <= entry.LastTime) return;
+            entry.Consumed += count;
             entry.LastTime = time;
             Save();
         }
@@ -123,6 +185,7 @@ public sealed class QuestLedgerStore
     /// own statement of relevance.</summary>
     public void SetManual(string characterKey, string item, int count)
     {
+        item = Normalize(item);
         if (characterKey.Length == 0 || item.Trim().Length == 0) return;
         lock (_lock)
         {
@@ -140,7 +203,11 @@ public sealed class QuestLedgerStore
         lock (_lock)
             return _byCharacter.TryGetValue(characterKey, out var c)
                 ? c.Items.ToDictionary(kv => kv.Key,
-                    kv => new Entry { Looted = kv.Value.Looted, Manual = kv.Value.Manual, LastTime = kv.Value.LastTime },
+                    kv => new Entry
+                    {
+                        Looted = kv.Value.Looted, Manual = kv.Value.Manual,
+                        Consumed = kv.Value.Consumed, LastTime = kv.Value.LastTime,
+                    },
                     StringComparer.OrdinalIgnoreCase)
                 : new(StringComparer.OrdinalIgnoreCase);
     }
@@ -217,6 +284,24 @@ public sealed class QuestLedgerStore
                 entry.Manual = Math.Max(entry.Manual - item.Qty, -entry.Looted);
             }
             c.Completed[questName] = c.Completed.TryGetValue(questName, out var n) ? n + 1 : 1;
+            Save();
+        }
+    }
+
+    /// <summary>The character's selected classes for quest filtering (copy).</summary>
+    public List<string> ClassesFor(string characterKey)
+    {
+        lock (_lock)
+            return _byCharacter.TryGetValue(characterKey, out var c) ? [.. c.Classes] : [];
+    }
+
+    public void SetClasses(string characterKey, IEnumerable<string> classes)
+    {
+        if (characterKey.Length == 0) return;
+        lock (_lock)
+        {
+            CharacterFor(characterKey).Classes =
+                classes.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             Save();
         }
     }

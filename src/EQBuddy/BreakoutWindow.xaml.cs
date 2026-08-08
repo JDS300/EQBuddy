@@ -85,6 +85,7 @@ public partial class BreakoutWindow : Window
         }
 
         Closed += (_, _) => SavePosition();
+        WindowZoom.Attach(this, $"breakout:{kind}", settings);
         if (_kind == BreakoutKind.Watch) ScopeBorder.Visibility = Visibility.Collapsed;
         if (_kind == BreakoutKind.Loot)
         {
@@ -426,7 +427,7 @@ public partial class BreakoutWindow : Window
             SubText.Text = hasTarget ? header.Replace("🎯 Fighting: ", "🎯 ") : "No target";
             rows = targetRows;
             emptyText = hasTarget
-                ? "Nothing known for this creature yet."
+                ? Main?.TargetEmptyNote(s) ?? "Nothing known for this creature yet."
                 : "Swing at something — or /consider it — and its\npossible drops appear here.";
         }
         else
@@ -465,8 +466,32 @@ public partial class BreakoutWindow : Window
     private Grid BuildItemRow(string name, string value, Brush barBrush)
     {
         var cachedTip = Main?.CachedItemStats(name);
-        var row = BreakdownRows.Row(this, name, value, 0, barBrush, null,
-            nameBrush: Main?.QuestItemBrush(name));
+
+        // Quest loot in the minimized Loot window carries the same 🗺 as the Loot card:
+        // click → the Quest Tracker filtered to this item's quests (David, 2026-08-07 —
+        // "the one we see when minimizing EQBuddy"). The row itself stays "click = the
+        // item's wiki page".
+        TextBlock? badge = null;
+        if (Main is { } m && m.IsActiveQuestItem(name))
+        {
+            badge = new TextBlock
+            {
+                Text = "🗺", FontSize = 11, Margin = new Thickness(6, 0, 0, 0),
+                Cursor = System.Windows.Input.Cursors.Hand,
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = "Part of a quest — click for its quest info",
+            };
+            badge.SetResourceReference(TextBlock.ForegroundProperty, "GoodBrush");
+            var badgeItem = name;
+            badge.MouseLeftButtonDown += (_, e) => e.Handled = true;
+            badge.MouseLeftButtonUp += (_, e) =>
+            {
+                e.Handled = true;
+                m.OpenQuestInfoForItem(badgeItem);
+            };
+        }
+
+        var row = BreakdownRows.Row(this, name, value, 0, barBrush, null, nameBadge: badge);
         var tipText = new TextBlock
         {
             Text = cachedTip ?? "Looking up on eqlwiki…",

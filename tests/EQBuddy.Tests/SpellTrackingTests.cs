@@ -978,6 +978,82 @@ public class SpellTrackingTests
         Assert.Single(settings.TrackedRules);
     }
 
+    // ---- rules v2: making sure charm is actually covered ----
+
+    /// <summary>
+    /// A charm breaking is the most expensive CC failure there is — the pet turns on you —
+    /// but a profile that narrowed the shipped "CC broke" rule to one class stops hearing
+    /// about it entirely, silently. Rules v2 notices charm is uncovered and adds a rule for
+    /// it. This is the case that motivated the version bump: a real profile had the built-in
+    /// rule set to Mez and had been running with no charm alert at all.
+    /// </summary>
+    [Fact]
+    public void AProfileWhoseCrowdControlRuleWasNarrowedGetsACharmAlert()
+    {
+        var settings = new AppSettings { DefaultRulesVersion = 1 };
+        settings.TrackedRules.Add(new TrackedRule
+        {
+            Name = "CC broke",
+            Kind = WatchKind.SpellFade,
+            SpellFilter = SpellFilter.Mesmerize,
+        });
+
+        Assert.True(settings.ApplyDefaultRules());
+
+        var charm = Assert.Single(settings.TrackedRules, r => r.SpellFilter == SpellFilter.Charm);
+        Assert.Equal(WatchKind.SpellFade, charm.Kind);
+        Assert.True(charm.Enabled);
+        Assert.True(charm.AlertBanner);
+        Assert.True(charm.AlertSound);
+    }
+
+    /// <summary>"Any CC" already covers charm. Adding a second rule would double-alert every
+    /// charm break — two banners and two sounds for one event.</summary>
+    [Fact]
+    public void AProfileAlreadyCoveringCharmGetsNoSecondRule()
+    {
+        var settings = new AppSettings { DefaultRulesVersion = 1 };
+        settings.TrackedRules.Add(new TrackedRule
+        {
+            Kind = WatchKind.SpellFade,
+            SpellFilter = SpellFilter.AnyCrowdControl,
+        });
+
+        settings.ApplyDefaultRules();
+
+        Assert.Single(settings.TrackedRules);
+    }
+
+    /// <summary>A fresh install gets "Any CC" from v1, so v2 must not pile a charm rule on
+    /// top of it — the new pass has to be a no-op for anyone starting today.</summary>
+    [Fact]
+    public void AFreshInstallGetsOneRuleNotTwo()
+    {
+        var settings = new AppSettings();
+
+        settings.ApplyDefaultRules();
+
+        var rule = Assert.Single(settings.TrackedRules);
+        Assert.Equal(SpellFilter.AnyCrowdControl, rule.SpellFilter);
+    }
+
+    /// <summary>Same promise the v1 rule makes: delete it and it stays gone.</summary>
+    [Fact]
+    public void ADeletedCharmRuleStaysDeleted()
+    {
+        var settings = new AppSettings { DefaultRulesVersion = 1 };
+        settings.TrackedRules.Add(new TrackedRule
+        {
+            Kind = WatchKind.SpellFade,
+            SpellFilter = SpellFilter.Mesmerize,
+        });
+        settings.ApplyDefaultRules();
+        settings.TrackedRules.RemoveAll(r => r.SpellFilter == SpellFilter.Charm);
+
+        Assert.False(settings.ApplyDefaultRules());
+        Assert.DoesNotContain(settings.TrackedRules, r => r.SpellFilter == SpellFilter.Charm);
+    }
+
     /// <summary>Deleting the built-in rule has to stick, or it reappears every launch.</summary>
     [Fact]
     public void ADeletedDefaultRuleStaysDeleted()

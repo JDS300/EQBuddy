@@ -1,5 +1,13 @@
 [
  {
+  "version": "1.42.2",
+  "date": "2026-08-08",
+  "highlights": [
+   "A charm breaking now gets its own alert. EQBuddy has always shipped one built-in \"CC broke\" rule covering every crowd-control class at once — but narrowing that rule to a single class is an ordinary thing to do, and doing it silently stops charm breaks from alerting at all. That is the worst one to miss: a broken mez is a mob waking up, a broken charm is your pet turning on you.",
+   "So if your profile has no rule covering charm, you now get a \"Charm broke\" rule with its banner and sound on. If you already run \"Any CC\" — which every fresh install does — nothing is added, because two matching rules would mean two banners and two sounds for one break. Delete it and it stays deleted, like every built-in rule."
+  ]
+ },
+ {
   "version": "1.42.1",
   "date": "2026-08-08",
   "highlights": [

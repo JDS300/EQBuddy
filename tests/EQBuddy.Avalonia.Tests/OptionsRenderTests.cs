@@ -37,8 +37,8 @@ public class OptionsRenderTests : IDisposable
                 "TruncateLogs": false, "ShowTutorial": false, "TrackSpawns": false,
                 "LastSeenVersion": {{System.Text.Json.JsonSerializer.Serialize(UpdateChecker.CurrentVersion.ToString())}},
                 "Theme": "ParchmentBrass",
-                "_comment": "DefaultRulesVersion is set so loading doesn't inject the built-in CC broke rule and change the rule count out from under these tests",
-                "DefaultRulesVersion": 1,
+                "_comment": "DefaultRulesVersion must track AppSettings.CurrentDefaultRulesVersion so loading injects no built-in rule and the rule count stays fixed under these tests. Bump it whenever that constant moves: at 1 against a v2 build, the charm-coverage pass added a rule and the visible-picker count went 2 -> 3.",
+                "DefaultRulesVersion": 2,
                 "TrackedRules": [
                   { "Name": "heard it", "Pattern": "CH -->", "Kind": 6, "Enabled": true,
                     "AlertBanner": true, "AlertSound": true, "AlertSoundName": "Ding" },

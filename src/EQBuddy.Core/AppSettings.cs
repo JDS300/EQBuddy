@@ -240,7 +240,7 @@ public sealed class AppSettings
     };
 
     /// <summary>Bump when adding a built-in rule; see <see cref="DefaultRulesVersion"/>.</summary>
-    private const int CurrentDefaultRulesVersion = 1;
+    private const int CurrentDefaultRulesVersion = 2;
 
     public static AppSettings Load()
     {
@@ -299,6 +299,26 @@ public sealed class AppSettings
                 Name = "CC broke",
                 Kind = WatchKind.SpellFade,
                 SpellFilter = SpellFilter.AnyCrowdControl,
+                AlertBanner = true,
+                AlertSound = true,
+            });
+        }
+        // v2: make sure CHARM specifically is covered. Narrowing the v1 rule to a single
+        // class is an ordinary thing to do — and it silently stops charm breaks alerting,
+        // which is the most expensive CC failure there is, because the pet turns on you.
+        // Guarded on coverage rather than on "did we add one", so a profile already running
+        // Any CC (every fresh install) gets nothing new: two matching rules would mean two
+        // banners and two sounds for one break.
+        if (DefaultRulesVersion < 2 &&
+            !TrackedRules.Any(r => r.Kind == WatchKind.SpellFade &&
+                                   r.SpellFilter is SpellFilter.Charm
+                                                 or SpellFilter.AnyCrowdControl))
+        {
+            TrackedRules.Add(new TrackedRule
+            {
+                Name = "Charm broke",
+                Kind = WatchKind.SpellFade,
+                SpellFilter = SpellFilter.Charm,
                 AlertBanner = true,
                 AlertSound = true,
             });

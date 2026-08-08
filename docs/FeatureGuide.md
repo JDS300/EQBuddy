@@ -163,6 +163,17 @@ seeded by `AppSettings.ApplyDefaultRules()` and guarded by `DefaultRulesVersion`
 is applied exactly once. Everything about it is editable, and deleting it makes it stay
 deleted.
 
+**Rules v2 makes sure charm is covered.** Narrowing the rule above to a single class is
+an ordinary edit, and it silently stops charm breaks alerting — the most expensive CC
+failure there is, since the pet turns on you. So a profile with no rule covering charm
+gains a "Charm broke" rule (Spell fade + Charm, banner and sound). The guard is on
+*coverage*, not on "have we added one before": a profile already running Any CC gets
+nothing, because two matching rules mean two banners and two sounds for one break.
+
+**Verify (charm coverage):** with `EQBUDDY_APPDATA=<dir>` holding a settings.json whose
+only fade rule is `"SpellFilter": 4` (Mez) and `"DefaultRulesVersion": 1`, launch — a
+"Charm broke" rule appears. Repeat with `"SpellFilter": 2` (Any CC) and nothing is added.
+
 Rules are defined in Options: **Kind** (Loot / Kill / Skill-up / Death / Milestone /
 Spell fade / Log text) + name + match text (case-insensitive substring; the name doubles as
 match text if the match box is empty; Death/Milestone match everything when empty) + an

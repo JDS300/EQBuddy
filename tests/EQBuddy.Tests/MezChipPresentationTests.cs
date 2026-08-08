@@ -93,7 +93,10 @@ public class MezChipPresentationTests
     [Fact]
     public void CountdownFormatsAsMinutesColonSeconds()
     {
-        // Learn a 100s duration so 90s remain exactly 10s after landing.
+        // Learn a 96s duration so 90s remain exactly 6s after landing. (The fade is 100s
+        // after the landing; learned durations snap down to the 6-second server tick, so
+        // the tracker believes 96 — see MezTracker.Effective. Nothing here depends on which
+        // number it is, only that the countdown crosses a minute boundary.)
         var t = Replay(
             Ev(0, "You begin casting Mesmerize."),
             Ev(0, "an orc pawn has been mesmerized."),
@@ -101,7 +104,7 @@ public class MezChipPresentationTests
             Ev(200, "You begin casting Mesmerize."),
             Ev(200, "a gnoll has been mesmerized."));
 
-        var chip = Assert.Single(MezChipPresentation.Chips(t.Snapshot(T0.AddSeconds(210)), T0.AddSeconds(210)));
+        var chip = Assert.Single(MezChipPresentation.Chips(t.Snapshot(T0.AddSeconds(206)), T0.AddSeconds(206)));
 
         Assert.Equal("1:30", chip.CountdownText);
     }

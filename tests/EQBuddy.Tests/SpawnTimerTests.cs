@@ -261,6 +261,123 @@ public class SpawnTimerTests
     }
 
     /// <summary>Timers tighten themselves from play: a re-kill sooner than the timer
+    /// <summary>David's rule (2026-08-04, Orc Taskmaster running a learned 328s under
+    /// Crushbone's MEASURED 738s clock): a trusted timer disables re-kill learning —
+    /// a shorter gap against a measurement is multi-spawn noise (two taskmasters at
+    /// different camps), not evidence of a faster respawn.</summary>
+    [Fact]
+    public void TrustedClocksRefuseToLearnFromRekillGaps()
+    {
+        var catalog = new SpawnCatalog
+        {
+            Zones =
+            [
+                new SpawnZone
+                {
+                    Zone = "Crushbone", NamedDefaultSeconds = 738, NamedDefaultTrusted = true,
+                    Named = [new SpawnEntry { Name = "Orc Taskmaster" }],
+                },
+            ],
+        };
+        var overrides = new SpawnOverrides();
+        var t = new SpawnTimers(catalog, overrides) { Server = "qeynos" };
+        t.Apply(LogParser.Parse("[Tue Aug 4 19:00:00 2026] You have entered Clan Crushbone.")!);
+        t.Apply(LogParser.Parse("[Tue Aug 4 19:00:10 2026] You have slain Orc Taskmaster!")!);
+        // Re-kill 328s later — a second taskmaster at another camp, NOT a fast respawn.
+        t.Apply(LogParser.Parse("[Tue Aug 4 19:05:38 2026] You have slain Orc Taskmaster!")!);
+
+        Assert.Null(overrides.Find("Crushbone", "Orc Taskmaster"));   // nothing learned
+        Assert.Equal(738, Assert.Single(t.Snapshot(DateTime.Parse("2026-08-04T19:05:39"))).DurationSeconds);
+    }
+
+    [Fact]
+    public void AStaleLearnedOverrideUnderATrustedClockSelfHeals()
+    {
+        var catalog = new SpawnCatalog
+        {
+            Zones =
+            [
+                new SpawnZone
+                {
+                    Zone = "Crushbone", NamedDefaultSeconds = 738, NamedDefaultTrusted = true,
+                    Named = [new SpawnEntry { Name = "Orc Taskmaster" }],
+                },
+            ],
+        };
+        var overrides = new SpawnOverrides();
+        var stale = overrides.GetOrAdd("Crushbone", "Orc Taskmaster");
+        stale.RespawnSeconds = 328;   // learned before the clock was measured
+        stale.Learned = true;
+        stale.Alert = true;           // the player's bell choice must survive the heal
+
+        var t = new SpawnTimers(catalog, overrides) { Server = "qeynos" };
+        t.Apply(LogParser.Parse("[Tue Aug 4 19:00:00 2026] You have entered Clan Crushbone.")!);
+        t.Apply(LogParser.Parse("[Tue Aug 4 19:00:10 2026] You have slain Orc Taskmaster!")!);
+
+        Assert.Equal(738, Assert.Single(t.Snapshot(DateTime.Parse("2026-08-04T19:00:11"))).DurationSeconds);
+        var healed = overrides.Find("Crushbone", "Orc Taskmaster")!;
+        Assert.Null(healed.RespawnSeconds);
+        Assert.False(healed.Learned);
+        Assert.True(healed.Alert);
+
+        // A MANUAL (typed) edit is sovereign — never healed away.
+        var manual = overrides.GetOrAdd("Crushbone", "Orc Taskmaster");
+        manual.RespawnSeconds = 300;
+        manual.Learned = false;
+        t.Apply(LogParser.Parse("[Tue Aug 4 19:20:00 2026] You have slain Orc Taskmaster!")!);
+        Assert.Equal(300, Assert.Single(t.Snapshot(DateTime.Parse("2026-08-04T19:20:01"))).DurationSeconds);
+    }
+
+    /// <summary>Issue #36 regression net: article-bearing catalog names ("the froglok
+    /// shin lord", 285 entries) must match normalized kill lines, end to end against
+    /// the REAL embedded catalog — zone resolution included. When this passes but a
+    /// player still reports no timer, the divergence is Legends-vs-catalog data (zone
+    /// name or mob placement), not code.</summary>
+    /// <summary>Legends renames MOBS too: "the ghoul lord" is "Hoptor Thaggelum"
+    /// in-game (issue #38, chrstahl's verbatim lines — which also proved Lower Guk
+    /// kept classic's "Old Guk" zone name). Entry aliases absorb mob renames the way
+    /// zone aliases absorb zone renames.</summary>
+    [Fact]
+    public void ARenamedMobStartsItsClassicEntrysTimer()
+    {
+        var t = new SpawnTimers(SpawnCatalog.LoadEmbedded(), new SpawnOverrides()) { Server = "qeynos" };
+        t.Apply(LogParser.Parse("[Tue Aug 4 17:08:21 2026] You have entered The Ruins of Old Guk 4 (Refined).")!);
+        t.Apply(LogParser.Parse("[Tue Aug 4 17:16:04 2026] You have slain Hoptor Thaggelum!")!);
+        Assert.Single(t.Snapshot(DateTime.Parse("2026-08-04T17:16:05")),
+            s => s.Name == "the ghoul lord" && s.Zone == "Lower Guk");
+    }
+
+    /// <summary>Legends renamed Lower Guk "The Ruins of ANCIENT Guk" (classic said
+    /// "Old"); a single mismatched log-zone name silently kills every timer in the
+    /// zone (issue #36's likely cause). The alias list absorbs renames.</summary>
+    [Theory]
+    [InlineData("You have entered The Ruins of Ancient Guk.")]
+    [InlineData("You have entered The Ruins of Old Guk.")]
+    [InlineData("You have entered The Ruins of Ancient Guk 2 (Adaptive).")]
+    public void ZoneAliasesResolveLegendsRenames(string zoneLine)
+    {
+        var t = new SpawnTimers(SpawnCatalog.LoadEmbedded(), new SpawnOverrides()) { Server = "qeynos" };
+        t.Apply(LogParser.Parse($"[Tue Aug 4 19:00:00 2026] {zoneLine}")!);
+        t.Apply(LogParser.Parse("[Tue Aug 4 19:05:00 2026] You have slain the ghoul lord!")!);
+        Assert.Single(t.Snapshot(DateTime.Parse("2026-08-04T19:05:01")),
+            s => s.Name == "the ghoul lord" && s.Zone == "Lower Guk");
+    }
+
+    [Theory]
+    [InlineData("You have entered Guk.")]
+    [InlineData("You have entered Upper Guk 3 (Fused).")]
+    // chrstahl's verbatim lines from issue #36 — Legends' real name for Upper Guk is
+    // "The City of Guk", which no classic source predicted. Field data beats theory.
+    [InlineData("You have entered The City of Guk 4 (Refined).")]
+    public void ArticleNamedMobsStartTimersAgainstTheRealCatalog(string zoneLine)
+    {
+        var t = new SpawnTimers(SpawnCatalog.LoadEmbedded(), new SpawnOverrides()) { Server = "qeynos" };
+        t.Apply(LogParser.Parse($"[Tue Aug 4 19:00:00 2026] {zoneLine}")!);
+        t.Apply(LogParser.Parse("[Tue Aug 4 19:05:00 2026] You have slain the froglok shin lord!")!);
+        Assert.Single(t.Snapshot(DateTime.Parse("2026-08-04T19:05:01")),
+            s => s.Name == "the froglok shin lord");
+    }
+
     /// says is possible proves the respawn is at most that gap. Manual edits are never
     /// touched, learning never loosens, and sub-90-second gaps are multi-spawn noise.</summary>
     [Fact]

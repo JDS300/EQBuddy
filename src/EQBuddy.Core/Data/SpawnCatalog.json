@@ -1219,6 +1219,7 @@
       "zone": "Crushbone",
       "logZoneName": "Clan Crushbone",
       "namedDefaultSeconds": 738,
+      "namedDefaultTrusted": true,
       "named": [
         {
           "name": "Emperor Crush",
@@ -1271,6 +1272,7 @@
         {
           "name": "Bloodgurgler",
           "respawnSeconds": 738,
+          "trusted": true,
           "variance": "",
           "placeholder": "",
           "source": "observed",
@@ -1287,6 +1289,7 @@
         {
           "name": "Chokehold",
           "respawnSeconds": 738,
+          "trusted": true,
           "variance": "",
           "placeholder": "",
           "source": "observed",
@@ -1295,6 +1298,7 @@
         {
           "name": "Marrowbane",
           "respawnSeconds": 738,
+          "trusted": true,
           "variance": "",
           "placeholder": "",
           "source": "observed",
@@ -5302,10 +5306,12 @@
     {
       "zone": "Lower Guk",
       "logZoneName": "The Ruins of Old Guk",
+      "logZoneAliases": ["The Ruins of Ancient Guk", "gukbottom"],
       "namedDefaultSeconds": 660,
       "named": [
         {
           "name": "the ghoul lord",
+          "aliases": ["Hoptor Thaggelum"],
           "respawnSeconds": 540,
           "variance": "",
           "placeholder": "",
@@ -5415,6 +5421,14 @@
           "placeholder": "",
           "source": "eqlwiki",
           "note": "Multiple spawns; one sees invis; drops Basalt Carapace; rides zone clock (wiki retuned 28:00->11:00, 2026-08-02)"
+        },
+        {
+          "name": "a froglok shin knight",
+          "respawnSeconds": null,
+          "variance": "",
+          "placeholder": "",
+          "source": "eqlwiki",
+          "note": "Shin Knight Room (map #1); spans BOTH Guks per mob page (was Upper-only in the catalog — issue #36 completeness sweep 2026-08-04); drops Shin Gauntlets/Greaves"
         },
         {
           "name": "the froglok king",
@@ -10916,15 +10930,16 @@
     {
       "zone": "Upper Guk",
       "logZoneName": "Guk",
+      "logZoneAliases": ["The City of Guk", "guktop"],
       "namedDefaultSeconds": 480,
       "named": [
         {
           "name": "an ancient croc",
-          "respawnSeconds": null,
+          "respawnSeconds": 990,
           "variance": "",
           "placeholder": "1-5 saltwater crocs",
           "source": "eqlwiki",
-          "note": "10% spawn; odd spawn pattern; PH 1-5 saltwater crocs; drops Gatorscale Leggings/Sleeves"
+          "note": "10% spawn; odd spawn pattern; PH 1-5 saltwater crocs; drops Gatorscale Leggings/Sleeves; mob page: 16min 30sec (zone infobox 8:00 conflicts; longer kept, learning tightens)"
         },
         {
           "name": "the froglok shin lord",
@@ -11032,11 +11047,11 @@
         },
         {
           "name": "the froglok warden",
-          "respawnSeconds": null,
+          "respawnSeconds": 990,
           "variance": "",
           "placeholder": "",
           "source": "eqlwiki",
-          "note": "Map #13; drops Elf-Hide Gloves / Troll-Hide Belt; safe underwater cove to north"
+          "note": "Map #13; drops Elf-Hide Gloves / Troll-Hide Belt; safe underwater cove to north; mob page: 16min 30sec (zone infobox says 8:00 — conflicting; longer value kept, learning tightens)"
         },
         {
           "name": "a froglok tonta knight",

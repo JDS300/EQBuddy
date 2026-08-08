@@ -31,7 +31,10 @@ public record LootEvent(DateTime Time, string Item, string Source, string? Upgra
 public record MoneyEvent(DateTime Time, long Copper, bool Vendor = false, string? Item = null) : GameEvent(Time);
 public record XpEvent(DateTime Time, double Percent, bool Party) : GameEvent(Time);
 /// <summary>"You have gained an ability point!  You now have N ability points."</summary>
-public record AaEvent(DateTime Time, int TotalPoints) : GameEvent(Time);
+/// <param name="Points">Points in THIS gain — AA potions grant 2 per level
+/// ("You have gained 2 ability point(s)!", issue #37); counting events instead
+/// of points undercounted potioned sessions.</param>
+public record AaEvent(DateTime Time, int TotalPoints, int Points = 1) : GameEvent(Time);
 /// <summary>Loot auto-sold on pickup: counts as loot AND vendor income.</summary>
 public record AutoSellEvent(DateTime Time, string Item, int Count, string Source, long Copper) : GameEvent(Time);
 /// <summary>"You successfully destroyed N X." — the advanced loot window's sell/destroy

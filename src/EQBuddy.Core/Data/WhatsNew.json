@@ -1,63 +1,29 @@
 [
   {
-    "version": "1.31.5",
-    "date": "2026-08-05",
-    "highlights": [
-      "FIX (Linux): a Spell fade rule watching one named spell could not be given a spell name. The match box was drawn, but the rule row's columns left it 77 pixels in a 520-pixel window — less than the class picker beside it needs on its own — so both spilled out of their cell and under the P/B toggles and the sound picker, which took every click aimed at them. Options is wider now, with room to read a spell name in the box rather than just fit one.",
-      "The watch list also stopped clipping its widest kind to \"Spell fad\"."
-    ]
-  },
-  {
-    "version": "1.31.4",
-    "date": "2026-08-04",
-    "highlights": [
-      "Mez durations learn far faster, and ranks that never learned at all now do. A rule added two versions ago threw away any measurement taken when the creature was hit soon after its mez ended — which is nearly always, since a mob that wakes gets attacked immediately. It discarded 402 of 418 measurements in one week of play, and one spell rank could never be measured at all.",
-      "It is no longer needed: durations are now taken from the cluster your casts land in, which ignores a mez broken early on its own. Measured on a real log, the delay between a mez ending and the next hit is zero whether it faded or was broken, so that delay was never evidence of anything."
-    ]
-  },
-  {
-    "version": "1.31.3",
-    "date": "2026-08-04",
-    "highlights": [
-      "FIX: mez countdowns were running long. EQBuddy learned the LONGEST land-to-fade gap it had ever seen, on the theory that early breaks only ever shorten a measurement — but a second of log timing jitter lengthens one, and over hundreds of casts the longest reading drifts several seconds above the truth and can never come back down. One real store had Mesmerization V at 43 seconds for a spell that runs about 38.",
-      "Durations are now learned from the cluster your casts actually land in rather than the single longest outlier, and a fade that arrives while two mobs of the same name are mezzed teaches nothing at all — the log cannot say which of them woke, so it is not evidence."
-    ]
-  },
-  {
-    "version": "1.31.2",
-    "date": "2026-08-04",
-    "highlights": [
-      "FIX: same-named mez chips, the other half. Breaking a mez with damage makes EverQuest log it TWICE — the spell wearing off, and the blow that did it, naming the same creature in the same second — so with two identical mobs mezzed, the fade took one chip and the blow took the other. They now count as one break, in either order.",
-      "A mez broken early no longer teaches a wrong duration. That fade measures the moment the mez was interrupted, not how long the spell lasts — one seen in play offered 7 seconds for a spell that really runs about 25. Durations learned from a fade are now dropped if a blow lands on that creature immediately after."
-    ]
-  },
-  {
-    "version": "1.31.1",
-    "date": "2026-08-04",
-    "highlights": [
-      "FIX: mez chips for same-named mobs. Breaking one of two identical creatures wiped BOTH chips — one attack round is several log lines (main hand, off hand, kick, a damage shield, a groupmate's swing) and every one of them was counted as its own break. A round now costs one chip, however many lines it writes, and killing two mezzed adds still clears both.",
-      "The ★ alert tile can be recalled. It's draggable only while Options is open and click-through the rest of the time, so a tile parked on a monitor you no longer use had nothing to grab — Options now has a button that brings it back beside the widget.",
-      "Heal-over-time chips now appear only when the HoT starts healing someone. Opening one on the cast was dropped: a HoT on a full-health target heals nothing and so logs nothing, and the cast line names no target, so it could never work reliably."
-    ]
-  },
-  {
-    "version": "1.31.0",
-    "date": "2026-08-04",
-    "highlights": [
-      "NEW: heal-over-time chips (🌿) — a stack showing every HoT you have running and how long before it stops, so a lapsed HoT stops being something you notice afterwards. Your own is tinted apart from the ones on other people (your buff bar already shows yours, theirs is invisible to you), and can be switched off entirely in Options.",
-      "The chip appears the moment you cast, not when the first heal lands — a HoT on someone at full health heals nothing, so EverQuest logs nothing, and the chip used to never show up at all. Until a tick names a target the chip shows the spell instead, because the cast line names nobody and EverQuest has no 'you have targeted X' line to fall back on.",
-      "Durations are learned from your own play: a HoT ends on a bigger final heal (the 'Trigger' burst), which measures the real duration exactly — no guessing from the wiki.",
-      "FIX: critical heals were parsed as nothing at all and never reached your healing stats — a crit puts '(Critical)' after the full stop and the patterns stopped at the stop. 205 heals in one real log, by definition the biggest ones in it.",
-      "Linux: Options finally has the spell-class dropdown for watch rules (Any CC, Charm, Mez, Root, Lull, Stun, HoT) — it was Windows-only, so a class-filtered fade rule could not be set up at all.",
-      "Linux: the chip stacks now open beside the widget instead of a corner of the desktop, the widget remembers which monitor you left it on, Options scrolls instead of running off the bottom of the screen, and a hotkey another application already owns no longer stops EQBuddy from starting."
-    ]
-  },
-  {
     "version": "1.30.0",
     "date": "2026-08-04",
     "highlights": [
-      "Linux catches up: the mez-target chip stack, the spawn-countdown chip stack, and the full Spawns window are all on the Avalonia app now (parity issue #5, closed) — same chicklets, same drag-and-remember positions, same double-click-a-chip-for-the-zone-list behavior as Windows.",
-      "Nothing about spawn tracking is WPF-only anymore. Kill a named (or its placeholder) on Linux and the countdown starts from your log exactly like it always has on Windows."
+      "AA potions count correctly: the potion's doubled gains use a different log line EQBuddy didn't know, and gains were counted as events rather than points — potioned sessions logged zero or half. Both fixed (thanks twill713 for the exact line).",
+      "Spawn timers understand renamed mobs: Legends gives classic named new proper names ('the ghoul lord' is Hoptor Thaggelum) — the catalog now carries aliases, starting with Hoptor (thanks chrstahl, again).",
+      "Measured spawn clocks now outrank kill-learning: mobs that spawn in several places at once (Orc Taskmaster, Royal Guard…) tricked the self-tightening timers with fast re-kills. Where a zone's clock has been measured (Crushbone's 12:18), learning stands down and old bad learned values clean themselves up. Your typed edits still beat everything.",
+      "Mez timers stopped lying in both directions: a broken mez can no longer teach its break-length as the spell's 'duration' (the 7-second Mesmerize incident), and learned durations now snap to the game's 6-second server tick so timers don't run past the real wake-up (verified against 1,000+ logged tick intervals).",
+      "On a portrait monitor, the widget can finally use the full screen height — it was sizing against your primary monitor even when living on a different one."
+    ]
+  },
+  {
+    "version": "1.29.3",
+    "date": "2026-08-04",
+    "highlights": [
+      "Upper Guk spawn timers actually fixed: Legends renamed the zone to \"The City of Guk\" — a name no classic source predicted — so EQBuddy didn't recognize it and started no timers there. Confirmed from chrstahl's log lines (thanks for testing and reporting from the field!); those exact lines are now the automated test."
+    ]
+  },
+  {
+    "version": "1.29.2",
+    "date": "2026-08-04",
+    "highlights": [
+      "Guk spawn timers fixed: Legends renamed Lower Guk ('The Ruins of ANCIENT Guk' — classic said 'Old'), and the unrecognized zone name silently disabled every timer there. EQBuddy now knows the Legends zone names, and zones can carry aliases so future renames are one-line fixes.",
+      "Guk catalog audit: the froglok shin knight added to Lower Guk (it roams both Guks), and the froglok warden + ancient croc got their 16:30 timers. If a timer runs long, your kills still tighten it automatically.",
+      "Mez chips, round two (thanks again Vellum670): a mezzed mob's chip no longer disappears when its same-named twin wakes up and fights — the woken one's combat is recognized as its own, kills are attributed to it, and re-mezzing it adds a fresh chip without touching the sleeper's."
     ]
   },
   {

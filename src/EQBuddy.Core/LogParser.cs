@@ -146,7 +146,10 @@ public static partial class LogParser
     private static partial Regex XpRx();
 
     // You have gained an ability point!  You now have 6 ability points.
-    [GeneratedRegex(@"^You have gained an ability point! +You now have (?<total>\d+) ability points?\.$")]
+    // You have gained 2 ability point(s)!  You now have 10 ability point(s).
+    // The second form appears with AA potions (issue #37, twill713's verbatim line):
+    // a digit count and a literal "(s)" parenthetical.
+    [GeneratedRegex(@"^You have gained (?:an|(?<n>\d+)) ability point(?:s|\(s\))?! +You now have (?<total>\d+) ability point(?:s|\(s\))?\.$")]
     private static partial Regex AaRx();
 
     // You looted a Snake Egg from an asp's corpse and sold it for 4 copper.
@@ -471,7 +474,8 @@ public static partial class LogParser
             return new LevelEvent(ts, int.Parse(r.Groups["level"].Value));
 
         if ((r = AaRx().Match(msg)).Success)
-            return new AaEvent(ts, int.Parse(r.Groups["total"].Value));
+            return new AaEvent(ts, int.Parse(r.Groups["total"].Value),
+                Points: r.Groups["n"].Success ? int.Parse(r.Groups["n"].Value) : 1);
 
         if ((r = SkillUpRx().Match(msg)).Success)
             return new SkillUpEvent(ts, r.Groups["skill"].Value, int.Parse(r.Groups["value"].Value));

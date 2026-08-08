@@ -78,10 +78,24 @@ public sealed class SpawnTimers
                     var o = _overrides.Find(zone.Zone, entry.Name);
                     var placeholder = o?.Placeholder ?? entry.Placeholder;
                     if (!Matches(entry.Name, k.Target, fuzzy)
-                        && !Matches(placeholder, k.Target, fuzzy)) continue;
+                        && !Matches(placeholder, k.Target, fuzzy)
+                        && !entry.Aliases.Any(a => Matches(a, k.Target, fuzzy))) continue;
 
+                    var trusted = IsTrusted(zone, entry);
+                    // Self-heal: a LEARNED override sitting under a measured clock came
+                    // from multi-spawn re-kill noise (two taskmasters at different camps
+                    // look like one fast respawn) — drop it, the measurement wins.
+                    if (trusted && o is { Learned: true, RespawnSeconds: { } bad }
+                        && bad < SpawnCatalog.EffectiveSeconds(zone, entry))
+                    {
+                        o.RespawnSeconds = null;
+                        o.Learned = false;
+                        _overrides.Save();
+                        o = _overrides.Find(zone.Zone, entry.Name);
+                    }
                     var duration = o?.RespawnSeconds ?? SpawnCatalog.EffectiveSeconds(zone, entry);
-                    duration = LearnFromRekill(zone.Zone, entry.Name, k.Time, duration);
+                    if (!trusted)
+                        duration = LearnFromRekill(zone.Zone, entry.Name, k.Time, duration);
                     Upsert(new SpawnTimerState(Server, zone.Zone, entry.Name, k.Time, duration));
                     return;
                 }
@@ -100,6 +114,13 @@ public sealed class SpawnTimers
             fuzzy ? SpawnCatalog.NameMatchesFuzzy(catalogName, killed)
                   : SpawnCatalog.NameMatches(catalogName, killed);
     }
+
+    /// <summary>A MEASURED timer (entry or zone clock) outranks re-kill learning:
+    /// shorter gaps against a measurement are multi-spawn noise, not evidence
+    /// (David's rule, 2026-08-04). Player-typed edits still outrank everything —
+    /// they're checked before this ever matters.</summary>
+    private static bool IsTrusted(SpawnZone zone, SpawnEntry entry) =>
+        entry.RespawnSeconds is not null ? entry.Trusted : zone.NamedDefaultTrusted;
 
     /// <summary>Re-kill gaps shorter than the learning floor are treated as multi-spawn
     /// noise (several mobs sharing a name), not as evidence of a faster respawn.</summary>

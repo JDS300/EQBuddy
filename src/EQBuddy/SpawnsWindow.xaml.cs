@@ -43,6 +43,9 @@ public partial class SpawnsWindow : Window
 
         MaxHeight = SystemParameters.WorkArea.Height - 40;
         BodyScroll.MaxHeight = SystemParameters.WorkArea.Height - 220;
+        // Follow the monitor this window is on (portrait secondaries — discussion #31).
+        SourceInitialized += (_, _) => UpdateHeightCaps();
+        LocationChanged += (_, _) => UpdateHeightCaps();
 
         if (ScreenGuard.OnScreen(_settings.SpawnLeft, _settings.SpawnTop, Width, Height))
         { Left = _settings.SpawnLeft; Top = _settings.SpawnTop; }
@@ -308,6 +311,15 @@ public partial class SpawnsWindow : Window
 
     // ✕ hides the window; tracking stays armed and the next kill re-opens it. Turning
     // the feature off lives in the menu and Options, deliberately elsewhere.
+    /// <summary>Height caps follow the monitor this window occupies (portrait
+    /// secondary screens are taller than the primary — discussion #31).</summary>
+    private void UpdateHeightCaps()
+    {
+        if (MonitorMetrics.WorkAreaFor(this) is not { } work) return;
+        MaxHeight = Math.Max(200, work.Height - 40);
+        BodyScroll.MaxHeight = Math.Max(120, work.Height - 220);
+    }
+
     private void OnClose(object sender, RoutedEventArgs e) => Close();
 
     private void OnZonePicked(object sender, SelectionChangedEventArgs e)

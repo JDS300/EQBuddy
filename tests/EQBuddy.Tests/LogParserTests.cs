@@ -334,6 +334,18 @@ public class LogParserTests
     {
         var e = Parse<AaEvent>("You have gained an ability point!  You now have 6 ability points.");
         Assert.Equal(6, e.TotalPoints);
+        Assert.Equal(1, e.Points);
+    }
+
+    /// <summary>AA potions double the gain and change the line's shape — a digit count
+    /// and a literal "(s)" parenthetical (issue #37, twill713's verbatim log line).
+    /// Sessions with the potion active were missing every AA.</summary>
+    [Fact]
+    public void AaPointsFromAPotionCarryTheirCount()
+    {
+        var e = Parse<AaEvent>("You have gained 2 ability point(s)!  You now have 10 ability point(s).");
+        Assert.Equal(10, e.TotalPoints);
+        Assert.Equal(2, e.Points);
     }
 
     [Fact]

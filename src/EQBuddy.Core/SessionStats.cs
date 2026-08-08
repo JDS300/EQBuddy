@@ -671,7 +671,7 @@ public sealed class SessionStats
                     _xpSinceLevel = 0;
                     break;
                 case AaEvent aa:
-                    _aaGained++; _aaTotal = aa.TotalPoints;
+                    _aaGained += aa.Points; _aaTotal = aa.TotalPoints;
                     break;
                 case StanceEvent stc:
                     // Close the open combat window under the OLD stance before switching,

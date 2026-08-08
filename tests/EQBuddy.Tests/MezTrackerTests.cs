@@ -88,13 +88,15 @@ public class MezTrackerTests
         var t = Replay(
             Ev(0, "You begin casting Mesmerize II."),
             Ev(2, "an orc pawn has been mesmerized."),
-            Ev(34, "Your Mesmerize II spell has worn off of an orc pawn."),   // 32s observed
+            // 32s raw gap = a 30s (5-tick) mez plus worn-off message lag — the learner
+            // tick-floors it (Aenari's report: raw gaps made timers run 2-3s long).
+            Ev(34, "Your Mesmerize II spell has worn off of an orc pawn."),
             Ev(60, "You begin casting Mesmerize II."),
             Ev(62, "a gnoll has been mesmerized."));
 
-        Assert.Equal(32, t.LearnedDurations["Mesmerize II"], 0);
+        Assert.Equal(30, t.LearnedDurations["Mesmerize II"], 0);
         var m = Assert.Single(t.Snapshot(T0.AddSeconds(63)));
-        Assert.Equal(31, m.RemainingSeconds(T0.AddSeconds(63))!.Value, 0);
+        Assert.Equal(29, m.RemainingSeconds(T0.AddSeconds(63))!.Value, 0);
     }
 
     [Fact]
@@ -178,9 +180,90 @@ public class MezTrackerTests
         var t = Replay(
             Ev(0, "You begin casting Mesmerize III."),
             Ev(2, "an orc pawn has been mesmerized."),                     // base says +26
-            Ev(46, "Your Mesmerize III spell has worn off of an orc pawn."));   // 44s real
+            Ev(46, "Your Mesmerize III spell has worn off of an orc pawn."));   // 44s raw
 
-        Assert.Equal(44, t.LearnedDurations["Mesmerize III"], 0);
+        Assert.Equal(42, t.LearnedDurations["Mesmerize III"], 0);   // tick-floored: 7 ticks
+    }
+
+    /// <summary>Issue #35 (Vellum670): once one twin breaks, its ongoing fight kept
+    /// generating damage lines for the shared name — and each line ate another
+    /// sibling's chip. The awake ledger attributes those lines to the woken creature.</summary>
+    [Fact]
+    public void AWokenTwinsFightDoesNotEatTheSleepersChip()
+    {
+        var t = Replay(
+            Ev(0, "You begin casting Mesmerization."),
+            Ev(3, "a rock golem has been mesmerized."),
+            Ev(3, "a rock golem has been mesmerized."),
+            Ev(10, "Twiddley slashes a rock golem for 12 points of damage."));   // one breaks
+        Assert.Single(t.Snapshot(T0.AddSeconds(11)));
+
+        // The woken golem fights on — its lines are ITS fight, not new breaks.
+        t.Apply(Ev(12, "A rock golem hits Twiddley for 9 points of damage."));
+        t.Apply(Ev(14, "Twiddley slashes a rock golem for 15 points of damage."));
+        Assert.Single(t.Snapshot(T0.AddSeconds(15)));
+
+        // Killing the awake one settles the ledger; the sleeper keeps its chip.
+        t.Apply(Ev(18, "You have slain a rock golem!"));
+        Assert.Single(t.Snapshot(T0.AddSeconds(19)));
+
+        // Nothing awake anymore: the next hit is a REAL break of the sleeper.
+        t.Apply(Ev(20, "Twiddley slashes a rock golem for 15 points of damage."));
+        Assert.Empty(t.Snapshot(T0.AddSeconds(21)));
+    }
+
+    /// <summary>Re-mezzing the woken twin adds a fresh chip — it must not steal or
+    /// refresh the still-sleeping sibling's.</summary>
+    [Fact]
+    public void RemezOfTheWokenTwinAddsAChipWithoutTouchingTheSleeper()
+    {
+        var t = Replay(
+            Ev(0, "You begin casting Mesmerization."),
+            Ev(3, "a rock golem has been mesmerized."),
+            Ev(3, "a rock golem has been mesmerized."),
+            Ev(10, "Twiddley slashes a rock golem for 12 points of damage."),
+            Ev(12, "You begin casting Mesmerize."),
+            Ev(14, "a rock golem has been mesmerized."));
+
+        Assert.Equal(2, t.Snapshot(T0.AddSeconds(15)).Count);
+    }
+
+    /// <summary>Field report (David, live session): a single 7s early break got learned
+    /// as Mesmerize's "duration" and shrank every chip on the machine. The worn-off
+    /// line fires on breaks too — an observation under the catalog base (ranks only
+    /// lengthen) must never teach.</summary>
+    [Fact]
+    public void AnEarlyBreakFadeDoesNotPoisonTheLearnedDuration()
+    {
+        var t = Replay(
+            Ev(0, "You begin casting Mesmerize."),
+            Ev(2, "an orc pawn has been mesmerized."),
+            Ev(9, "Your Mesmerize spell has worn off of an orc pawn."));   // 7s = break
+
+        Assert.False(t.LearnedDurations.ContainsKey("Mesmerize"));
+
+        // The next cast still counts down from the honest catalog base.
+        t.Apply(Ev(20, "You begin casting Mesmerize."));
+        t.Apply(Ev(22, "a gnoll has been mesmerized."));
+        var m = Assert.Single(t.Snapshot(T0.AddSeconds(23)));
+        Assert.Equal(23, m.RemainingSeconds(T0.AddSeconds(23))!.Value, 0);
+    }
+
+    [Fact]
+    public void PoisonedStoreValuesAreQuarantinedOnLoad()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"eqbuddy-mez-{Guid.NewGuid():N}.json");
+        try
+        {
+            File.WriteAllText(path, """{"Mesmerize":7,"Enthrall":52}""");
+            var t = new MezTracker();
+            t.AttachStore(path);
+            // 7 is under Mesmerize's base 24 → quarantined; 52 carries message lag and
+            // tick-floors to 48 (≥ Enthrall's base 48) → kept, healed.
+            Assert.False(t.LearnedDurations.ContainsKey("Mesmerize"));
+            Assert.Equal(48, t.LearnedDurations["Enthrall"]);
+        }
+        finally { File.Delete(path); }
     }
 
     [Fact]
@@ -413,7 +496,8 @@ public class MezTrackerTests
             Ev(40, "Your Mesmerization spell has worn off of a necromancer."),
             Ev(40, "You slash a necromancer for 61 points of damage."));
 
-        Assert.Equal(38, t.LearnedDurations["Mesmerization V"], 0);
+        // 38s raw cluster of one, snapped down to the 6-second tick (see Effective).
+        Assert.Equal(36, t.LearnedDurations["Mesmerization V"], 0);
     }
 
     /// <summary>The other half of withdrawing the retraction: nothing filters break-shortened
@@ -489,7 +573,7 @@ public class MezTrackerTests
     /// and the old rule could only ratchet upward. The cluster is the duration; the
     /// extreme is noise.</summary>
     [Fact]
-    public void ARunOfThirtyEightSecondFadesWithOneFortyThreeSecondOutlierLearnsThirtyEight()
+    public void ARunOfThirtyEightSecondFadesWithOneFortyThreeSecondOutlierIgnoresTheOutlier()
     {
         // Real lines from the fixture (Thu Jul 30 13:05, Befallen): the caster's own
         // Mesmerization V, a bystander-visible landing, and the caster-private fade —
@@ -508,7 +592,9 @@ public class MezTrackerTests
         t.Apply(Ev(722, "a necromancer has been mesmerized."));
         t.Apply(Ev(765, "Your Mesmerization spell has worn off of a necromancer."));
 
-        Assert.Equal(38, t.LearnedDurations["Mesmerization V"], 0);
+        // The cluster is 38 and the 43 is ignored — which is what this test is about; the
+        // estimate then snaps down a tick (Effective), because lag can only run long.
+        Assert.Equal(36, t.LearnedDurations["Mesmerization V"], 0);
     }
 
     /// <summary>The other half of the same report, and the reason the old maximum drifted
@@ -562,7 +648,7 @@ public class MezTrackerTests
             t.Apply(Ev(0, "You begin casting Mesmerization V."));
             t.Apply(Ev(2, "a necromancer has been mesmerized."));
             t.Apply(Ev(40, "Your Mesmerization spell has worn off of a necromancer."));
-            Assert.Equal(38, t.LearnedDurations["Mesmerization V"], 0);
+            Assert.Equal(36, t.LearnedDurations["Mesmerization V"], 0);
         }
         finally { File.Delete(path); }
     }
@@ -589,14 +675,14 @@ public class MezTrackerTests
 
             var reborn = new MezTracker();
             reborn.AttachStore(path);
-            Assert.Equal(38, reborn.LearnedDurations["Mesmerization V"], 0);
+            Assert.Equal(36, reborn.LearnedDurations["Mesmerization V"], 0);
 
             // A late outlier after the restart is outvoted, which only works if the twelve
             // earlier samples came back with it.
             reborn.Apply(Ev(720, "You begin casting Mesmerization V."));
             reborn.Apply(Ev(722, "a necromancer has been mesmerized."));
             reborn.Apply(Ev(765, "Your Mesmerization spell has worn off of a necromancer."));
-            Assert.Equal(38, reborn.LearnedDurations["Mesmerization V"], 0);
+            Assert.Equal(36, reborn.LearnedDurations["Mesmerization V"], 0);
         }
         finally { File.Delete(path); }
     }
@@ -617,9 +703,9 @@ public class MezTrackerTests
             Ev(90, "You begin casting Mesmerization V."),
             Ev(92, "a necromancer has been mesmerized."));
 
-        Assert.Equal(38, t.LearnedDurations["Mesmerization V"], 0);   // not the catalog's 24
+        Assert.Equal(36, t.LearnedDurations["Mesmerization V"], 0);   // not the catalog's 24
         var m = Assert.Single(t.Snapshot(T0.AddSeconds(93)));
-        Assert.Equal(37, m.RemainingSeconds(T0.AddSeconds(93))!.Value, 0);
+        Assert.Equal(35, m.RemainingSeconds(T0.AddSeconds(93))!.Value, 0);
     }
 
     /// <summary>Two durations equally common is a coin toss the estimator has to settle the
@@ -645,7 +731,8 @@ public class MezTrackerTests
         t.Apply(Ev(last + 2, "a necromancer has been mesmerized."));
         t.Apply(Ev(last + 50, "Your Mesmerization spell has worn off of a necromancer."));
 
-        Assert.Equal(38, t.LearnedDurations["Mesmerization V"], 0);   // tied with 34
+        // 38 wins the tie against 34 (34 would snap to 30), then snaps down a tick.
+        Assert.Equal(36, t.LearnedDurations["Mesmerization V"], 0);   // tied with 34
     }
 
     /// <summary>The sample set is bounded, and the bound is a recency window: a store that

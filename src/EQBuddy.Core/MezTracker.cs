@@ -35,8 +35,9 @@ public sealed record MezState(
 /// Durations: catalog first (Data/MezSpells.json — null until researched), overridden by
 /// learned values. Only the CASTER's log sees "Your X spell has worn off of Y.", so only
 /// the caster's EQBuddy can measure real durations; it keeps a bounded set of land→fade
-/// SAMPLES per exact spell name (rank included — ranks lengthen mezzes) and estimates the
-/// duration from the cluster they form (<see cref="Effective"/>). It used to keep the
+/// SAMPLES per exact spell name (rank included — ranks lengthen mezzes), finds the cluster
+/// they form, and snaps that down to the 6-second server tick (<see cref="Effective"/>).
+/// It used to keep the
 /// LONGEST gap instead, on the reasoning that "early breaks shorten gaps but nothing
 /// lengthens them". That reasoning is wrong twice over, and it was reported from play: the
 /// store read "Mesmerization V = 43" and the chip started at 0:43 for a spell that runs
@@ -45,8 +46,18 @@ public sealed record MezState(
 /// previous code learns 42 for that rank, against a sample cluster of 36-42 whose mode is 38.
 /// And a fade cannot always be attributed: with two same-named entries of yours open, the
 /// gap can be measured from the wrong landing (see the ambiguity gate in
-/// <see cref="OnWornOff"/>). Learned values persist via <see cref="AttachStore"/> and flow to
-/// the rest of the group through catalog updates.
+/// <see cref="OnWornOff"/>). Two further guards come from the same family of reports and
+/// survive here: an observation SHORTER than the catalog base is a break, not a duration
+/// (the {"Mesmerize": 7} incident — see <see cref="OnWornOff"/>), and legacy scalar stores
+/// are quarantined on load (see <see cref="AttachStore"/>). Learned values persist via
+/// <see cref="AttachStore"/> and flow to the rest of the group through catalog updates.
+///
+/// Breaks: a creature is believed awake once a damage/kill line is credited against it, and
+/// two rules keep one woken creature from erasing its sleeping same-named siblings — the
+/// engagement window (<see cref="CreditBreak"/>, which collapses the several lines of one
+/// attack round into one break) and the awake ledger (<see cref="CreditKill"/> and
+/// <see cref="OnLanding"/>, which settle the woken creature's death or re-mez without
+/// touching a sleeper's chip).
 /// </summary>
 public sealed class MezTracker
 {
@@ -66,6 +77,20 @@ public sealed class MezTracker
     /// REMOVAL only; it deliberately says nothing about learning (see <see cref="OnWornOff"/>
     /// for why the 1.31.2 rule that used it to retract measurements was withdrawn).</summary>
     public static readonly TimeSpan BreakWindow = TimeSpan.FromSeconds(6);
+    /// <summary>How long a creature already known to be awake keeps explaining lines for its
+    /// name in the awake LEDGER (issue #35). The ledger is not what dedupes damage — the 6s
+    /// <see cref="BreakWindow"/> does that, and it has to stay short so a genuine break of a
+    /// second twin a quarter-minute later is still seen. What the ledger survives for is the
+    /// two events that SETTLE a woken creature rather than break a new one: its death
+    /// (<see cref="CreditKill"/>) and its re-mez (<see cref="OnLanding"/>), both of which can
+    /// arrive long after the last blow.</summary>
+    public static readonly TimeSpan AwakeMemory = TimeSpan.FromSeconds(45);
+    /// <summary>EQ effects run on 6-second server ticks and the worn-off message fires at the
+    /// tick BOUNDARY, so a land→fade gap is the true duration plus up to a tick of message
+    /// lag — and true durations are tick multiples. Applied to the ESTIMATE rather than to
+    /// each raw sample (see <see cref="Effective"/>), and used to heal legacy scalar stores
+    /// (<see cref="AttachStore"/>).</summary>
+    public const double ServerTickSeconds = 6;
     /// <summary>Unambiguous fade measurements kept per exact (ranked) spell name, newest
     /// preferred. Bounded so the store cannot grow without limit, and so that evidence from
     /// a server-side duration change (or a spell the player has since re-ranked) ages out
@@ -93,6 +118,26 @@ public sealed class MezTracker
     /// real cluster — see <see cref="Effective"/>.</summary>
     public static readonly double ClusterAnchor = 0.9;
 
+    /// <summary>What is known about the creatures answering to one NAME.
+    ///
+    /// <c>At</c> — when a break signal for the name was last seen at all, counted or not.
+    /// The 6-second <see cref="BreakWindow"/> runs from here and slides, so one continuous
+    /// engagement costs exactly one chip however long it runs (<see cref="CreditBreak"/>).
+    ///
+    /// <c>Removed</c> — when a damage/kill signal last actually TOOK a chip for the name.
+    /// Separate from <c>At</c> because a live engagement window is not the same thing as a
+    /// break that has been counted: in the reported log the group beats on one creature for
+    /// 36 seconds without a 6s gap, so the window never lapses, yet only the first of those
+    /// lines ever cost a chip. <see cref="OnWornOff"/> yields to a break that was counted,
+    /// not to a window that is merely open.
+    ///
+    /// <c>Awake</c>/<c>AwakeAt</c> — the awake ledger (issue #35): how many creatures of the
+    /// name are believed to be up and fighting, and when that belief was last touched. Only
+    /// a break that actually took a chip adds one, so a fight on a name nothing has mezzed
+    /// never populates it. A kill spends one; a re-mez spends one.</summary>
+    private readonly record struct Engagement(
+        DateTime At, DateTime Removed, int Awake, DateTime AwakeAt);
+
     private readonly Dictionary<string, MezSpellInfo> _catalog;
     /// <summary>Per exact (ranked) spell name: the unambiguous land→fade gaps measured for
     /// it, oldest first, capped at <see cref="SampleCap"/>. The estimate is derived from
@@ -101,17 +146,8 @@ public sealed class MezTracker
     private readonly Dictionary<string, List<double>> _samples = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<MezState> _active = [];
     private readonly List<(string Caster, string Spell, DateTime Time)> _recentCasts = [];
-    /// <summary>Per creature name: when we last saw a break signal for it, whether a kill
-    /// line has already claimed that engagement, and when a damage/kill signal last actually
-    /// TOOK a chip for it (default = never). Keyed on log time, so replay-safe.
-    ///
-    /// <c>Removed</c> is separate from <c>At</c> because a live engagement window is not the
-    /// same thing as a break that has been counted: in the reported log the group beats on
-    /// one creature for 36 seconds without a 6s gap, so the window never lapses, yet only the
-    /// first of those lines ever cost a chip. <see cref="OnWornOff"/> yields to a break that
-    /// was counted, not to a window that is merely open — see there.</summary>
-    private readonly Dictionary<string, (DateTime At, bool KillCredited, DateTime Removed)> _breaks =
-        new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Per creature name, keyed on log time so replay stays deterministic.</summary>
+    private readonly Dictionary<string, Engagement> _engagements = new(StringComparer.OrdinalIgnoreCase);
     private string? _storePath;
     private readonly object _lock = new();
 
@@ -140,19 +176,29 @@ public sealed class MezTracker
     /// store that kept only the answer has nothing for the next fade to vote against, and
     /// would drift back to whatever it last wrote.
     ///
-    /// Migration from the pre-mode format (<c>{"Mesmerization V": 43}</c>, one scalar per
-    /// spell): the scalars are READ AND DISCARDED, not seeded as samples. A stored scalar is
-    /// the longest gap ever observed under a rule that could only ratchet upward — the
-    /// reported store said 43s for a spell that runs ~38 — and seeding it would not be a
-    /// harmless single vote: below <see cref="ModeMinimumSamples"/> the estimate is the
-    /// MAXIMUM, so the old inflated number would win every comparison for the whole warm-up.
-    /// Replaying the reporter's week-long log yields 12 usable samples for the rank they cast
-    /// constantly, so seeding would mean serving the exact reported bug for about a week and
-    /// then having it outvoted anyway. Discarding costs the other direction and much less of
-    /// it: until the first clean fade of a spell arrives — one or two a session in that log —
-    /// its chip falls back to the catalog's shorter guess. A scalar file must still LOAD,
-    /// though: it is on every existing user's disk, so the store is parsed element by element
-    /// and anything that is not an array of numbers is skipped rather than thrown on.</summary>
+    /// Stored samples are re-screened on load with the same guard the learner applies
+    /// (<see cref="OnWornOff"/>): anything under the catalog base is a break length, not a
+    /// duration, so a file written before that guard existed heals itself on next launch —
+    /// the {"Mesmerize": 7} incident, where one early break shrank every chip on the machine.
+    ///
+    /// LEGACY SCALAR STORES (<c>{"Mesmerization V": 43}</c>, one number per spell) still have
+    /// to LOAD without throwing — they are on every existing user's disk — so the store is
+    /// parsed element by element. They are not, however, admitted as evidence. A stored
+    /// scalar is the longest gap ever observed under a rule that could only ratchet upward,
+    /// so it is wrong in both directions at once: too long when the ratchet caught the
+    /// log-flush tail (the reported store said 43s for a spell that runs ~38, and up to a
+    /// server tick of that is worn-off message lag), and far too short when the very first
+    /// observation happened to be a break. Seeding it would not be a harmless single vote
+    /// either: below <see cref="ModeMinimumSamples"/> the estimate is the MAXIMUM, so the old
+    /// number would win every comparison for the whole warm-up — about a week of play in the
+    /// reporter's log before it was outvoted.
+    ///
+    /// So a scalar is kept only in the one case where keeping it claims nothing: when
+    /// tick-flooring the message lag off it (<see cref="ServerTickSeconds"/>) lands exactly on
+    /// the catalog's own duration for the spell. Then it is not a measurement at all, merely a
+    /// confirmation, and it costs nothing to carry until real samples arrive. Anything above
+    /// that is the inflated ratchet and anything below it is a break recorded as a duration;
+    /// both are dropped and re-learned from play, which costs one or two fades a session.</summary>
     public void AttachStore(string path)
     {
         _storePath = path;
@@ -164,11 +210,22 @@ public sealed class MezTracker
             lock (_lock)
                 foreach (var prop in doc.RootElement.EnumerateObject())
                 {
-                    if (prop.Value.ValueKind != JsonValueKind.Array) continue;   // old scalar: dropped
+                    var floor = CatalogBase(prop.Name);
+                    if (prop.Value.ValueKind == JsonValueKind.Number)
+                    {
+                        // Pre-1.31.3 scalar: healed, then kept only if it merely restates
+                        // the catalog (see the summary above).
+                        var ticked = Math.Floor(prop.Value.GetDouble() / ServerTickSeconds)
+                            * ServerTickSeconds;
+                        if (floor > 0 && Math.Abs(ticked - floor) < 0.0001)
+                            _samples.TryAdd(prop.Name, [floor]);
+                        continue;
+                    }
+                    if (prop.Value.ValueKind != JsonValueKind.Array) continue;
                     var samples = prop.Value.EnumerateArray()
                         .Where(v => v.ValueKind == JsonValueKind.Number)
                         .Select(v => v.GetDouble())
-                        .Where(s => s is > 3 and < 600)
+                        .Where(s => s is > 3 and < 600 && s >= floor)
                         .ToList();
                     // A store written by a future build with a bigger cap keeps its NEWEST
                     // samples here, matching the eviction rule in OnWornOff.
@@ -232,7 +289,7 @@ public sealed class MezTracker
                     changed = _active.Count > 0;
                     _active.Clear();
                     _recentCasts.Clear();
-                    _breaks.Clear();
+                    _engagements.Clear();
                     break;
             }
             Prune(evt.Time);
@@ -262,12 +319,19 @@ public sealed class MezTracker
         {
             lock (_lock)
                 return _samples.Where(kv => kv.Value.Count > 0).ToDictionary(
-                    kv => kv.Key, kv => Effective(kv.Value), StringComparer.OrdinalIgnoreCase);
+                    kv => kv.Key, kv => Effective(kv.Key, kv.Value), StringComparer.OrdinalIgnoreCase);
         }
     }
 
     private bool IsMezSpell(string spell) =>
         _catalog.ContainsKey(SpellCatalog.BaseName(spell));
+
+    /// <summary>The catalog's duration for a spell's base (unranked) name, or 0 when the
+    /// spell is unresearched. Ranks only ever LENGTHEN a mez, so this is a hard floor on any
+    /// honest measurement of any rank of it.</summary>
+    private double CatalogBase(string spell) =>
+        _catalog.TryGetValue(SpellCatalog.BaseName(spell), out var info)
+            ? info.DurationSeconds ?? 0 : 0;
 
     private void RememberCast(string caster, string spell, DateTime t)
     {
@@ -284,6 +348,19 @@ public sealed class MezTracker
 
         var entry = new MezState(mez.Target, cast.Spell, cast.Caster, mez.Time,
             DurationFor(cast.Spell) is { } d ? mez.Time.AddSeconds(d) : null);
+
+        // An AWAKE creature of this name getting mezzed is the classic re-mez after a break
+        // (issue #35): spend its awake-ledger entry and ADD a chip. It must NOT go through
+        // the refresh rule below, which would consume a still-sleeping sibling's chip and
+        // report one mez where there are now two.
+        if (_engagements.TryGetValue(entry.Target, out var eng) && eng.Awake > 0
+            && mez.Time - eng.AwakeAt <= AwakeMemory)
+        {
+            var left = eng.Awake - 1;
+            _engagements[entry.Target] = eng with { Awake = left, AwakeAt = mez.Time };
+            _active.Add(entry);
+            return true;
+        }
 
         // Same-name handling (issue #32, reworked from the original keep-earliest rule):
         // chain-mezzing ONE target is the normal workflow, so a re-landing REFRESHES the
@@ -349,10 +426,12 @@ public sealed class MezTracker
         if (mine.Count == 0) return false;
         var entry = mine[0];
 
-        var known = _breaks.TryGetValue(name, out var prev);
-        var counted = known && wo.Time - prev.Removed <= BreakWindow;
-        var live = known && wo.Time - prev.At <= BreakWindow;
-        _breaks[name] = (wo.Time, live && prev.KillCredited, live ? prev.Removed : default);
+        _engagements.TryGetValue(name, out var prev);
+        var counted = wo.Time - prev.Removed <= BreakWindow;
+        var live = wo.Time - prev.At <= BreakWindow;
+        var awake = wo.Time - prev.AwakeAt <= AwakeMemory ? prev.Awake : 0;
+        _engagements[name] = new Engagement(
+            wo.Time, live ? prev.Removed : default, awake, awake > 0 ? prev.AwakeAt : default);
         if (counted) return false;   // the blow that broke this mez already cost the chip
         _active.Remove(entry);
 
@@ -388,7 +467,11 @@ public sealed class MezTracker
         // are short and scattered, natural fades cluster at the truth. That is precisely the
         // signal Effective() keys on, so the job belongs there and the filter is gone.
         //
-        // Do not reinstate it. The cost is measured above; the benefit is now zero.
+        // Do not reinstate it. The cost is measured above; the benefit is now zero. Note that
+        // the 1.30.0 "brokeRecently" guard (don't teach when the awake ledger for this name
+        // was touched in the last 3s) is the same filter under another name, and is likewise
+        // absent for the same measured reason. What DID survive from 1.30.0 is the base-floor
+        // guard below, which needs no timing at all.
         //
         // AMBIGUITY GATE. The fade line names a creature, not a mez — and EQ logs it without
         // even the rank — so with two of your own entries open on that name there is nothing
@@ -412,8 +495,26 @@ public sealed class MezTracker
         // One sample per unambiguous fade, whole seconds (the log's own resolution — a
         // land→fade gap is always an integer count of log seconds). Bounded and oldest-first
         // evicted: see SampleCap. The estimator over these is Effective().
+        //
+        // RAW, deliberately — the server-tick snap belongs to the ESTIMATE, not to the
+        // sample. Upstream's 6f819fc floored each observation here instead
+        // (Math.Floor(gap / ServerTickSeconds) * ServerTickSeconds), which is right about
+        // the physics and wrong about where to apply it: it collapses a set like
+        // 36 37 38 39 41 42 43 onto 36 and 42 before Effective() ever sees it, and the
+        // cluster the estimator exists to find is gone. Measured against this file's tests,
+        // flooring here fails eight of them and flooring the estimate fails none. Keep the
+        // log's own resolution in the sample set; see Effective() for the snap and for why
+        // it is applied downward.
         var observed = Math.Round((wo.Time - entry.LandedAt).TotalSeconds);
-        if (observed is > 3 and < 600)
+        // The one 1.30.0 learning guard that composes cleanly and is kept (4f133af, David's
+        // live report): a gap SHORTER than the catalog's base duration is a break, not a
+        // duration — ranks only ever lengthen a mez — so it is not a measurement of anything.
+        // One 7s "Mesmerize" learned this way shrank every chip on his machine. Unlike the
+        // damage-proximity filters above this needs no timing and discards only samples the
+        // cluster estimator would have outvoted anyway, so it costs nothing and closes the
+        // hole the estimator leaves on a nearly-empty store, where the maximum of one bad
+        // sample simply IS the answer.
+        if (observed is > 3 and < 600 && observed >= CatalogBase(entry.Spell))
         {
             if (!_samples.TryGetValue(entry.Spell, out var samples))
                 _samples[entry.Spell] = samples = [];
@@ -425,13 +526,57 @@ public sealed class MezTracker
     }
 
     /// <summary>
-    /// The duration a set of unambiguous fade measurements implies: the MODE of the upper
-    /// cluster — not the maximum, and not the mode of everything.
+    /// The duration a set of unambiguous fade measurements implies: the mode of the upper
+    /// cluster (<see cref="Cluster"/>), snapped DOWN to the server tick.
     ///
-    /// This is the ONLY thing standing between a break-shortened sample and the chip: since
-    /// 1.31.3 withdrew the break-retraction (see <see cref="OnWornOff"/>) nothing filters the
-    /// sample set at all, so every early break is in here and has to be OUTVOTED. Sizing the
-    /// rule against contaminated sets is therefore not a hard case any more — it is the case.
+    /// The two halves of this were developed independently — the cluster by the fork, the
+    /// tick snap by upstream (6f819fc, Aenari's report) — and they compose exactly, provided
+    /// the snap is applied HERE, to the estimate, and not to each sample as it is recorded.
+    /// Flooring the samples themselves would collapse a set like 36 37 38 39 41 42 43 onto
+    /// two values, 36 and 42, destroying the very structure <see cref="Cluster"/> exists to
+    /// read; measured, that costs eight of this file's regression tests. Flooring the answer
+    /// costs none of them, because the cluster is found first and only its result is snapped.
+    ///
+    /// WHY DOWN, AND WHY THIS IS ALSO THE RIGHT ANSWER FOR THE FORK'S OWN REPORT. Log-flush
+    /// and message lag are ONE-DIRECTIONAL: the worn-off line can only arrive late, never
+    /// early, so an observed gap can only ever be LONGER than the truth. The true duration is
+    /// therefore at the BOTTOM of a clean fade cluster, not at its mode. The fixture set
+    /// quoted below for Mesmerization V runs
+    /// 36 36 36 36 36 37 37 37 37 38x8 39x5 41 41 42x7 43 43: the fork's estimator answers 38,
+    /// yet nine samples sit BELOW that at 36-37, and no amount of lag explains an observation
+    /// shorter than the truth. So 38 overshoots by about two seconds — which is precisely
+    /// Aenari's report, and the dangerous direction: a chip that still shows time on a mob
+    /// that has already woken blindsides the chanter, while one that expires a couple of
+    /// seconds early merely invites an early re-mez. Snapping the mode down to the tick lands
+    /// on the cluster's floor in every case the fork measured: V's 38 → 36, III's 36 → 36,
+    /// IV's 42 → 42. And upstream's single-fade cases fall out for free, because with one
+    /// sample the cluster mode IS that sample: 32 → 30, 44 → 42.
+    ///
+    /// The guard: a snap must never manufacture a shorter chip than the catalog already
+    /// promises, and must never reach zero. Under a tick, or under the catalog base, the
+    /// catalog base wins — a spell whose only evidence is a handful of 4-second breaks must
+    /// not produce a 0:00 chip. With no catalog duration at all (an unresearched spell) there
+    /// is nothing to fall back to, so the unsnapped cluster stands.
+    /// </summary>
+    private double Effective(string spell, List<double> samples)
+    {
+        var estimate = Cluster(samples);
+        var snapped = Math.Floor(estimate / ServerTickSeconds) * ServerTickSeconds;
+        var floor = CatalogBase(spell);
+        if (snapped >= ServerTickSeconds && snapped >= floor) return snapped;
+        return floor > 0 ? floor : estimate;
+    }
+
+    /// <summary>
+    /// The cluster the measurements form: the MODE of the upper
+    /// cluster — not the maximum, and not the mode of everything. Raw, unsnapped; the tick
+    /// snap is applied to this result by <see cref="Effective"/>.
+    ///
+    /// This is the main thing standing between a break-shortened sample and the chip: since
+    /// 1.31.3 withdrew the break-retraction (see <see cref="OnWornOff"/>) only the catalog
+    /// base-floor filters the sample set, so every early break long enough to clear that
+    /// floor is in here and has to be OUTVOTED. Sizing the rule against contaminated sets is
+    /// therefore not a hard case any more — it is the case.
     ///
     /// WHY NOT THE MAXIMUM. Reported from play: the store read "Mesmerization V = 43" and
     /// the chip started at 0:43 for a spell that runs about 38. Nothing was wrong with the
@@ -490,7 +635,7 @@ public sealed class MezTracker
     /// biased high but self-limiting, and being a little long never leaves a sleeping mob
     /// unattended.
     /// </summary>
-    private static double Effective(List<double> samples)
+    private static double Cluster(List<double> samples)
     {
         if (samples.Count < ModeMinimumSamples) return samples.Max();
         var sorted = samples.Order().ToList();
@@ -504,7 +649,7 @@ public sealed class MezTracker
     }
 
     private double? DurationFor(string spell) =>
-        _samples.TryGetValue(spell, out var s) && s.Count > 0 ? Effective(s)
+        _samples.TryGetValue(spell, out var s) && s.Count > 0 ? Effective(spell, s)
         : _catalog.TryGetValue(SpellCatalog.BaseName(spell), out var info) ? info.DurationSeconds
         : null;
 
@@ -534,6 +679,14 @@ public sealed class MezTracker
     /// 241 …). Six seconds therefore spans a slow two-hander plus a DoT tick landing
     /// between swings without reaching into a genuinely separate pull.
     ///
+    /// A break that actually takes a chip also records one creature of the name as AWAKE
+    /// (issue #35). The ledger is not a second dedupe — the window above is what suppresses
+    /// the rest of the round, and it is deliberately far shorter than
+    /// <see cref="AwakeMemory"/> so that a genuine break of a second twin fifteen seconds
+    /// later is still seen. What the ledger is for is the two lines that SETTLE the woken
+    /// creature instead of breaking a new one: its death (<see cref="CreditKill"/>) and its
+    /// re-mez (<see cref="OnLanding"/>).
+    ///
     /// The residual error is deliberate and follows the rule in <see cref="RemoveTarget"/>:
     /// when a second twin really does wake mid-fight, its break is absorbed as part of the
     /// first one's engagement and its chip lingers until the mez expires or the creature
@@ -547,13 +700,20 @@ public sealed class MezTracker
     private bool CreditBreak(string target, DateTime now)
     {
         var name = LogParser.Normalize(target);
-        var live = _breaks.TryGetValue(name, out var prev) && now - prev.At <= BreakWindow;
+        _engagements.TryGetValue(name, out var prev);
+        var live = now - prev.At <= BreakWindow;
         var took = !live && RemoveTarget(name);
+        var awake = now - prev.AwakeAt <= AwakeMemory ? prev.Awake : 0;
+        if (took) awake++;   // only a break that cost a chip proves something woke up
         // Marked even when nothing was removed: the point is to recognise the engagement,
         // and a fight already in progress on one "orc pawn" must not eat the chip of the
         // one an enchanter mezzes NEXT to it a moment later. Removed, by contrast, moves
         // only when a chip actually went — that is what a fade yields to (see OnWornOff).
-        _breaks[name] = (now, live && prev.KillCredited, took ? now : live ? prev.Removed : default);
+        _engagements[name] = new Engagement(
+            now,
+            took ? now : live ? prev.Removed : default,
+            awake,
+            awake > 0 ? now : default);   // the awake one is still fighting
         return took;
     }
 
@@ -562,20 +722,38 @@ public sealed class MezTracker
     /// as the killing blow in 2,504 of the fixture's 2,624 kills (96%, 97.6% within 1s),
     /// so it is almost never NEW information: the damage that killed the creature has
     /// already been credited as its break. Counting it again would take a second chip,
-    /// reproducing the reported bug at the end of every fight. So a kill inside a live,
-    /// not-yet-killed engagement claims that engagement instead of removing anything —
-    /// and flags it, so the NEXT kill on the same name is not swallowed too. Killing two
-    /// mezzed adds back to back therefore clears both chips, at either creature's death,
-    /// however tightly the deaths are packed (3.3% of same-name kill pairs are within 6s
-    /// of each other, 13% within 20s).
+    /// reproducing the reported bug at the end of every fight. So a kill spends an AWAKE
+    /// creature of that name rather than removing anything — the dead one is the one that
+    /// was fighting (issue #35) — and only a kill with nothing awake is a mezzed creature
+    /// killed outright (an AoE nuke, or a blow nobody's log parsed), which drops its chip.
+    /// Killing two mezzed adds back to back therefore clears both chips, at either
+    /// creature's death, however tightly the deaths are packed (3.3% of same-name kill
+    /// pairs are within 6s of each other, 13% within 20s).
+    ///
+    /// When the last awake creature of a name dies the ENGAGEMENT ends with it, so the
+    /// break window closes too: the stream of damage lines the window exists to attribute
+    /// has no creature left to come from, and the next line naming it is somebody new. That
+    /// is what makes the reported #35 sequence come out right — break a golem, fight it,
+    /// kill it, hit the sleeping twin: the last hit is a real break, not more of the dead
+    /// one's round. The cost is a line of the SAME round arriving after its kill (a trailing
+    /// damage-shield proc); those are rare next to the fights this gets right, and an
+    /// over-eager break clears a chip that self-corrects, which is the cheap direction.
     /// </summary>
     private bool CreditKill(string target, DateTime now)
     {
         var name = LogParser.Normalize(target);
-        var live = _breaks.TryGetValue(name, out var prev) && now - prev.At <= BreakWindow;
-        var claimable = live && !prev.KillCredited;
-        var took = !claimable && RemoveTarget(name);
-        _breaks[name] = (now, true, took ? now : live ? prev.Removed : default);
+        _engagements.TryGetValue(name, out var prev);
+        var awake = now - prev.AwakeAt <= AwakeMemory ? prev.Awake : 0;
+        if (awake > 0)
+        {
+            var left = awake - 1;
+            _engagements[name] = left > 0
+                ? new Engagement(now, prev.Removed, left, now)
+                : default;   // nothing of that name is up: the engagement is over
+            return false;
+        }
+        var took = RemoveTarget(name);
+        _engagements[name] = new Engagement(now, took ? now : default, 0, default);
         return took;
     }
 
@@ -601,14 +779,17 @@ public sealed class MezTracker
     private void Prune(DateTime now)
     {
         _recentCasts.RemoveAll(c => now - c.Time > CastToLand);
-        // Engagement markers are only readable inside BreakWindow, so sweeping them is
-        // pure housekeeping — done in a batch (like the _recentCasts cap) rather than on
-        // every event, because a long session names thousands of creatures and this runs
-        // per parsed line. A handful of names are in flight at once in real combat.
-        if (_breaks.Count > 32)
-            foreach (var name in _breaks.Where(b => now - b.Value.At > BreakWindow)
-                         .Select(b => b.Key).ToList())
-                _breaks.Remove(name);
+        // Engagement records are only readable inside BreakWindow / AwakeMemory, so
+        // sweeping them is pure housekeeping — done in a batch (like the _recentCasts cap)
+        // rather than on every event, because a long session names thousands of creatures
+        // and this runs per parsed line. A handful of names are in flight at once in real
+        // combat.
+        if (_engagements.Count > 32)
+            foreach (var name in _engagements
+                         .Where(e => now - e.Value.At > BreakWindow
+                             && now - e.Value.AwakeAt > AwakeMemory)
+                         .Select(e => e.Key).ToList())
+                _engagements.Remove(name);
         // Entries are RETAINED well past their visible expiry (Snapshot hides them
         // after ExpiryLinger): a rank-lengthened mez can fade long after the base
         // duration, and the natural-fade line must still find its entry to learn

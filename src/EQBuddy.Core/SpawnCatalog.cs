@@ -8,10 +8,21 @@ namespace EQBuddy.Core;
 public sealed class SpawnEntry
 {
     public string Name { get; set; } = "";
+    /// <summary>Other names the SAME creature's kill line may use. Legends renames
+    /// classic named mobs — "the ghoul lord" is "Hoptor Thaggelum" in-game, classic
+    /// name demoted to a subtitle (issue #38, confirmed from chrstahl's kill line) —
+    /// and the wiki mostly still titles pages by the classic names.</summary>
+    public List<string> Aliases { get; set; } = [];
     /// <summary>Documented respawn in seconds, or null when nobody has written it down —
     /// the zone's <see cref="SpawnZone.NamedDefaultSeconds"/> is the fallback, and a null
     /// there too means the timer has to come from the player.</summary>
     public double? RespawnSeconds { get; set; }
+    /// <summary>True when <see cref="RespawnSeconds"/> was MEASURED (camped-on-sight log
+    /// timestamps), not copied from a wiki. Trusted timers disable re-kill learning for
+    /// the entry: a shorter gap against a measured clock means multiple spawn points
+    /// sharing the name, not a faster respawn (David, 2026-08-04 — a learned 328s from
+    /// multi-spawn Orc Taskmaster kills sat under Crushbone's measured 738s clock).</summary>
+    public bool Trusted { get; set; }
     public string Variance { get; set; } = "";
     /// <summary>The placeholder NPC whose death also restarts this named's cycle, or "".
     /// Displayed as "Named — Placeholder (npc)" and matched against kill lines like the
@@ -29,17 +40,30 @@ public sealed class SpawnZone
     /// <summary>The name the game's "You have entered X." line uses, when it differs
     /// from the wiki's title for the zone.</summary>
     public string LogZoneName { get; set; } = "";
+    /// <summary>Additional names the zone-enter line might use — Legends renames zones
+    /// versus classic ("The Ruins of ANCIENT Guk" vs classic "…Old Guk", issue #36), and
+    /// a wrong single LogZoneName silently kills every timer in the zone. Short /who
+    /// codes (guktop) belong here too.</summary>
+    public List<string> LogZoneAliases { get; set; } = [];
     public double? NamedDefaultSeconds { get; set; }
+    /// <summary>True when <see cref="NamedDefaultSeconds"/> is a MEASURED zone clock
+    /// (see SpawnEntry.Trusted) — entries riding it don't re-kill-learn.</summary>
+    public bool NamedDefaultTrusted { get; set; }
     public List<SpawnEntry> Named { get; set; } = [];
 
     public bool MatchesZoneName(string zoneName)
     {
         if (zoneName.Length == 0) return false;
-        return Eq(Zone, zoneName) || Eq(LogZoneName, zoneName)
+        if (Eq(Zone, zoneName) || Eq(LogZoneName, zoneName)
             // "You have entered The Estate of Unrest." vs catalog "Estate of Unrest":
             // containment either way covers article and prefix differences.
             || Contains(zoneName, Zone) || Contains(Zone, zoneName)
-            || (LogZoneName.Length > 0 && (Contains(zoneName, LogZoneName) || Contains(LogZoneName, zoneName)));
+            || (LogZoneName.Length > 0 && (Contains(zoneName, LogZoneName) || Contains(LogZoneName, zoneName))))
+            return true;
+        foreach (var alias in LogZoneAliases)
+            if (Eq(alias, zoneName) || Contains(zoneName, alias) || Contains(alias, zoneName))
+                return true;
+        return false;
 
         static bool Eq(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
         static bool Contains(string hay, string needle) =>

@@ -20,14 +20,19 @@ public static class WatchGuide
 {
     /// <summary>The handful of rules that explain most confusion, in the order they tend to
     /// bite. Kept to single sentences — this is a panel in a widget, not a manual.</summary>
+    // Reworked 2026-08-05 with wording suggested by chaosrah (Reddit) — the old
+    // "Death, Milestone, and class-filtered Spell fade rules need no match text"
+    // sentence compressed three different behaviors into one confusing line, and the
+    // spell-class dropdown wasn't explained anywhere.
     public static readonly string[] Basics =
     [
-        "Match text is a case-insensitive substring, not a whole name and not a regex — \"mote\" catches Mote of Minor Potential and every other tier.",
-        "Leave Match empty and the rule's Name is used instead, so a rule just called \"Ghoul\" works.",
-        "Kind decides what the text is matched against. A Loot pattern will never match if Kind is left on Kill.",
-        "Death, Milestone, and class-filtered Spell fade rules need no match text at all — empty means \"all of them\".",
-        "Log text is the exception: it matches raw log lines, and an empty pattern matches nothing rather than everything.",
-        "Delay holds the alert back, turning a rule into a cue. Seconds by default; add m for minutes (8m), up to 30 minutes.",
+        "Match text is a case-insensitive substring — not a whole name, not a regex. \"mote\" catches Mote of Minor Potential and every other tier.",
+        "Leave Match empty and the rule's Name is used as the match — a rule just named \"Ghoul\" already matches ghouls, no need to type it twice.",
+        "Kind picks WHICH events the text is checked against: a keyword that appears in loot will never fire while Kind is set to Kill.",
+        "Death and Milestone rules fire on every death or level-up — their Match text is an optional narrower (Death can filter by killer), and empty means all of them.",
+        "Spell fade rules filter by CLASS instead of text: the dropdown beside Match (Charm, Mez, HoT…) picks it, and Match stays empty — that's how the built-in \"Charm broke\" works.",
+        "Log text is the exception: it matches raw log lines (including other players' macro calls and says), and an EMPTY pattern matches nothing rather than everything.",
+        "Delay holds the alert back by that long after the text appears — a re-cast cue, not a snooze. Seconds by default; add m for minutes (8m), up to 30 minutes.",
         "For an immediate and a delayed alert on the same trigger, make two rules with the same Match and different sounds.",
         "The card shows the current session only, and a session ends after 60 minutes of no log activity.",
     ];
@@ -35,7 +40,7 @@ public static class WatchGuide
     public static readonly WatchGuideExample[] Examples =
     [
         new(WatchKind.Loot, "Motes", "mote", "",
-            "Every mote tier. If nothing appears, check whether the game is routing them to currency storage — then the log says nothing to match."),
+            "Every mote tier — including motes the game auto-stores to currency (those count too since 1.31)."),
         new(WatchKind.Loot, "Crushbone gear", "Crushbone", "",
             "Any item with Crushbone in the name, however it was looted."),
         new(WatchKind.Kill, "Taskmasters", "taskmaster", "",

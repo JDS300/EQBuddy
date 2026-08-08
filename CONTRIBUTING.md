@@ -4,6 +4,21 @@ Small project, fast cadence, two UIs, humans working with AI coding agents on bo
 sides — these conventions keep that combination smooth. Agents: treat this file as
 binding instructions for work in this repository.
 
+## Project values: your numbers, not other people's
+
+EQBuddy measures **your own play** — your damage, your pet, your loot, your progress.
+It deliberately does not rank, compare, or expose **other players'** performance, and
+PRs that add that (party/raid DPS meters, member rankings, "who's slacking" views)
+won't be merged regardless of code quality. The maintainer watched performance
+scoreboards curdle other MMO communities — most visibly WoW's — and EQBuddy's answer
+is to not build the scoreboard. This has come up more than once, so it's written down
+here rather than re-litigated per PR.
+
+The MIT license means you're genuinely welcome to build that tool **on top of** this
+codebase — fork it, keep the attribution, godspeed. It just won't ship as EQBuddy.
+(Group-related features that don't score people — a roster, group kill counts, party
+XP — are fine; the line is measuring and comparing individuals' performance.)
+
 ## Layout & ownership
 
 | Area | Owner | Notes |

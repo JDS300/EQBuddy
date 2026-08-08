@@ -8784,6 +8784,14 @@
           "note": "Executioner/Judges area (map loc 3)"
         },
         {
+          "name": "A Nisch Mas Mender",
+          "respawnSeconds": null,
+          "variance": "",
+          "placeholder": "",
+          "source": "eqlwiki",
+          "note": "Gnoll cleric, lvl 30, 100% @ (104, -146); drops Cap of Mending / Nisch Mas Ilkvel; added from chaosrah's Reddit report 2026-08-05 (was missing from the harvest)"
+        },
+        {
           "name": "Nisch Val Torash Mashk",
           "respawnSeconds": null,
           "variance": "",

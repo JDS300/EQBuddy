@@ -9,6 +9,10 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
+    <!-- Direct reference overriding the transitive 2.1.11, which carries the
+         high-severity GHSA-2m69-gcr7-jv3q (NU1903 on every release build).
+         Drop this once Microsoft.Data.Sqlite itself depends on >= 2.1.12. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
   </ItemGroup>
 
   <ItemGroup>
@@ -16,6 +20,9 @@
     <EmbeddedResource Include="Data\FadeMessages.json" />
     <EmbeddedResource Include="Data\WhatsNew.json" />
     <EmbeddedResource Include="Data\MezSpells.json" />
+    <EmbeddedResource Include="Data\AaCatalog.json" />
+    <EmbeddedResource Include="Data\CcSpells.json" />
+    <EmbeddedResource Include="Data\RegenSpells.json" />
   </ItemGroup>
 
 </Project>

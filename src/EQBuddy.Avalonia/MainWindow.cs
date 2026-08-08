@@ -157,6 +157,7 @@ public sealed class MainWindow : Window
         // Before the watcher's startup replay, so already-logged charms classify with
         // everything learned in earlier sessions (issue #29).
         AttachSpellStore();
+        _stats.AaStore = new AaLedgerStore(AppPaths.File("aa-ledger.json"));
         _watcher = new LogWatcher(_stats);
         // All three trackers are hung off the watcher for the same reason AttachSpellStore
         // runs above: Select() replays the whole log, and everything any tracker derives keys
@@ -1164,10 +1165,11 @@ public sealed class MainWindow : Window
         _markersLabel.IsVisible = s.Markers.Count > 0;
     }
 
-    // Both keyed by TrackedRule.Id — a display name can be shared by two rules, and keying
+    // Keyed by TrackedRule.Id — a display name can be shared by two rules, and keying
     // on it made same-named rules share baselines and cooldowns.
     private readonly Dictionary<string, int> _ruleBaseline = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, DateTime> _ruleLastAlert = new(StringComparer.Ordinal);
+    private readonly EQBuddy.UI.Shared.AlertCooldowns _ruleCooldowns = new();
+    private readonly EQBuddy.UI.Shared.SoundGate _soundGate = new();
     private string? _alertBaselinePath;
 
     /// <summary>The floating alert tile, created on first use and owned by the widget.</summary>
@@ -1290,13 +1292,13 @@ public sealed class MainWindow : Window
 
     private void FireAlert(TrackedRule rule, string ruleName, string label, TimeSpan cooldown)
     {
-        var last = _ruleLastAlert.TryGetValue(rule.Id, out var la) ? la : DateTime.MinValue;
-        if (DateTime.Now - last < cooldown) return;
-        _ruleLastAlert[rule.Id] = DateTime.Now;
+        if (!_ruleCooldowns.ShouldFire(rule, label, cooldown, DateTime.Now)) return;
 
-        if (rule.AlertBanner) AlertTile.ShowAlert($"★ {ruleName}: {label}");
+        if (rule.AlertBanner)
+            AlertTile.ShowAlert($"★ {ruleName}: {label}",
+                EQBuddy.UI.Shared.AlertColors.Hex(rule.AlertColor));
         if (EQBuddy.UI.Shared.AlertSoundCatalog.Resolve(rule, _settings.AlertSound) is { } sound)
-            PlayAlertSound(sound);
+            PlayAlertSound(sound, coalesce: true);
     }
 
     /// <summary>Deaths seen last refresh, so a new one can cancel pending cues — a reminder
@@ -1629,9 +1631,13 @@ public sealed class MainWindow : Window
     /// Play a specific sound: a built-in name, or the full path of a custom file. The
     /// argument exists so per-rule sounds work — the point of giving each rule its own sound
     /// is telling them apart by ear, which a single shared sound can't do.
+    /// With <paramref name="coalesce"/> on, sounds within <see cref="EQBuddy.UI.Shared.SoundGate.Window"/>
+    /// of the last are dropped — several rules firing together are one audio alert (here they
+    /// would literally overlap, one player process per sound). Previews keep coalesce off.
     /// </summary>
-    internal void PlayAlertSound(string choiceOrPath)
+    internal void PlayAlertSound(string choiceOrPath, bool coalesce = false)
     {
+        if (coalesce && !_soundGate.TryClaim(DateTime.Now)) return;
         try
         {
             var choice = choiceOrPath switch

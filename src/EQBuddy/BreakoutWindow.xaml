@@ -1,0 +1,80 @@
+<Window x:Class="EQBuddy.BreakoutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        SizeToContent="Height" Width="272" WindowStyle="None" AllowsTransparency="True"
+        Background="Transparent" Topmost="True" ShowInTaskbar="False" ShowActivated="False"
+        ResizeMode="NoResize" WindowStartupLocation="Manual">
+    <Border x:Name="Chrome" CornerRadius="8" BorderThickness="1" Padding="9,6,9,8"
+            MouseLeftButtonDown="OnDrag">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Grid Margin="0,0,0,1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TitleText" FontSize="12.5" FontWeight="SemiBold"
+                           TextTrimming="CharacterEllipsis"/>
+                <Border Grid.Column="1" x:Name="ScopeBorder" CornerRadius="9" BorderThickness="1"
+                        Margin="6,0,6,0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="ScopeFight" Text="Fight" FontSize="10" Padding="7,1"
+                                   Cursor="Hand" MouseLeftButtonDown="OnScopeFight"/>
+                        <TextBlock x:Name="ScopeSession" Text="Session" FontSize="10" Padding="7,1"
+                                   Cursor="Hand" MouseLeftButtonDown="OnScopeSession"/>
+                    </StackPanel>
+                </Border>
+                <TextBlock Grid.Column="2" Text="✕" FontSize="11" VerticalAlignment="Center"
+                           Cursor="Hand" Padding="2,0" MouseLeftButtonDown="OnDismiss"
+                           ToolTip="Hide until the widget is next minimized"/>
+            </Grid>
+            <TextBlock Grid.Row="1" x:Name="SubText" FontSize="10.5" Margin="1,0,0,2"
+                       TextTrimming="CharacterEllipsis"/>
+            <!-- Sort links for the stat kinds (damage/healing/pet), same metrics as the
+                 main cards; hidden for Watch and Loot, whose rows aren't ability stats. -->
+            <StackPanel Grid.Row="2" x:Name="SortBar" Orientation="Horizontal"
+                        HorizontalAlignment="Right" Margin="0,0,2,3">
+                <TextBlock Text="sort:" FontSize="10" Margin="0,0,4,0"
+                           Foreground="{DynamicResource DimBrush}"/>
+                <TextBlock x:Name="SortTotal" Text="total" FontSize="10" Cursor="Hand"
+                           Tag="total" MouseLeftButtonDown="OnSortClick" Margin="0,0,6,0"/>
+                <TextBlock x:Name="SortHits" Text="hits" FontSize="10" Cursor="Hand"
+                           Tag="hits" MouseLeftButtonDown="OnSortClick" Margin="0,0,6,0"/>
+                <TextBlock x:Name="SortAvg" Text="avg" FontSize="10" Cursor="Hand"
+                           Tag="avg" MouseLeftButtonDown="OnSortClick" Margin="0,0,6,0"/>
+                <TextBlock x:Name="SortRate" Text="dps" FontSize="10" Cursor="Hand"
+                           Tag="rate" MouseLeftButtonDown="OnSortClick"/>
+            </StackPanel>
+            <ScrollViewer Grid.Row="3" x:Name="RowsScroll" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
+                <StackPanel>
+                    <ItemsControl x:Name="Rows"/>
+                    <TextBlock x:Name="EmptyText" FontSize="11" Margin="1,1,0,0" Visibility="Collapsed"/>
+                </StackPanel>
+            </ScrollViewer>
+            <!-- No native border on a frameless window, so this grip is the resize story
+                 (same Thumb idiom the Options width grips use). Drag = take manual control
+                 of the size (persisted, content scrolls); double-click = back to auto. -->
+            <Thumb Grid.Row="3" x:Name="SizeGrip" Width="14" Height="14"
+                   HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                   Cursor="SizeNWSE" Margin="0,0,-4,-5"
+                   DragDelta="OnGripDrag" DragCompleted="OnGripDone"
+                   MouseDoubleClick="OnGripReset"
+                   ToolTip="Drag to resize (list scrolls) — double-click to auto-size again">
+                <Thumb.Template>
+                    <ControlTemplate TargetType="Thumb">
+                        <TextBlock Text="⋰" FontSize="11" Opacity="0.55"
+                                   Foreground="{DynamicResource DimBrush}"
+                                   Background="Transparent" Padding="3,0,0,0"/>
+                    </ControlTemplate>
+                </Thumb.Template>
+            </Thumb>
+        </Grid>
+    </Border>
+</Window>

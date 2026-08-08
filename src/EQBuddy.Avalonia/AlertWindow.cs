@@ -61,9 +61,23 @@ public sealed class AlertWindow : Window
         PointerPressed += OnDrag;
     }
 
-    public void ShowAlert(string text)
+    /// <summary>Optionally tinted per rule (Chaosrah's color-coded alerts, 2026-08-06);
+    /// null/empty keeps the theme accent, applied per call so tints never stick.</summary>
+    public void ShowAlert(string text, string? colorHex = null)
     {
         _alertText.Text = text;
+        var tile = (Border)Content!;
+        if (!string.IsNullOrEmpty(colorHex) && Color.TryParse(colorHex, out var c))
+        {
+            var brush = new SolidColorBrush(c);
+            _alertText.Foreground = brush;
+            tile.BorderBrush = brush;
+        }
+        else
+        {
+            _alertText.Foreground = AppTheme.AccentBrush;
+            tile.BorderBrush = AppTheme.AccentBrush;
+        }
         PositionFromSettings();
         ShowOwned();
         Topmost = true;

@@ -8,6 +8,49 @@ namespace EQBuddy.Tests;
 /// </summary>
 public class SessionStatsTests
 {
+    /// <summary>Regen estimate (David's live bard test, 2026-08-06): the tick line
+    /// "Your wounds begin to heal." names no spell and no amount. Attribution comes from
+    /// your own cast/song among the four spells sharing that line; the amount is the
+    /// player's Options override when set, else the wiki base. No cast seen = count only.</summary>
+    [Fact]
+    public void RegenTicksEstimateFromTheAttributedSongAtWikiBase()
+    {
+        var stats = new SessionStats();
+        void Line(int ss, string msg) =>
+            stats.Apply(LogParser.Parse($"[Thu Aug 06 14:43:{ss:D2} 2026] {msg}")!);
+        Line(24, "You begin singing Hymn of Restoration.");
+        Line(30, "Your wounds begin to heal.");
+        Line(36, "Your wounds begin to heal.");
+        Line(42, "Your wounds begin to heal.");
+
+        var s = stats.Snapshot();
+        Assert.Equal(3, s.RegenTicks);
+        Assert.Equal("Hymn of Restoration", s.RegenSpell);
+        Assert.Equal(27, s.RegenEstimatedHealed);   // 3 × wiki base 9
+        Assert.Equal(0, s.HealingDone);              // estimates never join real totals
+    }
+
+    [Fact]
+    public void RegenOverrideOutranksTheWikiBaseAndNoCastMeansCountOnly()
+    {
+        // Instruments raised the real tick past base — the player typed 16 in Options.
+        var stats = new SessionStats { RegenPerTickOverride = 16 };
+        void Line(int ss, string msg) =>
+            stats.Apply(LogParser.Parse($"[Thu Aug 06 14:43:{ss:D2} 2026] {msg}")!);
+        Line(24, "You begin singing Hymn of Restoration.");
+        Line(30, "Your wounds begin to heal.");
+        Line(36, "Your wounds begin to heal.");
+        Assert.Equal(32, stats.Snapshot().RegenEstimatedHealed);
+
+        // A buff cast before the log began: ticks arrive with no attributing cast.
+        var cold = new SessionStats();
+        cold.Apply(LogParser.Parse("[Thu Aug 06 14:43:30 2026] Your wounds begin to heal.")!);
+        var s = cold.Snapshot();
+        Assert.Equal(1, s.RegenTicks);
+        Assert.Equal(0, s.RegenEstimatedHealed);
+        Assert.Equal("", s.RegenSpell);
+    }
+
     private static SessionStats Replay(string? characterName, params string[] lines)
     {
         var stats = new SessionStats { CharacterName = characterName };

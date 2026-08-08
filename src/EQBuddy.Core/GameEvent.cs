@@ -26,7 +26,12 @@ public record MissEvent(DateTime Time, bool Outgoing) : GameEvent(Time);
 public record HealEvent(DateTime Time, string Target, int Amount, string Spell, bool Outgoing, string Healer = "", bool OverTime = false) : GameEvent(Time);
 /// <summary>"Your wounds begin to heal." — a regen/hymn tick; the log gives no amount, so we can only count them.</summary>
 public record RegenTickEvent(DateTime Time) : GameEvent(Time);
-public record LootEvent(DateTime Time, string Item, string Source, string? UpgradeResult) : GameEvent(Time);
+/// <summary>A /consider line — deliberate targeting, so it can drive the target-drops
+/// surfaces without a swing being landed first (David, 2026-08-06).</summary>
+public record ConsiderEvent(DateTime Time, string Name, int Level) : GameEvent(Time);
+/// <param name="Count">Stack size — auto-storage lines ("stored it in your tradeskill
+/// depot", issue #39) can carry counts like the auto-sell lines do.</param>
+public record LootEvent(DateTime Time, string Item, string Source, string? UpgradeResult, int Count = 1) : GameEvent(Time);
 /// <summary>Vendor=true means a merchant sale (Item = what was sold); otherwise corpse coin or split.</summary>
 public record MoneyEvent(DateTime Time, long Copper, bool Vendor = false, string? Item = null) : GameEvent(Time);
 public record XpEvent(DateTime Time, double Percent, bool Party) : GameEvent(Time);
@@ -35,6 +40,11 @@ public record XpEvent(DateTime Time, double Percent, bool Party) : GameEvent(Tim
 /// ("You have gained 2 ability point(s)!", issue #37); counting events instead
 /// of points undercounted potioned sessions.</param>
 public record AaEvent(DateTime Time, int TotalPoints, int Points = 1) : GameEvent(Time);
+
+/// <summary>An AA ability bought or improved: rank 1 arrives as "gained the ability
+/// \"X\"", later ranks as "improved X <rank>". Cost 0 = innate grant or free toggle.
+/// The ledger of these is what explains duration modifiers (Mez Mastery etc.).</summary>
+public record AaPurchaseEvent(DateTime Time, string Ability, int Rank, int Cost) : GameEvent(Time);
 /// <summary>Loot auto-sold on pickup: counts as loot AND vendor income.</summary>
 public record AutoSellEvent(DateTime Time, string Item, int Count, string Source, long Copper) : GameEvent(Time);
 /// <summary>"You successfully destroyed N X." — the advanced loot window's sell/destroy

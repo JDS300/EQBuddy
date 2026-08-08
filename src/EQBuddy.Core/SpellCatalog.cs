@@ -189,6 +189,32 @@ public sealed partial class SpellCatalog
         ("scintillat", SpellCategory.Stun),
     ];
 
+    /// <summary>
+    /// The wiki-harvested CC catalog (Data\CcSpells.json — 174 spells from the full
+    /// eqlwiki Spellpage sweep, 2026-08-06, prompted by Chaosrah's report that enchanter
+    /// stuns like Color Flux never fired "all CC" alerts: the stun family alone has 87
+    /// entries, far past anything a hand list would catch). The curated seed above still
+    /// wins on conflicts — it carries log-verified decisions like the bard mez/charm song
+    /// split — the harvest fills everything else.
+    /// </summary>
+    private static readonly Lazy<Dictionary<string, SpellCategory>> WikiCc = new(() =>
+    {
+        var map = new Dictionary<string, SpellCategory>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var stream = System.Reflection.Assembly.GetExecutingAssembly()
+                .GetManifestResourceStream("EQBuddy.Core.Data.CcSpells.json");
+            if (stream is null) return map;
+            using var doc = JsonDocument.Parse(stream);
+            foreach (var s in doc.RootElement.GetProperty("spells").EnumerateArray())
+                if (Enum.TryParse<SpellCategory>(s.GetProperty("category").GetString(), out var cat)
+                    && s.GetProperty("name").GetString() is { Length: > 0 } name)
+                    map[name] = cat;
+        }
+        catch (Exception ex) { CoreLog.Error(ex); }   // malformed resource: seed still works
+        return map;
+    });
+
     private readonly Dictionary<string, SpellCategory> _learned =
         new(StringComparer.OrdinalIgnoreCase);
     private string? _storePath;
@@ -246,6 +272,7 @@ public sealed partial class SpellCatalog
     {
         var name = BaseName(spell);
         if (Seed.TryGetValue(name, out var seeded)) return seeded;
+        if (WikiCc.Value.TryGetValue(name, out var wiki)) return wiki;
         if (_learned.TryGetValue(name, out var learned)) return learned;
         // Fall back to family matching, so an unlisted rank or a spell nobody typed into
         // the seed list still classifies.
@@ -264,7 +291,7 @@ public sealed partial class SpellCatalog
     {
         if (category == SpellCategory.Unknown) return false;
         var name = BaseName(spell);
-        if (name.Length == 0 || Seed.ContainsKey(name)) return false;
+        if (name.Length == 0 || Seed.ContainsKey(name) || WikiCc.Value.ContainsKey(name)) return false;
         if (_learned.TryGetValue(name, out var existing) && existing == category) return false;
         _learned[name] = category;
         SaveStore();

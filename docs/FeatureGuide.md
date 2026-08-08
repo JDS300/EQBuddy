@@ -637,11 +637,19 @@ which the history dedup makes safe.
 - Invocations went unparsed until 2026-08-03 (they log nothing until you change one);
   "You begin reciting the &lt;name&gt; invocation." now drives DPS-by-invocation brackets.
   The "You begin to change your invocation." precursor is deliberately ignored.
-- The History DPS-over-time graph, the Custom-theme color editor, and the History
-  fight-by-fight review (expandable per-encounter breakdowns) are WPF-only; the
-  data lives in Core/UI.Shared, so each is a thin view to port (the Avalonia app
-  already *applies* stored custom colors, and its Combat card does show the
-  last-fight incoming breakdown).
+- The History DPS-over-time graph, the Custom-theme color editor, the History
+  fight-by-fight review (expandable per-encounter breakdowns), and the item-info
+  popup are WPF-only; the data lives in Core/UI.Shared, so each is a thin view to
+  port (the Avalonia app already *applies* stored custom colors, and its Combat
+  card does show the last-fight incoming breakdown).
+  The Spawns window and the mez-target chips are NOT on this list any more — both
+  are on Avalonia (issue #5), along with the spawn-countdown and HoT chip stacks.
+- Item info (click a loot row, or search in the popup): on-demand eqlwiki lookup —
+  stats, vendor value, drops-from, sold-by, quests, recipes — with a 7-day cache
+  and LIVE/CACHED/STALE source labels. One fetch per explicit request, nothing in
+  the background; in-game "+N" upgrade suffixes are stripped (the wiki has base
+  pages only). EqlWikiItemService in Core, fixture-tested against real saved
+  wikitext.
 - Mez chips: a re-landing REFRESHES the same-name chip (chain-mezzing and bard
   pulse songs both depend on this — issue #32); only same-second landings (an AoE
   catching same-named mobs) create separate, numbered chips, and a break clears

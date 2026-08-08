@@ -24,6 +24,7 @@
                 <MenuItem Header="Spawn timers…" Click="OnSpawnsWindow"/>
                 <MenuItem x:Name="TrackSpawnsItem" Header="Track spawns (named respawn timers)"
                           IsCheckable="True" Click="OnTrackSpawns"/>
+                <MenuItem Header="Send feedback…" Click="OnFeedback"/>
                 <Separator/>
                 <MenuItem x:Name="ChooseLogFolderItem" Header="Choose log folder…" Click="OnChooseLogFolder"/>
                 <MenuItem Header="Auto-detect log folder" Click="OnAutoDetectLogFolder"/>
@@ -74,13 +75,26 @@
                            FontSize="12" Foreground="{DynamicResource DimBrush}"
                            TextTrimming="CharacterEllipsis" Text="looking for a character…"
                            ToolTip="Follows whoever is actively playing (log file growth)"/>
-                <Button x:Name="GearBtn" Grid.Column="2" Style="{StaticResource IconButton}"
+                <!-- Feedback sits IN the title bar, not buried in the menu, and wears the
+                     one green pill on the bar so the eye lands on it (David: the betas
+                     live on reports, so the door should draw people). Text-glyph envelope,
+                     not the emoji — color emoji ignore Foreground, the glyph tints. -->
+                <Button Grid.Column="2" Style="{StaticResource IconButton}"
+                        ToolTip="Send feedback — feature ideas and bug reports shape the beta features"
+                        Click="OnFeedback">
+                    <Border Background="{DynamicResource GoodWashBrush}" CornerRadius="6"
+                            Padding="4,0,4,1">
+                        <TextBlock Text="&#x2709;&#xFE0E;" FontSize="13"
+                                   Foreground="{DynamicResource GoodBrush}"/>
+                    </Border>
+                </Button>
+                <Button x:Name="GearBtn" Grid.Column="3" Style="{StaticResource IconButton}"
                         Content="&#x2699;&#xFE0F;" ToolTip="Settings" Click="OnGear"/>
-                <Button Grid.Column="3" Style="{StaticResource IconButton}" Content="&#x21BB;"
+                <Button Grid.Column="4" Style="{StaticResource IconButton}" Content="&#x21BB;"
                         ToolTip="Reset session stats" Click="OnReset"/>
-                <Button Grid.Column="4" Style="{StaticResource IconButton}" Content="&#x2013;"
+                <Button Grid.Column="5" Style="{StaticResource IconButton}" Content="&#x2013;"
                         ToolTip="Minimize to dashboard (starred stats only)" Click="OnMinimize"/>
-                <Button Grid.Column="5" Style="{StaticResource IconButton}" Content="&#x2715;"
+                <Button Grid.Column="6" Style="{StaticResource IconButton}" Content="&#x2715;"
                         ToolTip="Close" Click="OnClose"/>
             </Grid>
 
@@ -119,11 +133,22 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="&#x2694;&#xFE0F; Combat" FontSize="13"/>
                         <TextBlock x:Name="CombatHeader" Grid.Column="1" Style="{StaticResource StatValue}" Text="0 dps"/>
                         <ToggleButton x:Name="StarDps" Grid.Column="2" Style="{StaticResource StarToggle}"
                                       Tag="dps" Click="OnStarChanged" ToolTip="Show DPS in mini dashboard"/>
+                        <!-- Pet damage has no card of its own (it's the fold-out below), but its
+                             watch-toggle lives up here with the other stars per David: one place
+                             to say what you watch when minimized. The 🐾 tells the two stars apart. -->
+                        <StackPanel Grid.Column="3" Orientation="Horizontal">
+                            <TextBlock Text="🐾" FontSize="9" VerticalAlignment="Center"
+                                       Margin="2,0,0,0" Opacity="0.75"/>
+                            <ToggleButton x:Name="StarPet" Style="{StaticResource StarToggle}"
+                                          Tag="pet" Click="OnStarChanged"
+                                          ToolTip="Show pet damage in mini dashboard"/>
+                        </StackPanel>
                     </Grid>
                 </Expander.Header>
                 <StackPanel>
@@ -295,10 +320,29 @@
                     </Grid>
                 </Expander.Header>
                 <StackPanel>
+                    <!-- Sort toggle (Klona11, discussion #43): count keeps the original
+                         biggest-stacks-first order; name is alphabetical. -->
+                    <StackPanel x:Name="LootSortBar" Orientation="Horizontal"
+                                HorizontalAlignment="Right" Margin="0,0,2,1">
+                        <TextBlock Text="sort:" FontSize="10" Foreground="{DynamicResource DimBrush}"
+                                   Margin="0,0,4,0"/>
+                        <TextBlock x:Name="LootSortCount" Text="count" FontSize="10" Cursor="Hand"
+                                   Tag="count" MouseLeftButtonDown="OnLootSort" Margin="0,0,6,0"/>
+                        <TextBlock x:Name="LootSortName" Text="name" FontSize="10" Cursor="Hand"
+                                   Tag="name" MouseLeftButtonDown="OnLootSort"/>
+                    </StackPanel>
                     <ItemsControl x:Name="LootList"/>
                     <TextBlock x:Name="CraftedLabel" Text="Created by merging" FontSize="11" FontWeight="SemiBold"
                                Foreground="{DynamicResource AccentBrush}" Margin="0,6,0,0" Visibility="Collapsed"/>
                     <ItemsControl x:Name="CraftedList" Margin="0,2,0,0"/>
+                    <!-- Target drops (TARGET-*): what the creature you're fighting can drop,
+                         wiki knowledge merged with this session's observed counts. -->
+                    <StackPanel x:Name="TargetBlock" Visibility="Collapsed"
+                                Margin="0,6,0,0">
+                        <TextBlock x:Name="TargetHeader" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource WarnBrush}" TextWrapping="Wrap"/>
+                        <ItemsControl x:Name="TargetDropsList" Margin="10,2,0,0"/>
+                    </StackPanel>
                 </StackPanel>
             </Expander>
 
@@ -356,6 +400,12 @@
                     <TextBlock x:Name="ProgressSummary" Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,2,0,4"/>
                     <TextBlock Text="Skill-ups" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
                     <ItemsControl x:Name="SkillList" Margin="0,2,0,0"/>
+                    <!-- Character state, not session activity: what the log's whole history
+                         (plus the durable ledger) says this character owns. -->
+                    <TextBlock x:Name="AaAbilitiesLabel" Text="AA abilities" FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource AccentBrush}" Margin="0,4,0,0"
+                               Visibility="Collapsed"/>
+                    <ItemsControl x:Name="AaAbilityList" Margin="0,2,0,0"/>
                 </StackPanel>
             </Expander>
 

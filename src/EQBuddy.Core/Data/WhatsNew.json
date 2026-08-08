@@ -1,136 +1,173 @@
 [
-  {
-    "version": "1.30.0",
-    "date": "2026-08-04",
-    "highlights": [
-      "AA potions count correctly: the potion's doubled gains use a different log line EQBuddy didn't know, and gains were counted as events rather than points — potioned sessions logged zero or half. Both fixed (thanks twill713 for the exact line).",
-      "Spawn timers understand renamed mobs: Legends gives classic named new proper names ('the ghoul lord' is Hoptor Thaggelum) — the catalog now carries aliases, starting with Hoptor (thanks chrstahl, again).",
-      "Measured spawn clocks now outrank kill-learning: mobs that spawn in several places at once (Orc Taskmaster, Royal Guard…) tricked the self-tightening timers with fast re-kills. Where a zone's clock has been measured (Crushbone's 12:18), learning stands down and old bad learned values clean themselves up. Your typed edits still beat everything.",
-      "Mez timers stopped lying in both directions: a broken mez can no longer teach its break-length as the spell's 'duration' (the 7-second Mesmerize incident), and learned durations now snap to the game's 6-second server tick so timers don't run past the real wake-up (verified against 1,000+ logged tick intervals).",
-      "On a portrait monitor, the widget can finally use the full screen height — it was sizing against your primary monitor even when living on a different one."
-    ]
-  },
-  {
-    "version": "1.29.3",
-    "date": "2026-08-04",
-    "highlights": [
-      "Upper Guk spawn timers actually fixed: Legends renamed the zone to \"The City of Guk\" — a name no classic source predicted — so EQBuddy didn't recognize it and started no timers there. Confirmed from chrstahl's log lines (thanks for testing and reporting from the field!); those exact lines are now the automated test."
-    ]
-  },
-  {
-    "version": "1.29.2",
-    "date": "2026-08-04",
-    "highlights": [
-      "Guk spawn timers fixed: Legends renamed Lower Guk ('The Ruins of ANCIENT Guk' — classic said 'Old'), and the unrecognized zone name silently disabled every timer there. EQBuddy now knows the Legends zone names, and zones can carry aliases so future renames are one-line fixes.",
-      "Guk catalog audit: the froglok shin knight added to Lower Guk (it roams both Guks), and the froglok warden + ancient croc got their 16:30 timers. If a timer runs long, your kills still tighten it automatically.",
-      "Mez chips, round two (thanks again Vellum670): a mezzed mob's chip no longer disappears when its same-named twin wakes up and fights — the woken one's combat is recognized as its own, kills are attributed to it, and re-mezzing it adds a fresh chip without touching the sleeper's."
-    ]
-  },
-  {
-    "version": "1.29.1",
-    "date": "2026-08-04",
-    "highlights": [
-      "Mez chips, day-one fixes (thanks Vellum670 for same-day field testing): re-mezzing now REFRESHES the countdown — chain-mezzing works as you'd expect, and bard pulse songs keep their chip alive.",
-      "Same-named mobs caught by an AoE mez get separate, numbered chips ('orc pawn (2)'), and a break clears one of them, not all.",
-      "Chips no longer vanish mid-mez: damage-over-time ticks from a spell cast before the mez don't count as 'the mob woke up', and a chip whose base timer runs out holds at 0:00 briefly instead of disappearing — spell ranks lengthen mezzes, and your own casts teach EQBuddy the real duration (any rank, remembered permanently)."
-    ]
-  },
-  {
-    "version": "1.29.0",
-    "date": "2026-08-04",
-    "highlights": [
-      "NEW: Mez chips — a small stack (💤) appears while anything is mesmerized, counting down to wake-up, and clears the moment something breaks it. It works from ANY group member's EQBuddy, not just the mez'er — the log tells everyone. Durations come from the wiki; your own casts teach it exact rank-corrected times. Drag it anywhere; it remembers.",
-      "Charmed pets now appear instantly for EVERY class. Charm landing lines turn out to differ by class — enchanter targets are 'charmed', druid/shaman animals 'blink', necro undead 'moan', and bard song targets' 'eyes glaze over' — and EQBuddy only knew two of the four. Thanks to Vellum670 for the complete charm list that cracked this.",
-      "Bard fix: song lines ('You begin to sing …') were never recognized, so bard charms and mezzes couldn't track at all. They do now.",
-      "Charm spells EQBuddy learns from your play are now remembered permanently instead of forgotten at restart.",
-      "Linux: the build now reports its real version (it claimed 1.26.0 forever and nagged itself to update — thanks to sahaq for the precise diagnosis), and update banners point at the Linux download instead of a Windows installer."
-    ]
-  },
-  {
-    "version": "1.28.0",
-    "date": "2026-08-04",
-    "highlights": [
-      "The Combat card's fight panel now shows the whole PULL — adds included. Multi-mob fights get a per-creature damage split, \"Your damage\" (your pet's rows finally included), and \"Damage you took\" with each hit or spell named by the creature that did it.",
-      "History gains a full \"Encounters\" review: every fight of the session as a collapsible row — who was fought, when, damage each way — expanding to the same full breakdown the live card shows. Recorded from this version forward.",
-      "An encounter is a pull, not a single creature: fights separated by less than 10 quiet seconds group together, in both the live card and History."
-    ]
-  },
-  {
-    "version": "1.27.0",
-    "date": "2026-08-03",
-    "highlights": [
-      "New High Contrast theme for tired eyes: solid background, pure white text — the see-through panels are what made other themes wash out over a bright game scene.",
-      "Or build your own: pick \"Custom colors…\" in Options and choose background, text, and accent (swatches or hex). EQBuddy fills in the rest and quietly fixes your text color if the combo would be unreadable.",
-      "The History window now graphs your DPS over time for each session (recorded from this version forward).",
-      "The DPS section shows damage by stance AND by invocation — invocations turned out to write a log line only when you change one, which is why this took until now.",
-      "Lost the widget after unplugging a monitor? Fixed: every window now checks its saved spot still exists on screen and comes back to a visible position if not.",
-      "Crushbone named run a measured 12:18 clock (was 9:00 — chips fired over 3 minutes early). Marrowbane, Chokehold, and Bloodgurgler were timed live to the second."
-    ]
-  },
-  {
-    "version": "1.26.0",
-    "date": "2026-08-03",
-    "highlights": [
-      "Pet damage tidies up: the Combat card's per-ability pet breakdown now collapses to one line — your pet's overall damage stays as its own row, and clicking \"Pet abilities (N)\" expands the split.",
-      "Charmed pets count from the very first hit: EQBuddy now claims your charm the instant the log says \"X has been charmed.\" instead of waiting up to 9 seconds for the pet's first \"Attacking… Master\" tell. (Only YOUR charms — other players' charms nearby are correctly ignored.)"
-    ]
-  },
-  {
-    "version": "1.25.1",
-    "date": "2026-08-03",
-    "highlights": [
-      "Spawn timers re-synced with the EQ Legends wiki, which is being actively corrected: Lower Guk now runs an 11-minute clock (was 28), Nektulos 6:00, Upper Guk 8:00, and Hadden is a 6-8 minute spawn, not 6 hours.",
-      "Named that were missing real timers got them: Equestrielle the Corrupted (60m, mist wolf placeholder), the Underbrush treants (~90s), Orc Chief (5m), Seahorse Matriarch (15m), Drelzna (18.5m).",
-      "22 more zones (mostly Kunark and the Planes) gained default respawn clocks — 109 of 119 zones now have one.",
-      "Remember: your own kills tighten any timer automatically, and anything you type in yourself always wins."
-    ]
-  },
-  {
-    "version": "1.25.0",
-    "date": "2026-08-03",
-    "highlights": [
-      "This popup! After each update, EQBuddy shows you what changed — once, and only the versions you actually skipped.",
-      "Weapon procs were already tracked (look for your proc's name, like Ignite, in Combat → Damage by attack) — now it's documented."
-    ]
-  },
-  {
-    "version": "1.24.0",
-    "date": "2026-08-02",
-    "highlights": [
-      "Buff and HoT fade alerts finally fire: EQBuddy now knows the wear-off flavor lines ('Your speed returns to normal.' is your haste dropping) even though the log never names the spell.",
-      "Spawn timers tighten themselves: re-kill a named sooner than its timer claimed and EQBuddy adopts the real gap. Your own typed values always win.",
-      "The Watch card leads with what just happened — 'last: Mesmerize (Gnoll elite) · 5m ago' — with the full list behind 'all N kinds'."
-    ]
-  },
-  {
-    "version": "1.23.1",
-    "date": "2026-08-02",
-    "highlights": [
-      "Plays nice with GINA and GamParse: log cleanup now stands down while they're running. If you use them regularly, also untick 'Auto-empty finished-session logs' in Options."
-    ]
-  },
-  {
-    "version": "1.23.0",
-    "date": "2026-08-02",
-    "highlights": [
-      "Every named can have its own respawn-due sound — Default is Alarm; pick per-row sounds to tell camps apart by ear (🔔 opts a camp in).",
-      "DUE chicklets tidy themselves away after a minute; click to dismiss sooner."
-    ]
-  },
-  {
-    "version": "1.22.0",
-    "date": "2026-08-02",
-    "highlights": [
-      "Spawn countdowns became chicklets: small movable chips, one per running timer, any zone. Double-click one for the full zone list.",
-      "Kill a named — or its placeholder — and the countdown starts from your log. 1,412 named across 119 zones ship built-in, and every duration is editable (your edits survive updates)."
-    ]
-  },
-  {
-    "version": "1.21.0",
-    "date": "2026-08-02",
-    "highlights": [
-      "Spawn tracking follows you zone to zone, EQ Legends difficulty tiers ('Befallen 4 (Refined)') included.",
-      "Befallen's timers were rebuilt from real play data — most named there respawn in about four and a half minutes."
-    ]
-  }
+ {
+  "version": "1.33.0",
+  "date": "2026-08-06",
+  "highlights": [
+   "The beta features grew up fast — one afternoon of live testing and your feedback produced everything below. Keep it coming via the new GREEN ✉ button, now right in the title bar.",
+   "NEW (beta): Loot breakout — star 🎒 and minimize: while you fight, the window shows what the creature can drop (your counts and % first, wiki drops behind, duplicates like \"+2\" tiers folded together). /consider something and it targets that instead — and multi-creature pulls show the whole group's possible loot merged, since the log can't know which one you've targeted. Hover any item for its wiki info (fetched on the spot); click to open its eqlwiki page. A Target | Session toggle flips to what you've looted.",
+   "NEW (beta): Watch breakout — pin 📌 any watch rule and minimize: a floating window shows every pinned rule with counts and per-hour rates (CrispyPigeon131's mote-window idea).",
+   "Breakout windows now RESIZE: drag the ⋰ grip and the list scrolls inside whatever size you set (double-click the grip to auto-size again). The damage/healing/pet windows also gained sort links — total · hits · avg · dps.",
+   "Regen songs finally show as healing: Hymn of Restoration ticks carry no amounts in the log, so EQBuddy now ESTIMATES — and since instruments and ranks raise the real number, you can type your true hp/tick into Options and your number wins (read it off the heal text over your head).",
+   "Sort the Loot list by name or count (Klona11), and a new Options toggle hides the widget while the game is running but not focused — alt-tab friendly (sicliffe-cloud).",
+   "A second EQBuddy launch can no longer crash on startup — fix contributed by ahaselden. Also patched a security advisory in the bundled SQLite library."
+  ]
+ },
+ {
+  "version": "1.32.0",
+  "date": "2026-08-06",
+  "highlights": [
+   "This release's new features are BETA — they work, but they're young. Try them and tell us what's confusing, broken, or missing via the new Send feedback… tool below. Your reports shape what they become.",
+   "NEW (beta): Breakout windows — star ⚔ dps, ✚ hps, or the new 🐾 pet star (top of the Combat card) and minimize: small floating bar charts show your damage, your healing, and your pet's damage by ability, each switchable between the current fight and the whole session. Drag them anywhere; ✕ hides one until you next minimize.",
+   "NEW (beta): Target drops — while you fight, the Loot card lists what the creature can drop (eqlwiki) with your own counts this session and honest drop percentages. Hover an item for its stats, click for full info. Toggle in Options.",
+   "NEW: Send feedback… in the right-click menu — writes up a feature request or bug report and opens it on GitHub Discussions for you to review and post. Nothing is ever sent by the app itself; you post it, under your account, after reading every word.",
+   "Every crowd-control spell in the game now counts for \"Any crowd control\" watch rules — the game has 87 stun spells and EQBuddy knew 6, so enchanter stuns like Color Flux never fired alerts (thanks chaosrah). Also from chaosrah: pick a color per alert rule (the ● dot in Options) so a mez break and a heal fade look different at a glance.",
+   "Alerts stopped talking over each other: several alerts in the same moment now play ONE sound, complete, instead of clips cutting each other off — and an alert for one creature no longer silences the same alert for a different creature seconds later.",
+   "NEW (beta): AA tracking — the Progress card lists every ability you own with what it does (from eqlwiki, all 144 abilities). Remembered per character, even after log cleanup."
+  ]
+ },
+ {
+  "version": "1.31.0",
+  "date": "2026-08-05",
+  "highlights": [
+   "NEW: Item info — click any item in the Loot section (or search in the popup) to see its stats, vendor value, who drops it, who sells it, and what quests want it, straight from eqlwiki. Cached for a week; works offline from cache.",
+   "Loot the game auto-stores now counts: motes routed to currency and pelts sent to the tradeskill depot write a special log line EQBuddy didn't know — mote watch rules were missing every stored mote (thanks joeymavity + shururuun for the exact lines).",
+   "Alerts were playing at HALF volume this whole time — a player-found bug (thanks gl_tchd). Now full volume, with an Alert volume slider in Options.",
+   "Right-click any spawn chip to dismiss it, even mid-countdown (thanks anyhow188).",
+   "The Watch rules guide was rewritten with clearer wording contributed by chaosrah, and the spell-class dropdown finally explains itself. A Nisch Mas Mender joins the Splitpaw catalog (chaosrah again)."
+  ]
+ },
+ {
+  "version": "1.30.0",
+  "date": "2026-08-04",
+  "highlights": [
+   "AA potions count correctly: the potion's doubled gains use a different log line EQBuddy didn't know, and gains were counted as events rather than points — potioned sessions logged zero or half. Both fixed (thanks twill713 for the exact line).",
+   "Spawn timers understand renamed mobs: Legends gives classic named new proper names ('the ghoul lord' is Hoptor Thaggelum) — the catalog now carries aliases, starting with Hoptor (thanks chrstahl, again).",
+   "Measured spawn clocks now outrank kill-learning: mobs that spawn in several places at once (Orc Taskmaster, Royal Guard…) tricked the self-tightening timers with fast re-kills. Where a zone's clock has been measured (Crushbone's 12:18), learning stands down and old bad learned values clean themselves up. Your typed edits still beat everything.",
+   "Mez timers stopped lying in both directions: a broken mez can no longer teach its break-length as the spell's 'duration' (the 7-second Mesmerize incident), and learned durations now snap to the game's 6-second server tick so timers don't run past the real wake-up (verified against 1,000+ logged tick intervals).",
+   "On a portrait monitor, the widget can finally use the full screen height — it was sizing against your primary monitor even when living on a different one."
+  ]
+ },
+ {
+  "version": "1.29.3",
+  "date": "2026-08-04",
+  "highlights": [
+   "Upper Guk spawn timers actually fixed: Legends renamed the zone to \"The City of Guk\" — a name no classic source predicted — so EQBuddy didn't recognize it and started no timers there. Confirmed from chrstahl's log lines (thanks for testing and reporting from the field!); those exact lines are now the automated test."
+  ]
+ },
+ {
+  "version": "1.29.2",
+  "date": "2026-08-04",
+  "highlights": [
+   "Guk spawn timers fixed: Legends renamed Lower Guk ('The Ruins of ANCIENT Guk' — classic said 'Old'), and the unrecognized zone name silently disabled every timer there. EQBuddy now knows the Legends zone names, and zones can carry aliases so future renames are one-line fixes.",
+   "Guk catalog audit: the froglok shin knight added to Lower Guk (it roams both Guks), and the froglok warden + ancient croc got their 16:30 timers. If a timer runs long, your kills still tighten it automatically.",
+   "Mez chips, round two (thanks again Vellum670): a mezzed mob's chip no longer disappears when its same-named twin wakes up and fights — the woken one's combat is recognized as its own, kills are attributed to it, and re-mezzing it adds a fresh chip without touching the sleeper's."
+  ]
+ },
+ {
+  "version": "1.29.1",
+  "date": "2026-08-04",
+  "highlights": [
+   "Mez chips, day-one fixes (thanks Vellum670 for same-day field testing): re-mezzing now REFRESHES the countdown — chain-mezzing works as you'd expect, and bard pulse songs keep their chip alive.",
+   "Same-named mobs caught by an AoE mez get separate, numbered chips ('orc pawn (2)'), and a break clears one of them, not all.",
+   "Chips no longer vanish mid-mez: damage-over-time ticks from a spell cast before the mez don't count as 'the mob woke up', and a chip whose base timer runs out holds at 0:00 briefly instead of disappearing — spell ranks lengthen mezzes, and your own casts teach EQBuddy the real duration (any rank, remembered permanently)."
+  ]
+ },
+ {
+  "version": "1.29.0",
+  "date": "2026-08-04",
+  "highlights": [
+   "NEW: Mez chips — a small stack (💤) appears while anything is mesmerized, counting down to wake-up, and clears the moment something breaks it. It works from ANY group member's EQBuddy, not just the mez'er — the log tells everyone. Durations come from the wiki; your own casts teach it exact rank-corrected times. Drag it anywhere; it remembers.",
+   "Charmed pets now appear instantly for EVERY class. Charm landing lines turn out to differ by class — enchanter targets are 'charmed', druid/shaman animals 'blink', necro undead 'moan', and bard song targets' 'eyes glaze over' — and EQBuddy only knew two of the four. Thanks to Vellum670 for the complete charm list that cracked this.",
+   "Bard fix: song lines ('You begin to sing …') were never recognized, so bard charms and mezzes couldn't track at all. They do now.",
+   "Charm spells EQBuddy learns from your play are now remembered permanently instead of forgotten at restart.",
+   "Linux: the build now reports its real version (it claimed 1.26.0 forever and nagged itself to update — thanks to sahaq for the precise diagnosis), and update banners point at the Linux download instead of a Windows installer."
+  ]
+ },
+ {
+  "version": "1.28.0",
+  "date": "2026-08-04",
+  "highlights": [
+   "The Combat card's fight panel now shows the whole PULL — adds included. Multi-mob fights get a per-creature damage split, \"Your damage\" (your pet's rows finally included), and \"Damage you took\" with each hit or spell named by the creature that did it.",
+   "History gains a full \"Encounters\" review: every fight of the session as a collapsible row — who was fought, when, damage each way — expanding to the same full breakdown the live card shows. Recorded from this version forward.",
+   "An encounter is a pull, not a single creature: fights separated by less than 10 quiet seconds group together, in both the live card and History."
+  ]
+ },
+ {
+  "version": "1.27.0",
+  "date": "2026-08-03",
+  "highlights": [
+   "New High Contrast theme for tired eyes: solid background, pure white text — the see-through panels are what made other themes wash out over a bright game scene.",
+   "Or build your own: pick \"Custom colors…\" in Options and choose background, text, and accent (swatches or hex). EQBuddy fills in the rest and quietly fixes your text color if the combo would be unreadable.",
+   "The History window now graphs your DPS over time for each session (recorded from this version forward).",
+   "The DPS section shows damage by stance AND by invocation — invocations turned out to write a log line only when you change one, which is why this took until now.",
+   "Lost the widget after unplugging a monitor? Fixed: every window now checks its saved spot still exists on screen and comes back to a visible position if not.",
+   "Crushbone named run a measured 12:18 clock (was 9:00 — chips fired over 3 minutes early). Marrowbane, Chokehold, and Bloodgurgler were timed live to the second."
+  ]
+ },
+ {
+  "version": "1.26.0",
+  "date": "2026-08-03",
+  "highlights": [
+   "Pet damage tidies up: the Combat card's per-ability pet breakdown now collapses to one line — your pet's overall damage stays as its own row, and clicking \"Pet abilities (N)\" expands the split.",
+   "Charmed pets count from the very first hit: EQBuddy now claims your charm the instant the log says \"X has been charmed.\" instead of waiting up to 9 seconds for the pet's first \"Attacking… Master\" tell. (Only YOUR charms — other players' charms nearby are correctly ignored.)"
+  ]
+ },
+ {
+  "version": "1.25.1",
+  "date": "2026-08-03",
+  "highlights": [
+   "Spawn timers re-synced with the EQ Legends wiki, which is being actively corrected: Lower Guk now runs an 11-minute clock (was 28), Nektulos 6:00, Upper Guk 8:00, and Hadden is a 6-8 minute spawn, not 6 hours.",
+   "Named that were missing real timers got them: Equestrielle the Corrupted (60m, mist wolf placeholder), the Underbrush treants (~90s), Orc Chief (5m), Seahorse Matriarch (15m), Drelzna (18.5m).",
+   "22 more zones (mostly Kunark and the Planes) gained default respawn clocks — 109 of 119 zones now have one.",
+   "Remember: your own kills tighten any timer automatically, and anything you type in yourself always wins."
+  ]
+ },
+ {
+  "version": "1.25.0",
+  "date": "2026-08-03",
+  "highlights": [
+   "This popup! After each update, EQBuddy shows you what changed — once, and only the versions you actually skipped.",
+   "Weapon procs were already tracked (look for your proc's name, like Ignite, in Combat → Damage by attack) — now it's documented."
+  ]
+ },
+ {
+  "version": "1.24.0",
+  "date": "2026-08-02",
+  "highlights": [
+   "Buff and HoT fade alerts finally fire: EQBuddy now knows the wear-off flavor lines ('Your speed returns to normal.' is your haste dropping) even though the log never names the spell.",
+   "Spawn timers tighten themselves: re-kill a named sooner than its timer claimed and EQBuddy adopts the real gap. Your own typed values always win.",
+   "The Watch card leads with what just happened — 'last: Mesmerize (Gnoll elite) · 5m ago' — with the full list behind 'all N kinds'."
+  ]
+ },
+ {
+  "version": "1.23.1",
+  "date": "2026-08-02",
+  "highlights": [
+   "Plays nice with GINA and GamParse: log cleanup now stands down while they're running. If you use them regularly, also untick 'Auto-empty finished-session logs' in Options."
+  ]
+ },
+ {
+  "version": "1.23.0",
+  "date": "2026-08-02",
+  "highlights": [
+   "Every named can have its own respawn-due sound — Default is Alarm; pick per-row sounds to tell camps apart by ear (🔔 opts a camp in).",
+   "DUE chicklets tidy themselves away after a minute; click to dismiss sooner."
+  ]
+ },
+ {
+  "version": "1.22.0",
+  "date": "2026-08-02",
+  "highlights": [
+   "Spawn countdowns became chicklets: small movable chips, one per running timer, any zone. Double-click one for the full zone list.",
+   "Kill a named — or its placeholder — and the countdown starts from your log. 1,412 named across 119 zones ship built-in, and every duration is editable (your edits survive updates)."
+  ]
+ },
+ {
+  "version": "1.21.0",
+  "date": "2026-08-02",
+  "highlights": [
+   "Spawn tracking follows you zone to zone, EQ Legends difficulty tiers ('Befallen 4 (Refined)') included.",
+   "Befallen's timers were rebuilt from real play data — most named there respawn in about four and a half minutes."
+  ]
+ }
 ]

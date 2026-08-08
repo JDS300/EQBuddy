@@ -37,6 +37,9 @@ public partial class OptionsWindow : Window
         TruncateCheck.IsChecked = _vm.TruncateLogs;
         PinChipsCheck.IsChecked = _vm.PinWatchChips;
         TutorialCheck.IsChecked = _vm.ShowTutorial;
+        TargetDropsCheck.IsChecked = _vm.ShowTargetDrops;
+        HideUnfocusedCheck.IsChecked = _vm.HideWhenGameUnfocused;
+        RegenPerTickBox.Text = _vm.RegenPerTickOverride > 0 ? _vm.RegenPerTickOverride.ToString() : "";
         TrackSpawnsCheck.IsChecked = _main.Settings.TrackSpawns;
 
         foreach (var choice in OptionsViewModel.WindowChoices) WindowCombo.Items.Add(choice);
@@ -44,6 +47,8 @@ public partial class OptionsWindow : Window
 
         foreach (var choice in OptionsViewModel.SoundChoices) SoundCombo.Items.Add(choice);
         SoundCombo.SelectedIndex = _vm.SoundIndex;
+        AlertVolumeSlider.Value = Math.Clamp(_vm.Settings.AlertVolume, 0.1, 1.0);
+        AlertVolumeLabel.Text = $"{AlertVolumeSlider.Value:P0}";
         UpdateSoundFileNote();
 
         BuildRulesEditor();
@@ -110,6 +115,24 @@ public partial class OptionsWindow : Window
     private void OnTutorialToggled(object sender, RoutedEventArgs e)
     {
         if (_ready) _vm.ShowTutorial = TutorialCheck.IsChecked == true;
+    }
+
+    private void OnTargetDropsToggled(object sender, RoutedEventArgs e)
+    {
+        if (_ready) _vm.ShowTargetDrops = TargetDropsCheck.IsChecked == true;
+    }
+
+    private void OnHideUnfocusedToggled(object sender, RoutedEventArgs e)
+    {
+        if (_ready) _vm.HideWhenGameUnfocused = HideUnfocusedCheck.IsChecked == true;
+    }
+
+    private void OnRegenPerTickChanged(object sender, RoutedEventArgs e)
+    {
+        if (!_ready) return;
+        // Blank or unparseable = back to the wiki base; the box shows any clamp.
+        _vm.RegenPerTickOverride = int.TryParse(RegenPerTickBox.Text.Trim(), out var v) ? v : 0;
+        RegenPerTickBox.Text = _vm.RegenPerTickOverride > 0 ? _vm.RegenPerTickOverride.ToString() : "";
     }
 
     /// <summary>Called back by MainWindow.SetTrackSpawns so closing the Spawns window
@@ -305,6 +328,14 @@ public partial class OptionsWindow : Window
 
     private void OnSoundTest(object sender, RoutedEventArgs e) => _main.PlayAlertSound();
 
+    private void OnAlertVolumeChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (!_ready) return;
+        _vm.Settings.AlertVolume = AlertVolumeSlider.Value;
+        _main.PersistSettings();
+        AlertVolumeLabel.Text = $"{AlertVolumeSlider.Value:P0}";
+    }
+
     private void UpdateSoundFileNote()
     {
         SoundFileNote.Text = _vm.SoundFileNote;
@@ -430,6 +461,7 @@ public partial class OptionsWindow : Window
         Star(1.4);
         Auto("RulePin");
         Auto("RuleBanner");
+        Auto("RuleColor");
         Auto("RuleSound");
         Auto("RuleDelay");
         Auto("RuleDelete");
@@ -442,7 +474,7 @@ public partial class OptionsWindow : Window
 
         var header = RuleGrid();
         header.Margin = new Thickness(0, 2, 0, 2);
-        var headings = new[] { ("Watch", 0), ("Name", 1), ("Match", 2), ("Delay", 6) };
+        var headings = new[] { ("Watch", 0), ("Name", 1), ("Match", 2), ("Delay", 7) };
         foreach (var (text, column) in headings)
         {
             var label = new System.Windows.Controls.TextBlock
@@ -487,7 +519,10 @@ public partial class OptionsWindow : Window
                 FontSize = 11,
                 MinWidth = 104,
                 Margin = new Thickness(4, 0, 0, 0),
-                ToolTip = "Watch one named spell, or a whole class of spells",
+                // chaosrah (Reddit): the unlabeled dropdown read as a mystery — say
+                // plainly that it's the spell CLASS and that it replaces match text.
+                ToolTip = "Spell class: watch one named spell (\"By name\" + match text), " +
+                    "or a whole class — Charm, Mez, HoT… — with no match text needed",
             };
             foreach (var f in OptionsViewModel.SpellFilterNames) spellFilter.Items.Add(f);
             spellFilter.SelectedIndex = (int)rule.SpellFilter;
@@ -534,6 +569,45 @@ public partial class OptionsWindow : Window
             row.Children.Add(RuleToggle("🔔", "Banner alert on match", 4, rule.AlertBanner,
                 v => rule.AlertBanner = v));
 
+            // Banner color: one small dot cycling the palette on click (Chaosrah's
+            // color-coded alerts) — a combo box would not fit the row.
+            var colorDot = new System.Windows.Controls.Button
+            {
+                Padding = new Thickness(2, 0, 2, 0),
+                Margin = new Thickness(2, 0, 0, 0),
+                Background = System.Windows.Media.Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Cursor = System.Windows.Input.Cursors.Hand,
+            };
+            void PaintDot()
+            {
+                var hex = EQBuddy.UI.Shared.AlertColors.Hex(rule.AlertColor);
+                var choiceName = EQBuddy.UI.Shared.AlertColors
+                    .Choices[EQBuddy.UI.Shared.AlertColors.IndexOf(rule.AlertColor)].Name;
+                colorDot.Content = new System.Windows.Controls.TextBlock
+                {
+                    Text = "●",
+                    FontSize = 12,
+                    Foreground = hex.Length > 0
+                        ? new System.Windows.Media.SolidColorBrush(
+                            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex))
+                        : (System.Windows.Media.Brush)FindResource("AccentBrush"),
+                };
+                colorDot.ToolTip = $"Banner color: {choiceName} — click to change";
+            }
+            PaintDot();
+            colorDot.Click += (_, _) =>
+            {
+                var next = (EQBuddy.UI.Shared.AlertColors.IndexOf(rule.AlertColor) + 1)
+                    % EQBuddy.UI.Shared.AlertColors.Choices.Length;
+                var picked = EQBuddy.UI.Shared.AlertColors.Choices[next].Name;
+                rule.AlertColor = picked == "Default" ? "" : picked;
+                PaintDot();
+                _vm.Persist();
+            };
+            System.Windows.Controls.Grid.SetColumn(colorDot, 5);
+            row.Children.Add(colorDot);
+
             // Per-rule sound, so you can tell what happened from the audio alone.
             // Replaces the old on/off toggle: "Off" mutes, "Default" follows the shared
             // choice below, anything else is this rule's own sound.
@@ -577,7 +651,7 @@ public partial class OptionsWindow : Window
                 if (AlertSoundCatalog.Resolve(rule, _main.Settings.AlertSound) is { } preview)
                     _main.PlayAlertSound(preview);
             };
-            System.Windows.Controls.Grid.SetColumn(sound, 5);
+            System.Windows.Controls.Grid.SetColumn(sound, 6);
             row.Children.Add(sound);
 
             // Seconds to hold the alert back — 0 (or empty) is the immediate behaviour.
@@ -599,7 +673,7 @@ public partial class OptionsWindow : Window
                 delay.Text = DelayText.Format(rule.AlertDelaySeconds);   // shows any clamp
                 _vm.Persist();
             };
-            System.Windows.Controls.Grid.SetColumn(delay, 6);
+            System.Windows.Controls.Grid.SetColumn(delay, 7);
             row.Children.Add(delay);
 
             var del = new System.Windows.Controls.Button
@@ -611,7 +685,7 @@ public partial class OptionsWindow : Window
                 _vm.RemoveRule(rule);
                 BuildRulesEditor();
             };
-            System.Windows.Controls.Grid.SetColumn(del, 7);
+            System.Windows.Controls.Grid.SetColumn(del, 8);
             row.Children.Add(del);
 
             RulesPanel.Children.Add(row);

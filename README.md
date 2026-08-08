@@ -24,7 +24,11 @@ page instead.
 | ![Session history](docs/screenshots/history-window.png) | ![See-through mode](docs/screenshots/widget-seethrough.png) |
 | Every session lands in a local, searchable history — notes, tags, compare, export | Background see-through — watch the game right through the widget |
 | ![Spawn timers](docs/screenshots/spawns-window.png) | ![Options](docs/screenshots/options-window.png) |
-| Spawn timers — kill a named (or its placeholder) and the respawn countdown starts from the log; every duration editable | Options — themes, watch rules with worked examples, spawn tracking, per-rule sounds |
+| Spawn timers — kill a named (or its placeholder) and the respawn countdown starts from the log; every duration editable | Options — themes, watch rules with worked examples, spawn tracking, per-rule sounds and colors |
+| ![Breakout windows](docs/screenshots/breakout-windows.png) | ![Target drops](docs/screenshots/target-drops.png) |
+| **Breakout windows** *(new, beta)* — floating bar charts for your damage, your healing, and your pet's damage, each switchable between the current fight and the session | **Target drops** *(new, beta)* — while you fight, the Loot card shows what the creature can drop, with your own counts and drop % this session |
+| ![Send feedback and a color-coded alert](docs/screenshots/feedback-and-alert.png) | ![Mini dashboard with the pet chip](docs/screenshots/mini-pet-chip.png) |
+| **Send feedback** *(new)* opens a pre-written GitHub Discussion for your review — and alert banners can now wear a per-rule color | The minimized pill with the new 🐾 pet-dps chip — starring 🐾 also opens the pet breakout |
 
 ## For players (install guide)
 
@@ -65,6 +69,12 @@ Mini dashboard:
 - Click **–** in the title bar to minimize: only your starred stats remain, in a tiny
   always-on-top pill (e.g. `💀 12  ⚔ 34 dps`). Great while actually fighting.
 - Double-click the pill (or click ⤢) to expand back to the full view.
+- **Breakout windows** *(new in 1.32, beta)*: while minimized, the ⚔ dps, ✚ hps, and
+  🐾 pet stars each open a small floating bar chart — your damage, your healing, and
+  your pet's damage by ability — switchable between the **current fight** and the
+  **whole session**. Drag them anywhere (positions are remembered); ✕ hides one until
+  you next minimize. The 🐾 pet star sits at the top of the Combat card beside the dps
+  star and also adds a pet-dps chip to the pill.
 
 Updates (automatic):
 - EQBuddy checks for new releases at startup and every 6 hours, and a green banner
@@ -89,7 +99,8 @@ Log cleanup (automatic, optional):
   GamParse is running, so those tools' log positions are never yanked out from under
   them.
 
-Watch rules & alerts:
+Watch rules & alerts — see the **[full Watch List guide](docs/WatchListGuide.md)** with
+screenshots and a use-case cookbook for every rule kind:
 - ⚙ Options → **Watch rules**: add simple match texts (e.g. `mote`) — the 🎯 Tracked
   card shows every matching item name, quantities, and per-hour rates (wall-clock and
   active-play). 📌 pins a chip to the mini dashboard; 🔔 and the sound box fire a
@@ -98,11 +109,16 @@ Watch rules & alerts:
   typing just `Ghoul` on a Kill rule works. The alert banner is a **floating tile**
   you position anywhere (open Options and drag it); during play it's click-through
   and never steals focus, so it can sit right over the action.
-- **Every rule gets its own sound.** The sound box on each rule offers seven built-ins
-  (Ding, Notify, Chimes, Chord, Tada, Exclamation, Alarm), your own `.wav`/`.mp3` via
-  **Custom…**, **Default** to follow the shared choice, or **Off**. Give your charm-break
-  rule one sound and your rare-drop rule another and you'll know what happened without
-  looking away from the game. Picking a sound plays it straight away.
+- **Every rule gets its own sound — and its own color.** The sound box on each rule
+  offers seven built-ins (Ding, Notify, Chimes, Chord, Tada, Exclamation, Alarm), your
+  own `.wav`/`.mp3` via **Custom…**, **Default** to follow the shared choice, or **Off**.
+  Give your charm-break rule one sound and your rare-drop rule another and you'll know
+  what happened without looking away from the game. Picking a sound plays it straight
+  away. The **● color dot** beside the 🔔 cycles a seven-color palette for the banner —
+  mez purple, heals green, enemy red — so alerts read at a glance even with the sound
+  down. When several alerts fire in the same moment, one sound plays (complete, no
+  cut-offs), and an alert about one creature never silences the same alert about a
+  different creature seconds later.
 - **Watch any text in the log.** Most rule kinds match things EQBuddy understands (loot,
   kills, skill-ups, deaths, milestones, spells wearing off). The **Log text** kind matches
   the raw line instead, so you can alert on anything at all — a raid-assist script calling
@@ -160,13 +176,32 @@ Encounters, mob farming, and stances:
   Skill-ups, Deaths, Milestones** (levels/AA), or **SpellFade** — your spells wearing
   off — either one named spell or a whole class (**Any CC**, Charm, Mez, Root, Lull,
   Stun, **HoT**), which needs no match text and keeps working as you level into new
-  spells. HoTs are recognised from their own tick lines, so the filter covers heals
-  EQBuddy has never seen before. **Buff fades count too**: EQBuddy knows the wear-off
+  spells. The class filters know **every crowd-control spell in the game** — 174 from
+  a full eqlwiki sweep (the game has 87 stun spells alone) — so enchanter stuns like
+  Color Flux count the same as a classic Root. HoTs are recognised from their own tick
+  lines, so the filter covers heals EQBuddy has never seen before. **Buff fades count too**: EQBuddy knows the wear-off
   flavor lines ("Your speed returns to normal." is your haste dropping) and fires
   your fade rules even though the log never names the spell. A charm-break alert is
   on out of the box. Same counters, chips, and alerts for every kind.
 - History window: **Ctrl-click two sessions to compare** their rates side-by-side, and
   **Import log…** parses any old eqlog file into your session history.
+
+Target drops & item info *(target drops new in 1.32, beta)*:
+- **While you fight, the Loot card shows what the creature can drop** — wiki knowledge
+  from [eqlwiki](https://eqlwiki.com) merged with your own session: items you've seen
+  drop lead the list with `2 this session · 67%` (your kill count is right in the
+  header, so the percentage is honest), wiki-only drops follow with their rarity.
+  Hover any item for its stat block; click for the full **Item info** popup — stats,
+  vendor value, who drops it, who sells it, what quests want it. Everything is cached
+  for a week and labelled LIVE / CACHED / STALE so you always know how fresh it is.
+  Toggle the block off in ⚙ Options if you prefer a lean Loot card.
+
+Feedback *(new in 1.32)*:
+- Right-click → **Send feedback…** — pick *Feature request* or *Bug report*, type your
+  note, and EQBuddy opens a pre-written GitHub Discussion in your browser for you to
+  review and post under your own account. **Nothing is ever sent by the app itself**;
+  the only context appended is the app version and Windows build. The new 1.32
+  features are in beta exactly so this loop can shape them.
 
 Session history (automatic):
 - Every meaningful session is saved to a local SQLite database
@@ -222,7 +257,9 @@ Session DPS = your damage ÷ time actually **in combat**, so downtime never dilu
   "Pet? (Name)" until a Master message confirms it, then merges into "Pet (Name)".
   If a pet ever damages you (charm broke), it stops being credited. A **Pet abilities**
   list under the damage breakdown splits that row by what the pet used — melee skills and
-  the spells the log names — so you can see what it is actually doing.
+  the spells the log names — so you can see what it is actually doing, per fight and per
+  session. Star 🐾 at the top of the Combat card and the pet gets its own breakout
+  window while minimized.
 - The combat clock opens when *you* act — hit, miss, pet attack, or getting hit — and
   stays open while your group keeps fighting, so slow-swinging melee and casters between
   casts aren't penalized mid-fight.
@@ -238,9 +275,9 @@ Session DPS = your damage ÷ time actually **in combat**, so downtime never dilu
 | Combat | Session DPS (+ live fight DPS) | Details!-style damage breakdown per attack/spell/song — every row shows total, hits, average, **per-ability DPS** (that ability's damage ÷ time in combat — its contribution rate; burst rate in the tooltip), and crit rate; sortable by total/dps/hits/avg with the bar following the sorted column; accuracy, melee avoidance %, biggest hit, time in combat, damage taken per mob — self-inflicted damage (HP-cost casting, falls, drowning) shows as "Yourself" and never counts as being in combat — recent fights with DPS bars, fizzles/resists |
 | Healing | HPS (healing ÷ time in combat) | Healing done and received — including heal-over-time ticks ("healed you over time for…"), which carry real amounts — heals cast per spell with the same breakdown as Combat (total, casts, average, **per-spell HPS**; sortable by total/hps/casts/avg with matching bars), who healed you, hymn/regen tick counts (the log gives no amounts for those) |
 | Kills | Your kills incl. pet (+ group kills) | Count per creature type, kills/hour, group-member kill counts; per-creature farming: avg fight length, coin, XP, and observed drops with your personal rate (e.g. `×2 · 22%`) |
-| Loot | Items looted (+ items made) | Every item with counts, items created by merging |
+| Loot | Items looted (+ items made) | Every item with counts (hover for stats, click for wiki item info), items created by merging, and *(new, beta)* live **target drops** for the creature you're fighting |
 | Money | Coin earned (p/g/s/c) | Corpse coin vs merchant-sale income, items sold with prices, biggest drop, money per hour |
-| Progress | XP % gained (+ levels, + AA) | XP ticks, %/hour, AA points gained with AA/hour, estimated time to next level, level-ups with times, skill-ups per skill |
+| Progress | XP % gained (+ levels, + AA) | XP ticks, %/hour, AA points gained with AA/hour, estimated time to next level, level-ups with times, skill-ups per skill, and *(new, beta)* every **AA ability you own** with its rank and what it does (hover for the wiki effect text) — remembered per character even after log cleanup |
 | Faction | Factions touched | Net standing change per faction; a standing at the cap shows **maxed** (or `+120 · maxed`) instead of silently freezing |
 | Travels & Deaths | Death count | Each death (what killed you, when), zones visited with times |
 
@@ -281,6 +318,8 @@ Log folder auto-detected at
 MIT — see [LICENSE](LICENSE). Contributions welcome; parser fixes go fastest when the
 issue or PR includes the raw log lines involved.
 
-Third-party credits are in [NOTICE](NOTICE). The crowd-control spell seed list is
-adapted from [Spyxy's DPS Meter](https://github.com/khadesh/SpyxysDPSMeter) by khadesh
-(MIT) — thanks for making it open source.
+Third-party credits are in [NOTICE](NOTICE). The original crowd-control spell seed list
+is adapted from [Spyxy's DPS Meter](https://github.com/khadesh/SpyxysDPSMeter) by khadesh
+(MIT) — thanks for making it open source. Spell, AA, spawn, item, and mob knowledge is
+harvested from the [EQ Legends community wiki](https://eqlwiki.com) — the harvest data
+and rerunnable scripts live in `scripts/harvests/`.

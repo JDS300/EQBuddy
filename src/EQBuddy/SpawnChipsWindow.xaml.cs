@@ -94,7 +94,8 @@ public partial class SpawnChipsWindow : Window
 
             var border = new Border
             {
-                Child = row, ToolTip = chip.Detail,
+                Child = row,
+                ToolTip = chip.Detail + "\nRight-click: dismiss this timer",
                 CornerRadius = new CornerRadius(6),
                 Padding = new Thickness(8, 3, 8, 3),
                 Margin = new Thickness(0, 0, 0, 3),
@@ -104,8 +105,21 @@ public partial class SpawnChipsWindow : Window
             border.SetResourceReference(Border.BackgroundProperty, "BgBrush");
             border.SetResourceReference(Border.BorderBrushProperty, chip.IsDue ? "WarnBrush" : "BorderBrush");
             border.MouseLeftButtonDown += OnChipMouseDown;
+            border.MouseRightButtonUp += OnChipDismiss;
             ChipsPanel.Children.Add(border);
         }
+    }
+
+    /// <summary>Right-click dismisses a chip whether DUE or still counting — a camp
+    /// abandoned mid-countdown shouldn't haunt the stack until it expires (Reddit,
+    /// anyhow188: only due chips could be cleared).</summary>
+    private void OnChipDismiss(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not Border { Tag: SpawnChip chip } || chip.Zone.Length == 0) return;
+        _vm.ClearTimer(chip.Zone, chip.Name);
+        _signature = "";
+        RefreshChips(DateTime.Now);
+        e.Handled = true;
     }
 
     private void OnChipMouseDown(object sender, MouseButtonEventArgs e)

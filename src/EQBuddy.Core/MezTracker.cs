@@ -138,6 +138,13 @@ public sealed class MezTracker
     private readonly record struct Engagement(
         DateTime At, DateTime Removed, int Awake, DateTime AwakeAt);
 
+    // No AA correction on purpose: the full eqlwiki AA sweep (2026-08-06, AaCatalog)
+    // found NO EQ Legends AA that extends detrimental mez/charm durations — unlike live
+    // EQ's Mesmerization Mastery. Adamant Will only moves resist chance, which never
+    // shifts a landed mez's clock. Learned durations here are therefore character-true
+    // without reading the AA ledger. (Beneficial-duration AAs like Spell Casting
+    // Reinforcement matter to future BUFF countdowns, not to this tracker.)
+
     private readonly Dictionary<string, MezSpellInfo> _catalog;
     /// <summary>Per exact (ranked) spell name: the unambiguous land→fade gaps measured for
     /// it, oldest first, capped at <see cref="SampleCap"/>. The estimate is derived from

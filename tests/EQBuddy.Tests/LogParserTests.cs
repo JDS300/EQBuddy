@@ -329,6 +329,26 @@ public class LogParserTests
         Assert.Equal(7, e.Level);
     }
 
+    /// <summary>Issue #39 (joeymavity + shururuun, verbatim lines): loot auto-routed to
+    /// currency / the tradeskill depot skips every other loot line and writes this one —
+    /// with NO trailing period. Until now these were invisible: mote watch rules
+    /// silently missed every stored mote, and the standing lore that "currency-routed
+    /// motes write nothing" turns out to be outdated.</summary>
+    [Theory]
+    [InlineData("You looted a Mote of Major Potential from a spite golem's corpse and stored it in your currency",
+        "Mote of Major Potential", "Spite golem", 1)]
+    [InlineData("You looted a High Quality Bear Skin from a kodiak's corpse and stored it in your tradeskill depot",
+        "High Quality Bear Skin", "Kodiak", 1)]
+    [InlineData("You looted 2 Spider Silk from a giant spider's corpse and stored it in your tradeskill depot",
+        "Spider Silk", "Giant spider", 2)]
+    public void AutoStoredLootCounts(string line, string item, string source, int count)
+    {
+        var e = Parse<LootEvent>(line);
+        Assert.Equal(item, e.Item);
+        Assert.Equal(source, e.Source);
+        Assert.Equal(count, e.Count);
+    }
+
     [Fact]
     public void AaPoint()
     {
@@ -346,6 +366,47 @@ public class LogParserTests
         var e = Parse<AaEvent>("You have gained 2 ability point(s)!  You now have 10 ability point(s).");
         Assert.Equal(10, e.TotalPoints);
         Assert.Equal(2, e.Points);
+    }
+
+    /// <summary>Rank-1 AA purchase: quoted name, cost included (Hugzee's log, 2026-08-06).
+    /// Cost 0 marks innate grants — parsed like the rest, the ledger wants those too.</summary>
+    [Theory]
+    [InlineData("You have gained the ability \"Quick Buff\" at a cost of 5 ability points.", "Quick Buff", 5)]
+    [InlineData("You have gained the ability \"Innate Divine Healing\" at a cost of 0 ability points.", "Innate Divine Healing", 0)]
+    public void AaAbilityPurchase(string line, string ability, int cost)
+    {
+        var e = Parse<AaPurchaseEvent>(line);
+        Assert.Equal(ability, e.Ability);
+        Assert.Equal(1, e.Rank);
+        Assert.Equal(cost, e.Cost);
+    }
+
+    /// <summary>/consider lines (Hugzee's log, 2026-08-06 — both verbatim): the faction
+    /// phrase varies, but the Legends-only "(Lvl: N)" tail anchors the match so a chat
+    /// line can never satisfy it. Considering is deliberate targeting, so this drives
+    /// the target-drops surfaces without a swing landed.</summary>
+    [Theory]
+    [InlineData("Orc pawn scowls at you, ready to attack -- looks like a reasonably safe opponent. (Lvl: 3)", "Orc pawn", 3)]
+    [InlineData("Orc centurion scowls at you, ready to attack -- looks like a reasonably safe opponent. (Lvl: 1)", "Orc centurion", 1)]
+    public void ConsiderLinesNameTheTargetAndLevel(string line, string name, int level)
+    {
+        var e = Parse<ConsiderEvent>(line);
+        Assert.Equal(name, e.Name);
+        Assert.Equal(level, e.Level);
+    }
+
+    /// <summary>Rank upgrades: unquoted name with a trailing rank number. The name can
+    /// itself contain a colon suffix ("Symphonic Aura: Enabled") — the rank is always the
+    /// final number before "at a cost".</summary>
+    [Theory]
+    [InlineData("You have improved Combat Fury 3 at a cost of 3 ability points.", "Combat Fury", 3, 3)]
+    [InlineData("You have improved Symphonic Aura: Enabled 4 at a cost of 0 ability points.", "Symphonic Aura: Enabled", 4, 0)]
+    public void AaAbilityImprovement(string line, string ability, int rank, int cost)
+    {
+        var e = Parse<AaPurchaseEvent>(line);
+        Assert.Equal(ability, e.Ability);
+        Assert.Equal(rank, e.Rank);
+        Assert.Equal(cost, e.Cost);
     }
 
     [Fact]

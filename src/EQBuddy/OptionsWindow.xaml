@@ -89,6 +89,35 @@
                            Foreground="{DynamicResource TextBrush}"/>
             </CheckBox>
 
+            <CheckBox x:Name="TargetDropsCheck" Margin="0,10,0,0"
+                      Checked="OnTargetDropsToggled" Unchecked="OnTargetDropsToggled">
+                <TextBlock Text="🎯 Show target drops in the Loot card" FontSize="12"
+                           Foreground="{DynamicResource TextBrush}"/>
+            </CheckBox>
+            <TextBlock Text="While you fight, the Loot card lists what the creature can drop (eqlwiki) with your own observed counts this session. Hover an item for its stats; click for full info."
+                       Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="20,2,0,0"/>
+
+            <CheckBox x:Name="HideUnfocusedCheck" Margin="0,10,0,0"
+                      Checked="OnHideUnfocusedToggled" Unchecked="OnHideUnfocusedToggled">
+                <TextBlock Text="Hide the widget while the game is running but not focused" FontSize="12"
+                           Foreground="{DynamicResource TextBrush}"/>
+            </CheckBox>
+            <TextBlock Text="Alt-tab to a browser and the widget (and its chips and breakout windows) gets out of the way; alt-tab back to the game and everything returns. The widget always shows when the game isn't running."
+                       Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="20,2,0,0"/>
+
+            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                <TextBlock Text="Regen heals about" FontSize="12" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextBrush}"/>
+                <TextBox x:Name="RegenPerTickBox" Width="48" Margin="6,0,6,0" FontSize="12"
+                         TextAlignment="Right" LostFocus="OnRegenPerTickChanged"
+                         Background="{DynamicResource PanelBrush}" Foreground="{DynamicResource TextBrush}"
+                         BorderBrush="{DynamicResource BorderBrush}"/>
+                <TextBlock Text="hp per tick (blank = wiki base)" FontSize="12" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextBrush}"/>
+            </StackPanel>
+            <TextBlock Text="Hymn of Restoration and similar regen ticks never log an amount, so their healing is estimated. The wiki knows the unamplified base (Hymn: 9), but instruments and ranks raise the real number — read yours off the heal text over your head and type it here. Your number wins."
+                       Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="20,2,0,0"/>
+
             <CheckBox x:Name="TrackSpawnsCheck" Margin="0,10,0,0"
                       Checked="OnTrackSpawnsToggled" Unchecked="OnTrackSpawnsToggled">
                 <TextBlock Text="🕒 Track spawns (named respawn timers)" FontSize="12"
@@ -140,6 +169,14 @@
                             ToolTip="Play the alert sound" Click="OnSoundTest" Margin="4,0,0,0"/>
                 </StackPanel>
             </Grid>
+            <Grid Margin="0,6,0,0">
+                <TextBlock Text="Alert volume" FontSize="12"/>
+                <TextBlock x:Name="AlertVolumeLabel" Text="100%" FontSize="12" HorizontalAlignment="Right"
+                           Foreground="{DynamicResource AccentBrush}"/>
+            </Grid>
+            <Slider x:Name="AlertVolumeSlider" Minimum="0.1" Maximum="1.0" TickFrequency="0.05"
+                    IsSnapToTickEnabled="True" Margin="0,4,0,4"
+                    ValueChanged="OnAlertVolumeChanged"/>
             <TextBlock x:Name="SoundFileNote" Style="{StaticResource Dim}" TextWrapping="Wrap"
                        Visibility="Collapsed"/>
             <TextBlock Text="While Options is open, the ★ alert banner tile is visible — drag it to where alerts should appear. During play it's click-through and never steals focus."

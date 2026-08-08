@@ -28,9 +28,26 @@ public partial class AlertWindow : Window
         SourceInitialized += (_, _) => ApplyClickThrough(!_placement);
     }
 
-    public void ShowAlert(string text)
+    /// <summary>Show the banner, optionally tinted with a rule's own color (Chaosrah's
+    /// idea, 2026-08-06: colors identify the alert when the sound is off or quiet —
+    /// "mez purple, heals green, enemy red"). Null/empty keeps the theme accent, and the
+    /// tint is applied per call so one rule's color never sticks to the next alert.</summary>
+    public void ShowAlert(string text, string? colorHex = null)
     {
         AlertText.Text = text;
+        var tile = (System.Windows.Controls.Border)Content;
+        if (!string.IsNullOrEmpty(colorHex) &&
+            System.Windows.Media.ColorConverter.ConvertFromString(colorHex) is System.Windows.Media.Color c)
+        {
+            var brush = new System.Windows.Media.SolidColorBrush(c);
+            AlertText.Foreground = brush;
+            tile.BorderBrush = brush;
+        }
+        else
+        {
+            AlertText.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, "AccentBrush");
+            tile.SetResourceReference(System.Windows.Controls.Border.BorderBrushProperty, "AccentBrush");
+        }
         PositionFromSettings();
         Show();
         Topmost = true;

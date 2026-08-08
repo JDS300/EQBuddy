@@ -129,6 +129,13 @@ public static partial class LogParser
     [GeneratedRegex(@"^Your wounds begin to heal\.$")]
     private static partial Regex RegenTickRx();
 
+    // Orc pawn scowls at you, ready to attack -- looks like a reasonably safe opponent. (Lvl: 3)
+    // (Hugzee's log, 2026-08-06 — the only faction phrase observed in Legends so far;
+    // the classic-EQ phrase family fills the alternation, anchored by the Legends-only
+    // "(Lvl: N)" tail so a chat line can't satisfy it.)
+    [GeneratedRegex(@"^(?<name>.+?) (?:scowls at you|regards you|glares at you|glowers at you|judges you|kindly considers you|looks upon you|looks your way).*\(Lvl: (?<level>\d+)\)$")]
+    private static partial Regex ConsiderRx();
+
     // You assume a ranged stance. / You assume an offensive stance.
     [GeneratedRegex(@"^You assume an? (?<stance>.+?) stance\.$")]
     private static partial Regex StanceRx();
@@ -152,10 +159,32 @@ public static partial class LogParser
     [GeneratedRegex(@"^You have gained (?:an|(?<n>\d+)) ability point(?:s|\(s\))?! +You now have (?<total>\d+) ability point(?:s|\(s\))?\.$")]
     private static partial Regex AaRx();
 
+    // You have gained the ability "Quick Buff" at a cost of 5 ability points.
+    // You have improved Combat Fury 3 at a cost of 3 ability points.
+    // You have improved Symphonic Aura: Enabled 4 at a cost of 0 ability points.
+    // (Dranak/Hugzee logs, 2026-08-06.) "gained the ability" is the rank-1 purchase with the
+    // name quoted; "improved <name> <rank>" is every later rank, unquoted with a trailing
+    // rank number. Cost 0 marks innate grants and free toggle flips — parsed, not skipped:
+    // the AA ledger wants those too (an innate can still change durations).
+    [GeneratedRegex(@"^You have gained the ability ""(?<ability>.+?)"" at a cost of (?<cost>\d+) ability points?\.$")]
+    private static partial Regex AaPurchaseRx();
+
+    [GeneratedRegex(@"^You have improved (?<ability>.+?) (?<rank>\d+) at a cost of (?<cost>\d+) ability points?\.$")]
+    private static partial Regex AaImproveRx();
+
     // You looted a Snake Egg from an asp's corpse and sold it for 4 copper.
     // You looted 2 Spider Silk from a giant spider's corpse and sold it for 2 gold, 8 silver and 6 copper.
     [GeneratedRegex(@"^You looted (?:(?<n>\d+)|an?) (?<item>.+?) from (?<source>.+?)'s corpse and sold it for (?<coins>.+?)\.$")]
     private static partial Regex AutoSellRx();
+
+    // You looted a Mote of Major Potential from a spite golem's corpse and stored it in your currency
+    // You looted a High Quality Bear Skin from a kodiak's corpse and stored it in your tradeskill depot
+    // Auto-storage routing (issue #39, verbatim from joeymavity and shururuun): loot
+    // that goes to currency / the tradeskill depot / the dragon hoard skips every
+    // other loot line — this one has NO trailing period. For years the lore said
+    // currency-routed motes wrote nothing; the game (now) says otherwise.
+    [GeneratedRegex(@"^You looted (?:(?<n>\d+)|an?) (?<item>.+?) from (?<source>.+?)'s corpse and stored it in your (?<where>.+?)\.?$")]
+    private static partial Regex AutoStoreRx();
 
     // You successfully destroyed 1 Spider Venom Sac.
     [GeneratedRegex(@"^You successfully destroyed (?<n>\d+) (?<item>.+?)\.$")]
@@ -419,6 +448,11 @@ public static partial class LogParser
                 Outgoing: false, Healer: r.Groups["healer"].Value,
                 OverTime: r.Groups["hot"].Success);
 
+        if ((r = AutoStoreRx().Match(msg)).Success)
+            return new LootEvent(ts, r.Groups["item"].Value, Normalize(r.Groups["source"].Value),
+                UpgradeResult: null,
+                Count: r.Groups["n"].Success ? int.Parse(r.Groups["n"].Value) : 1);
+
         if ((r = AutoSellRx().Match(msg)).Success)
             return new AutoSellEvent(ts, r.Groups["item"].Value,
                 r.Groups["n"].Success ? int.Parse(r.Groups["n"].Value) : 1,
@@ -477,6 +511,14 @@ public static partial class LogParser
             return new AaEvent(ts, int.Parse(r.Groups["total"].Value),
                 Points: r.Groups["n"].Success ? int.Parse(r.Groups["n"].Value) : 1);
 
+        if ((r = AaPurchaseRx().Match(msg)).Success)
+            return new AaPurchaseEvent(ts, r.Groups["ability"].Value, Rank: 1,
+                int.Parse(r.Groups["cost"].Value));
+
+        if ((r = AaImproveRx().Match(msg)).Success)
+            return new AaPurchaseEvent(ts, r.Groups["ability"].Value,
+                int.Parse(r.Groups["rank"].Value), int.Parse(r.Groups["cost"].Value));
+
         if ((r = SkillUpRx().Match(msg)).Success)
             return new SkillUpEvent(ts, r.Groups["skill"].Value, int.Parse(r.Groups["value"].Value));
 
@@ -485,6 +527,10 @@ public static partial class LogParser
 
         if ((r = FactionRx().Match(msg)).Success)
             return new FactionEvent(ts, r.Groups["faction"].Value, int.Parse(r.Groups["delta"].Value));
+
+        if ((r = ConsiderRx().Match(msg)).Success)
+            return new ConsiderEvent(ts, Normalize(r.Groups["name"].Value),
+                int.Parse(r.Groups["level"].Value));
 
         if ((r = FactionCappedRx().Match(msg)).Success)
             return new FactionEvent(ts, r.Groups["faction"].Value, 0, Capped: true);

@@ -204,6 +204,146 @@ public class EncounterTests
     }
 
     [Fact]
+    public void FightCarriesThePetsOwnAbilitySplit()
+    {
+        // The pet stays ONE row in ByAbility; the per-fight split by the pet's own ability
+        // lives beside it (Pet breakout window / History, 2026-08-06). Session-wide
+        // PetAbilities already existed — this pins the per-fight counterpart.
+        var s = Replay(
+            At(0, 0, "Jibekn told you, 'Attacking orc pawn Master.'"),
+            At(0, 1, "Jibekn slashes orc pawn for 20 points of damage."),
+            At(0, 2, "Jibekn slashes orc pawn for 22 points of damage. (Critical)"),
+            At(0, 3, "Jibekn hit orc pawn for 15 points of fire damage by Burst of Flame."),
+            At(0, 4, "You slash orc pawn for 30 points of damage."),
+            At(0, 5, "You have slain orc pawn!")).Snapshot();
+
+        var f = s.LastFight!;
+        Assert.Equal(57, f.ByAbility.Single(x => x.Name == "Pet (Jibekn)").Total);
+        var slash = f.PetAbilities.Single(x => x.Name == "Slash");
+        Assert.Equal(42, slash.Total);
+        Assert.Equal(2, slash.Hits);
+        Assert.Equal(1, slash.Crits);
+        Assert.Equal(15, f.PetAbilities.Single(x => x.Name == "Burst of Flame").Total);
+        // The pet split sums to the pet's single labeled row — no hit counted twice.
+        Assert.Equal(f.ByAbility.Single(x => x.Name == "Pet (Jibekn)").Total,
+            f.PetAbilities.Sum(x => x.Total));
+
+        // Archived encounter carries it, and it survives the snapshot JSON round-trip.
+        var restored = System.Text.Json.JsonSerializer.Deserialize<StatsSnapshot>(
+            System.Text.Json.JsonSerializer.Serialize(s))!;
+        Assert.Equal(42, restored.Encounters.Single().PetAbilities.Single(x => x.Name == "Slash").Total);
+    }
+
+    /// <summary>Target-drops target pool (David's spec + live reports, 2026-08-06): open
+    /// fights always win and ALL of them are the pool — the log can't say which one is
+    /// targeted, and picking one made the window cycle with whoever swung last.
+    /// Between fights: the NEWER of the last finished fight and the last /consider,
+    /// each within the 45s linger.</summary>
+    [Fact]
+    public void ConsideringACreatureMakesItTheCurrentTarget()
+    {
+        var s = Replay(
+            At(0, 0, "Orc pawn scowls at you, ready to attack -- looks like a reasonably safe opponent. (Lvl: 3)"))
+            .Snapshot();
+        Assert.Equal(["Orc pawn"], s.CurrentTargets);
+
+        // A consider AFTER a kill retargets; an open fight still outranks both.
+        var s2 = Replay(
+            At(0, 0, "You slash a ghoul for 10 points of damage."),
+            At(0, 4, "You have slain a ghoul!"),
+            At(0, 10, "Orc pawn scowls at you, ready to attack -- looks like a reasonably safe opponent. (Lvl: 3)"),
+            At(0, 20, "You slash a spite golem for 10 points of damage.")).Snapshot();
+        Assert.Equal(["Spite golem"], s2.CurrentTargets);
+
+        var s3 = Replay(
+            At(0, 0, "You slash a ghoul for 10 points of damage."),
+            At(0, 4, "You have slain a ghoul!"),
+            At(0, 10, "Orc pawn scowls at you, ready to attack -- looks like a reasonably safe opponent. (Lvl: 3)"),
+            At(0, 12, "You gain experience! (0.1%)")).Snapshot();
+        Assert.Equal(["Orc pawn"], s3.CurrentTargets);
+    }
+
+    [Fact]
+    public void AMultiCreaturePullPoolsEveryOpenFightInStableOrder()
+    {
+        // Both creatures stay in the pool, oldest fight first — the order must not
+        // follow whoever swung most recently (that was the cycling bug).
+        var s = Replay(
+            At(0, 0, "You slash orc pawn for 10 points of damage."),
+            At(0, 2, "Orc centurion hits YOU for 5 points of damage."),
+            At(0, 4, "Orc centurion hits YOU for 5 points of damage.")).Snapshot();
+        Assert.Equal(["Orc pawn", "Orc centurion"], s.CurrentTargets);
+    }
+
+    [Fact]
+    public void AaPurchasesBuildALedgerThatSurvivesSessionResets()
+    {
+        // Verbatim shapes from Dranak/Hugzee logs 2026-08-06: rank 1 is "gained the
+        // ability" with the name quoted, later ranks are "improved <name> <rank>".
+        var stats = Replay(
+            At(0, 0, "You have gained the ability \"Combat Fury\" at a cost of 1 ability points."),
+            At(0, 5, "You have improved Combat Fury 2 at a cost of 2 ability points."),
+            At(0, 9, "You have improved Combat Fury 3 at a cost of 3 ability points."),
+            At(1, 0, "You have gained the ability \"Innate Divine Healing\" at a cost of 0 ability points."),
+            At(2, 0, "You have improved Symphonic Aura: Enabled 4 at a cost of 0 ability points."));
+        var s = stats.Snapshot();
+        Assert.Equal(3, s.AaAbilities.Single(a => a.Name == "Combat Fury").Rank);
+        Assert.Equal(1, s.AaAbilities.Single(a => a.Name == "Innate Divine Healing").Rank);
+        Assert.Equal(4, s.AaAbilities.Single(a => a.Name == "Symphonic Aura: Enabled").Rank);
+
+        // The ledger is character state: a session-gap reset keeps it (the full-log replay
+        // crosses gap resets, and purchases before the gap must not be forgotten)...
+        stats.Apply(LogParser.Parse(
+            "[Sat Jul 18 17:30:00 2026] You slash a rat for 1 points of damage.")!);
+        Assert.Equal(3, stats.Snapshot().AaAbilities.Single(a => a.Name == "Combat Fury").Rank);
+
+        // ...while a character switch wipes it.
+        stats.ClearCharacterState();
+        Assert.Empty(stats.Snapshot().AaAbilities);
+    }
+
+    [Fact]
+    public void AaStoreRemembersPurchasesTheLogHasLost()
+    {
+        // The janitor truncates quiet logs, erasing purchase lines for good — the durable
+        // store is what still knows the ranks afterwards.
+        var path = Path.Combine(Path.GetTempPath(), $"aa-ledger-test-{Guid.NewGuid():N}.json");
+        try
+        {
+            var stats = new SessionStats
+            {
+                CharacterName = "Kaybek", ServerName = "freeport",
+                AaStore = new AaLedgerStore(path),
+            };
+            stats.Apply(LogParser.Parse(
+                At(0, 0, "You have improved Combat Fury 3 at a cost of 3 ability points."))!);
+
+            // Fresh stats over an emptied log (character switch semantics + nothing to
+            // replay), same store file re-read from disk: the ledger still knows.
+            var later = new SessionStats
+            {
+                CharacterName = "Kaybek", ServerName = "freeport",
+                AaStore = new AaLedgerStore(path),
+            };
+            Assert.Equal(3, later.Snapshot().AaAbilities.Single(a => a.Name == "Combat Fury").Rank);
+
+            // Another character on the same install sees none of Kaybek's AAs.
+            var other = new SessionStats
+            {
+                CharacterName = "Douglas", ServerName = "qeynos",
+                AaStore = new AaLedgerStore(path),
+            };
+            Assert.Empty(other.Snapshot().AaAbilities);
+
+            // Replaying an OLD log (rank 2 after the store knows 3) never regresses.
+            later.Apply(LogParser.Parse(
+                At(0, 5, "You have improved Combat Fury 2 at a cost of 2 ability points."))!);
+            Assert.Equal(3, later.Snapshot().AaAbilities.Single(a => a.Name == "Combat Fury").Rank);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void OverlappingFightsGroupIntoOnePullAndGapsSplitThem()
     {
         var s = Replay(
@@ -260,6 +400,18 @@ public class EncounterTests
             new("Orc pawn", DateTime.Parse("2026-07-18T15:00:03"), 5, 30, 0, 6, "Killed"),
         };
         Assert.Equal("Orc pawn ×2", EncounterGrouping.Group(fights).Single().Title);
+    }
+
+    /// <summary>Issue #39 end-to-end: a "mote" loot watch rule must fire when the mote
+    /// routes to currency storage — joeymavity's exact line, previously invisible.</summary>
+    [Fact]
+    public void AMoteLootRuleFiresOnCurrencyStoredMotes()
+    {
+        var stats = Replay(
+            At(0, 0, "You looted a Mote of Major Potential from a spite golem's corpse and stored it in your currency"));
+        var rules = new[] { new TrackedRule { Name = "Motes", Pattern = "mote", Kind = WatchKind.Loot } };
+        var r = Assert.Single(stats.Snapshot(null, rules).Tracked);
+        Assert.Equal(1, r.TotalQuantity);
     }
 
     [Fact]

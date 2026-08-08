@@ -6,6 +6,10 @@ using EQBuddy.UI.Shared;
 
 namespace EQBuddy;
 
+/// <summary>Sort order for ability/heal breakdown lists — shared by the main cards and
+/// the breakout windows.</summary>
+internal enum StatSort { Total, Hits, Avg, Rate }
+
 /// <summary>Details!-style bar rows shared by the live widget and the History window.</summary>
 internal static class BreakdownRows
 {
@@ -65,24 +69,47 @@ internal static class BreakdownRows
     /// parser convention (ability total ÷ time in combat); burst is in the tooltip.</summary>
     public static void FillAbilityRows(FrameworkElement resources, ItemsControl list,
         IReadOnlyList<SourceDamage> stats, double combatSeconds, string rateLabel,
+        int max = int.MaxValue) =>
+        FillAbilityRowsSorted(resources, list, stats, StatSort.Total, combatSeconds, rateLabel, max);
+
+    /// <summary>The sorted flavor (hoisted from MainWindow.FillBreakdown when the breakout
+    /// windows grew sort bars): rows AND bars follow the chosen metric, so what's sorted
+    /// biggest is also drawn longest.</summary>
+    public static void FillAbilityRowsSorted(FrameworkElement resources, ItemsControl list,
+        IEnumerable<SourceDamage> stats, StatSort sort, double combatSeconds, string rateLabel,
         int max = int.MaxValue)
     {
-        list.Items.Clear();
-        if (stats.Count == 0) return;
-        var grand = Math.Max(1, stats.Sum(d => d.Total));
-        var top = Math.Max(1, stats.Max(d => d.Total));
         var secs = Math.Max(1, combatSeconds);
+        double Rate(SourceDamage d) => d.Total / secs;
+        static double Avg(SourceDamage d) => (double)d.Total / Math.Max(1, d.Hits);
+        var sorted = (sort switch
+        {
+            StatSort.Hits => stats.OrderByDescending(d => d.Hits),
+            StatSort.Avg => stats.OrderByDescending(Avg),
+            StatSort.Rate => stats.OrderByDescending(Rate),
+            _ => stats.OrderByDescending(d => d.Total),
+        }).ToList();
+        list.Items.Clear();
+        if (sorted.Count == 0) return;
+        var grand = Math.Max(1, sorted.Sum(d => d.Total));
+        Func<SourceDamage, double> metric = sort switch
+        {
+            StatSort.Hits => d => d.Hits,
+            StatSort.Avg => Avg,
+            StatSort.Rate => Rate,
+            _ => d => d.Total,
+        };
+        var topMetric = Math.Max(1e-9, sorted.Max(metric));
         var barBrush = BarBrush(resources);
-        foreach (var d in stats.Take(max))
+        foreach (var d in sorted.Take(max))
         {
             var critPart = d.Crits > 0 ? $" · {100.0 * d.Crits / Math.Max(1, d.Hits):0}% crit" : "";
-            var value = $"{d.Total:N0} · ×{d.Hits} · avg {(double)d.Total / Math.Max(1, d.Hits):0.#}" +
-                        $" · {d.Total / secs:0.#} {rateLabel}{critPart}";
+            var value = $"{d.Total:N0} · ×{d.Hits} · avg {Avg(d):0.#} · {Rate(d):0.#} {rateLabel}{critPart}";
             var tooltip = $"{100.0 * d.Total / grand:0.#}% of total · {rateLabel} = total ÷ {secs:0}s in combat" +
                 (d.ActiveSeconds > 0
                     ? $" · burst {d.Total / Math.Max(1, d.ActiveSeconds):0.#}/s over the ~{d.ActiveSeconds:0}s it was in use"
                     : "");
-            list.Items.Add(Row(resources, d.Name, value, (double)d.Total / top, barBrush, tooltip));
+            list.Items.Add(Row(resources, d.Name, value, metric(d) / topMetric, barBrush, tooltip));
         }
     }
 }

@@ -101,6 +101,10 @@ public sealed class TrackedRule
     public bool Pinned { get; set; } = true;
     public bool AlertBanner { get; set; } = true;
     public bool AlertSound { get; set; }
+
+    /// <summary>Banner tint by palette name (AlertColors); "" = theme accent. Color is
+    /// the identification channel when sounds are off or quiet (Chaosrah, 2026-08-06).</summary>
+    public string AlertColor { get; set; } = "";
     /// <summary>
     /// Which sound this rule plays: a built-in name, a full .wav/.mp3 path, or empty to
     /// use the shared <see cref="AppSettings.AlertSound"/>. Giving each rule its own

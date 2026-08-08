@@ -13,6 +13,9 @@ public sealed record EncounterInfo(
     public List<SourceDamage> HealsBySpell { get; init; } = [];
     /// <summary>What the creature hit YOU with, by attack skill or spell.</summary>
     public List<SourceDamage> ByIncoming { get; init; } = [];
+    /// <summary>The pet's share of ByAbility split by the pet's own ability — sessions
+    /// archived before this existed deserialize it empty, same as the lists above.</summary>
+    public List<SourceDamage> PetAbilities { get; init; } = [];
 }
 
 /// <summary>
@@ -30,6 +33,8 @@ public sealed record LastFightInfo(
     /// <summary>The per-creature fights inside this pull — the cards show a
     /// per-creature damage split when there's more than one.</summary>
     public IReadOnlyList<EncounterInfo> Fights { get; init; } = [];
+    /// <summary>Pet damage in this pull/fight by pet ability (empty when no pet acted).</summary>
+    public List<SourceDamage> PetAbilities { get; init; } = [];
 }
 
 /// <summary>
@@ -43,7 +48,11 @@ public sealed record PullInfo(
     string Title, DateTime Start, double DurationSeconds,
     long DamageOut, long DamageIn, long Healed, double Dps,
     IReadOnlyList<EncounterInfo> Fights,
-    List<SourceDamage> ByAbility, List<SourceDamage> ByIncoming, List<SourceDamage> HealsBySpell);
+    List<SourceDamage> ByAbility, List<SourceDamage> ByIncoming, List<SourceDamage> HealsBySpell)
+{
+    /// <summary>Pet damage across the pull by pet ability (empty when no pet acted).</summary>
+    public List<SourceDamage> PetAbilities { get; init; } = [];
+}
 
 public static class EncounterGrouping
 {
@@ -90,7 +99,8 @@ public static class EncounterGrouping
             Merge(fights.SelectMany(f => multi
                 ? f.ByIncoming.Select(r => r with { Name = $"{f.Name}: {r.Name}" })
                 : f.ByIncoming)),
-            Merge(fights.SelectMany(f => f.HealsBySpell)));
+            Merge(fights.SelectMany(f => f.HealsBySpell)))
+        { PetAbilities = Merge(fights.SelectMany(f => f.PetAbilities)) };
     }
 
     private static List<SourceDamage> Merge(IEnumerable<SourceDamage> rows) =>
@@ -111,6 +121,11 @@ public sealed record MobSummary(
 
 /// <summary>Combat time and damage while a stance was active (STANCE-*).</summary>
 public sealed record StanceInfo(string Name, double CombatSeconds, long Damage, double Dps);
+
+/// <summary>An owned AA ability: highest rank observed in the log and when it was bought.
+/// The ledger feeds duration models — an AA can lengthen buffs or mez far past the spell's
+/// base numbers, and "why does MY mez run long" starts here.</summary>
+public sealed record AaAbilityInfo(string Name, int Rank, DateTime Time);
 
 /// <summary>A spell observed hitting several creatures at once, measured per cast.
 /// AvgTargets below MaxTargets means some casts caught fewer creatures than the best one —

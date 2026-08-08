@@ -32,9 +32,10 @@ public partial class MainWindow : Window
     private readonly EQBuddy.UI.Shared.SpawnsViewModel _spawnsVm;
     private SpawnsWindow? _spawnsWindow;
 
-    private static readonly string[] MiniStatOrder = ["kills", "dps", "hps", "loot", "money", "xp", "deaths"];
+    private static readonly string[] MiniStatOrder = ["kills", "dps", "hps", "pet", "loot", "money", "xp", "deaths"];
 
-    private enum StatSort { Total, Hits, Avg, Rate }
+    // StatSort moved to BreakdownRows.cs (internal) when the breakout windows grew
+    // their own sort bars — one enum, every surface.
     private StatSort _dmgOutSort = StatSort.Total;
     private StatSort _dmgInSort = StatSort.Total;
     private StatSort _healSort = StatSort.Total;
@@ -46,6 +47,7 @@ public partial class MainWindow : Window
         // everything learned in earlier sessions (issue #29).
         AttachSpellStore();
         _mezTracker.AttachStore(System.IO.Path.Combine(Core.AppPaths.Dir, "mez-durations.json"));
+        _stats.AaStore = new AaLedgerStore(AppPaths.File("aa-ledger.json"));
         _watcher = new LogWatcher(_stats);
         _watcher.Mez = _mezTracker;
         // Spawn timers ride the watcher's event stream — wired before the first Select so
@@ -143,6 +145,9 @@ public partial class MainWindow : Window
 
         if (Environment.GetEnvironmentVariable("EQBUDDY_OPTIONS") == "1")
             Loaded += (_, _) => OnOptions(this, new RoutedEventArgs());
+
+        if (Environment.GetEnvironmentVariable("EQBUDDY_FEEDBACK") == "1")
+            Loaded += (_, _) => OnFeedback(this, new RoutedEventArgs());
 
 
         if (Environment.GetEnvironmentVariable("EQBUDDY_HISTORY") == "1")
@@ -381,6 +386,166 @@ public partial class MainWindow : Window
     private MezChipsWindow? _mezWindow;
     private readonly MezTracker _mezTracker = new();
 
+    private readonly EqlWikiItemService _wikiItems =
+        new(System.IO.Path.Combine(Core.AppPaths.Dir, "wiki-cache", "items"));
+    private ItemInfoWindow? _itemWindow;
+
+    /// <summary>Loot rows and the search box route here: one shared popup, re-driven
+    /// per lookup.</summary>
+    public void ShowItemInfo(string itemName)
+    {
+        if (_itemWindow is not { IsLoaded: true })
+            _itemWindow = new ItemInfoWindow(_wikiItems) { Owner = this };
+        _itemWindow.Show();
+        _itemWindow.Activate();
+        _itemWindow.Lookup(itemName);
+    }
+
+    /// <summary>Hover stats for an item row: the cached wiki stat block when we have one
+    /// (any age — a hover is a peek, not a lookup), else a hint that clicking fetches.
+    /// Internal: the Loot breakout borrows it for its own rows.</summary>
+    internal string ItemHoverStats(string itemName) =>
+        _wikiItems.CachedStatsText(itemName) ?? "Click for item info (eqlwiki)";
+
+    /// <summary>Raw cached stats (null when the cache is empty) — the Loot breakout's
+    /// tooltip wants the real distinction so it knows to fetch.</summary>
+    internal string? CachedItemStats(string itemName) => _wikiItems.CachedStatsText(itemName);
+
+    // ---- target drops (TARGET-*): the Loot card's "what can this drop" block ----
+
+    private readonly EqlWikiMobService _wikiMobs =
+        new(System.IO.Path.Combine(Core.AppPaths.Dir, "wiki-cache", "mobs"));
+
+    /// <summary>Session-lifetime per-creature results, so a multi-mob pull never re-looks
+    /// anything up and the drops list can't flicker as different creatures swing
+    /// (David's live report, 2026-08-06). null value = lookup in flight.</summary>
+    private readonly Dictionary<string, MobLookupResult?> _targetResults =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    private async Task LookupTargetAsync(string name)
+    {
+        try
+        {
+            var result = await _wikiMobs.LookupAsync(name);
+            _targetResults[name] = result;
+            RefreshUi();
+        }
+        catch (Exception ex) { App.LogError(ex); }
+    }
+
+    /// <summary>Target-drops content shared by the Loot card's 🎯 block and the Loot
+    /// breakout — one builder, so the two can never disagree, and the wiki lookups fire
+    /// from HERE so a minimized session (where the card never renders) still resolves
+    /// targets. The pool is EVERY creature in the current pull (the log can't say which
+    /// is targeted; picking one made the list cycle — David's live report), and items
+    /// fold to their base names so "Leather Whip +2" and the wiki's "Leather Whip"
+    /// are one row (David's screenshot, same session). "" header = no target.</summary>
+    internal (string Header, List<(string Name, string Value)> Rows) TargetDropsContent(StatsSnapshot s)
+    {
+        var targets = _settings.ShowTargetDrops ? s.CurrentTargets : [];
+        if (targets.Count == 0) return ("", []);
+        foreach (var t in targets)
+            if (!_targetResults.ContainsKey(t))
+            {
+                _targetResults[t] = null;
+                _ = LookupTargetAsync(t);
+            }
+
+        // Observed drops lead (your data outranks the wiki), folded to base names with
+        // counts summed across tiers and creatures. Percent only for a single-creature
+        // pool — mixed kill denominators would make it a lie.
+        var kills = 0;
+        var observed = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var t in targets)
+        {
+            var mob = s.Mobs.FirstOrDefault(m => m.Name.Equals(t, StringComparison.OrdinalIgnoreCase));
+            if (mob is null) continue;
+            kills += mob.Kills;
+            foreach (var l in mob.Loot)
+            {
+                var baseName = EqlWikiItemService.NormalizeTitle(l.Item);
+                observed[baseName] = observed.GetValueOrDefault(baseName) + l.Count;
+            }
+        }
+        var rows = new List<(string Name, string Value)>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (item, count) in observed.OrderByDescending(kv => kv.Value))
+        {
+            var pct = targets.Count == 1 && kills > 0 ? $" · {100.0 * count / kills:0}%" : "";
+            rows.Add((item, $"{count} this session{pct}"));
+            seen.Add(item);
+        }
+
+        var pending = false;
+        foreach (var t in targets)
+        {
+            var r = _targetResults.GetValueOrDefault(t);
+            if (r is null) { pending = true; continue; }
+            foreach (var (item, rarity) in r.Mob?.Drops ?? [])
+                if (seen.Add(EqlWikiItemService.NormalizeTitle(item)))
+                    rows.Add((item, rarity));
+        }
+        var extra = Math.Max(0, rows.Count - 14);
+        if (extra > 0) rows = rows.Take(14).ToList();
+
+        var state = targets.Count == 1
+            ? _targetResults.GetValueOrDefault(targets[0]) switch
+            {
+                null => "looking up…",
+                { State: ItemLookupState.Live } => "LIVE",
+                { State: ItemLookupState.Cached, FetchedAt: { } at } => $"CACHED {at:M/d}",
+                { State: ItemLookupState.StaleCache, FetchedAt: { } at } => $"STALE {at:M/d}",
+                { State: ItemLookupState.Offline } => "OFFLINE",
+                _ => "NOT ON WIKI",
+            }
+            : pending ? "looking up…" : "merged pull";
+        var names = string.Join(" + ", targets.Take(3)) +
+            (targets.Count > 3 ? $" +{targets.Count - 3}" : "");
+        var header = $"🎯 Fighting: {names}" +
+            (kills > 0 ? $" — {kills} kill{(kills == 1 ? "" : "s")} this session" : "") +
+            $" · drops (eqlwiki · {state}{(extra > 0 ? $" · +{extra} more" : "")})";
+        return (header, rows);
+    }
+
+    private void RenderTargetDrops(StatsSnapshot s)
+    {
+        var (header, rows) = TargetDropsContent(s);
+        if (header.Length == 0)
+        {
+            TargetBlock.Visibility = Visibility.Collapsed;
+            return;
+        }
+        TargetBlock.Visibility = Visibility.Visible;
+        TargetHeader.Text = header;
+        FillList(TargetDropsList, rows, onNameClick: ShowItemInfo, tooltip: ItemHoverStats);
+    }
+
+    /// <summary>Full tooltip text for an item, FETCHING from the wiki when the cache is
+    /// empty — the Loot breakout's hover asks for this deliberately (David: mouse-over
+    /// should just show the item info). One bounded lookup, cached for a week.</summary>
+    internal async Task<string?> FetchItemTooltip(string name)
+    {
+        var r = await _wikiItems.LookupAsync(name);
+        return r.Item is { StatsLines.Count: > 0 } info
+            ? string.Join("\n", info.StatsLines)
+            : null;
+    }
+
+    /// <summary>Open an item's eqlwiki page in the default browser — the search URL
+    /// lands on the page itself on an exact title match (MediaWiki "Go"), and on
+    /// search results otherwise, so a rename never strands the user on a 404.</summary>
+    internal static void OpenWikiPage(string itemName)
+    {
+        var url = "https://eqlwiki.com/index.php?search="
+            + Uri.EscapeDataString(EqlWikiItemService.NormalizeTitle(itemName));
+        try
+        {
+            System.Diagnostics.Process.Start(
+                new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex) { App.LogError(ex); }
+    }
+
     /// <summary>Re-derives the height caps from the monitor the widget currently
     /// occupies (see MonitorMetrics — primary-only caps halved the widget on portrait
     /// secondary screens, discussion #31).</summary>
@@ -402,6 +567,27 @@ public partial class MainWindow : Window
         if (_chipsWindow is not { IsLoaded: true } cw) { _chipsWindow = null; return; }
         _chipsWindow = null;
         cw.Close();   // saves the stack position on the way out
+    }
+
+    /// <summary>The regen-tick line for healing surfaces: count always; estimate when a
+    /// cast attributed the ticks (× the player's Options value when set, else wiki base —
+    /// the log itself never carries an amount, so this stays labeled est.).</summary>
+    internal string RegenLine(StatsSnapshot s)
+    {
+        if (s.RegenEstimatedHealed <= 0 || s.RegenSpell.Length == 0)
+            return $"{s.RegenTicks} regen/hymn ticks (game logs no amounts for these)";
+        var basis = _settings.RegenPerTickOverride > 0
+            ? "your hp/tick from Options"
+            : "wiki base — set your real hp/tick in Options";
+        return $"{s.RegenSpell}: est. ~{s.RegenEstimatedHealed:N0} healed over {s.RegenTicks} ticks ({basis})";
+    }
+
+    private void OnLootSort(object sender, MouseButtonEventArgs e)
+    {
+        _settings.LootSort = (string)((FrameworkElement)sender).Tag;
+        _settings.Save();
+        RefreshUi();
+        e.Handled = true;
     }
 
     private void OnPetAbilitiesToggled(object sender, MouseButtonEventArgs e)
@@ -538,6 +724,9 @@ public partial class MainWindow : Window
 
     private void RefreshUi()
     {
+        UpdateFocusHide();
+        _stats.RegenPerTickOverride = _settings.RegenPerTickOverride;
+
         // Spawn timers crossing zero: banner always, sound only if one is chosen. Runs
         // off the shared tick so a hidden window can't silence a camp.
         if (_settings.TrackSpawns)
@@ -553,7 +742,7 @@ public partial class MainWindow : Window
             // Chicklets are the ambient face of spawn tracking: the stack exists exactly
             // while timers do — including alongside the full window, which is a browser,
             // not a replacement. No pop-open of the full window, ever (David's design).
-            var hasTimers = _spawnsVm.HasActiveTimers(DateTime.Now);
+            var hasTimers = !_hiddenForFocus && _spawnsVm.HasActiveTimers(DateTime.Now);
             if (hasTimers)
             {
                 if (_chipsWindow is not { IsLoaded: true })
@@ -576,7 +765,7 @@ public partial class MainWindow : Window
         // The mez stack lives its own life, independent of spawn tracking: it exists
         // exactly while a mez is believed active, in its own window (David's call —
         // mez chips park next to the fight, spawn chips are ambient).
-        if (_mezTracker.Snapshot(DateTime.Now).Count > 0)
+        if (!_hiddenForFocus && _mezTracker.Snapshot(DateTime.Now).Count > 0)
         {
             if (_mezWindow is not { IsLoaded: true })
             {
@@ -643,6 +832,7 @@ public partial class MainWindow : Window
 
         if (MiniRoot.Visibility == Visibility.Visible)
             UpdateMiniChips(s);
+        UpdateBreakouts(s);
 
         ZoneText.Text = s.CurrentZone.Length > 0 ? s.CurrentZone : "—";
         var active = TimeSpan.FromSeconds(s.ActiveSeconds);
@@ -747,7 +937,7 @@ public partial class MainWindow : Window
                 (s.Recent is { Hps: > 0 } rh
                     ? $"\nLast {(int)rh.Window.TotalMinutes}m: {rh.Hps:0.#} hps"
                     : "") +
-                (s.RegenTicks > 0 ? $"\n{s.RegenTicks} regen/hymn ticks (game logs no amounts for these)" : "");
+                (s.RegenTicks > 0 ? "\n" + RegenLine(s) : "");
             var showSpells = s.HealsBySpell.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             HealSpellsLabel.Visibility = showSpells;
             HealSortBar.Visibility = showSpells;
@@ -781,9 +971,18 @@ public partial class MainWindow : Window
 
         if (LootSection.IsExpanded)
         {
-            FillList(LootList, s.Loot.Select(l => (l.Item, $"×{l.Count}")));
+            var byName = _settings.LootSort == "name";
+            LootSortBar.Visibility = s.Loot.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+            LootSortName.Foreground = (Brush)FindResource(byName ? "AccentBrush" : "DimBrush");
+            LootSortCount.Foreground = (Brush)FindResource(byName ? "DimBrush" : "AccentBrush");
+            var loot = byName
+                ? s.Loot.OrderBy(l => l.Item, StringComparer.OrdinalIgnoreCase).AsEnumerable()
+                : s.Loot;
+            FillList(LootList, loot.Select(l => (l.Item, $"×{l.Count}")), onNameClick: ShowItemInfo,
+                tooltip: ItemHoverStats);
             CraftedLabel.Visibility = s.Crafted.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             FillList(CraftedList, s.Crafted.Select(c => (c.Name, $"×{c.Count}")));
+            RenderTargetDrops(s);
         }
 
         if (MoneySection.IsExpanded)
@@ -816,6 +1015,10 @@ public partial class MainWindow : Window
                     }))
                     : "");
             FillList(SkillList, s.SkillUps.Select(k => (k.Skill, $"{k.Value} (+{k.Ups})")));
+            AaAbilitiesLabel.Visibility = s.AaAbilities.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            FillList(AaAbilityList, s.AaAbilities.Select(a =>
+                    (a.Name, a.Rank > 1 ? $"rank {a.Rank}" : "")),
+                tooltip: name => AaCatalog.Find(name)?.Effect);
         }
 
         if (FactionSection.IsExpanded)
@@ -850,10 +1053,11 @@ public partial class MainWindow : Window
 
     // ---- watch rules: rendering + alerts ----
 
-    // Both keyed by TrackedRule.Id — a display name can be shared by two rules, and keying
+    // Keyed by TrackedRule.Id — a display name can be shared by two rules, and keying
     // on it made same-named rules share baselines and cooldowns.
     private readonly Dictionary<string, int> _ruleBaseline = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, DateTime> _ruleLastAlert = new(StringComparer.Ordinal);
+    private readonly EQBuddy.UI.Shared.AlertCooldowns _ruleCooldowns = new();
+    private readonly EQBuddy.UI.Shared.SoundGate _soundGate = new();
     private string? _alertBaselinePath;
     private AlertWindow? _alertWindow;
 
@@ -1032,13 +1236,13 @@ public partial class MainWindow : Window
 
     private void FireAlert(TrackedRule rule, string ruleName, string label, TimeSpan cooldown)
     {
-        var last = _ruleLastAlert.TryGetValue(rule.Id, out var la) ? la : DateTime.MinValue;
-        if (DateTime.Now - last < cooldown) return;
-        _ruleLastAlert[rule.Id] = DateTime.Now;
+        if (!_ruleCooldowns.ShouldFire(rule, label, cooldown, DateTime.Now)) return;
 
-        if (rule.AlertBanner) AlertTile.ShowAlert($"★ {ruleName}: {label}");
+        if (rule.AlertBanner)
+            AlertTile.ShowAlert($"★ {ruleName}: {label}",
+                EQBuddy.UI.Shared.AlertColors.Hex(rule.AlertColor));
         if (EQBuddy.UI.Shared.AlertSoundCatalog.Resolve(rule, _settings.AlertSound) is { } sound)
-            PlayAlertSound(sound);
+            PlayAlertSound(sound, coalesce: true);
     }
 
     /// <summary>
@@ -1193,9 +1397,14 @@ public partial class MainWindow : Window
     internal void PlayAlertSound() => PlayAlertSound(_settings.AlertSound);
 
     /// <summary>Play a specific alert sound: a named built-in, or a custom
-    /// .wav/.mp3 path. Unknown/missing values fall back to the system Asterisk.</summary>
-    internal void PlayAlertSound(string choiceOrPath)
+    /// .wav/.mp3 path. Unknown/missing values fall back to the system Asterisk.
+    /// With <paramref name="coalesce"/> on, sounds inside <see cref="EQBuddy.UI.Shared.SoundGate.Window"/>
+    /// of the last one are dropped — several rules firing together are one audio alert, and
+    /// the first clip plays to the end instead of being cut off by the next Open(). Manual
+    /// previews and spawn-due chimes keep coalesce off: the user asked for that exact sound.</summary>
+    internal void PlayAlertSound(string choiceOrPath, bool coalesce = false)
     {
+        if (coalesce && !_soundGate.TryClaim(DateTime.Now)) return;
         try
         {
             // Legacy SystemSounds names from earlier settings map onto the palette.
@@ -1208,6 +1417,9 @@ public partial class MainWindow : Window
             if (System.IO.File.Exists(file))
             {
                 _alertPlayer ??= new System.Windows.Media.MediaPlayer();
+                // MediaPlayer defaults to HALF volume; this line was the whole
+                // "alerts are very quiet" report.
+                _alertPlayer.Volume = Math.Clamp(_settings.AlertVolume, 0.0, 1.0);
                 _alertPlayer.Open(new Uri(file));
                 _alertPlayer.Play();
                 return;
@@ -1218,6 +1430,9 @@ public partial class MainWindow : Window
     }
 
     private void OnTutorial(object sender, RoutedEventArgs e) => new TutorialWindow(this).Show();
+
+    private void OnFeedback(object sender, RoutedEventArgs e) =>
+        new FeedbackWindow { Owner = this }.Show();
 
     private void OnCampMarker(object sender, RoutedEventArgs e) => DropCampMarker();
 
@@ -1265,6 +1480,7 @@ public partial class MainWindow : Window
     {
         yield return ("dps", StarDps);
         yield return ("hps", StarHps);
+        yield return ("pet", StarPet);
         yield return ("kills", StarKills);
         yield return ("loot", StarLoot);
         yield return ("money", StarMoney);
@@ -1294,7 +1510,53 @@ public partial class MainWindow : Window
         NormalRoot.Visibility = mini ? Visibility.Collapsed : Visibility.Visible;
         ResizeGrip.Visibility = mini ? Visibility.Collapsed : Visibility.Visible;
         _settings.Save();
-        if (mini) UpdateMiniChips(_stats.Snapshot());
+        // Restoring forgives every ✕ — next minimize brings the full starred set back.
+        if (!mini) _breakoutDismissed.Clear();
+        var snap = _stats.Snapshot();
+        if (mini) UpdateMiniChips(snap);
+        UpdateBreakouts(snap);
+    }
+
+    // ---- breakout stat windows (BREAKOUT-*) ----
+
+    private readonly Dictionary<BreakoutKind, BreakoutWindow> _breakouts = new();
+    private readonly HashSet<BreakoutKind> _breakoutDismissed = new();
+
+    /// <summary>Open/refresh/hide the breakout windows: each shows while the widget is
+    /// minimized and its condition holds — a star for the stat kinds, any 📌-pinned rule
+    /// for the Watch list — unless ✕-dismissed this stint or hidden with the game
+    /// unfocused.</summary>
+    private void UpdateBreakouts(StatsSnapshot s)
+    {
+        foreach (var kind in Enum.GetValues<BreakoutKind>())
+        {
+            var want = _settings.Minimized && !_hiddenForFocus &&
+                       !_breakoutDismissed.Contains(kind) && kind switch
+                       {
+                           BreakoutKind.Damage => _settings.MiniStats.Contains("dps"),
+                           BreakoutKind.Healing => _settings.MiniStats.Contains("hps"),
+                           BreakoutKind.Pet => _settings.MiniStats.Contains("pet"),
+                           BreakoutKind.Loot => _settings.MiniStats.Contains("loot"),
+                           _ => _settings.PinWatchChips &&
+                                _settings.TrackedRules.Any(r => r.Enabled && r.Pinned),
+                       };
+            _breakouts.TryGetValue(kind, out var w);
+            if (want)
+            {
+                if (w is not { IsLoaded: true })
+                {
+                    _breakouts[kind] = w = new BreakoutWindow(_settings, kind) { Main = this };
+                    w.Dismissed += k => _breakoutDismissed.Add(k);
+                }
+                if (!w.IsVisible) w.Show();
+                w.Update(s);
+            }
+            else if (w is { IsVisible: true })
+            {
+                w.SavePosition();
+                w.Hide();
+            }
+        }
     }
 
     private void UpdateMiniChips(StatsSnapshot s)
@@ -1308,6 +1570,7 @@ public partial class MainWindow : Window
                 "kills" => $"\U0001F480 {s.YourKillCount}",
                 "dps" => s.CurrentDps > 0 ? $"⚔ {s.CurrentDps:0} dps" : $"⚔ {s.SessionDps:0} dps",
                 "hps" => $"✚ {s.Hps:0.#} hps",
+                "pet" => $"🐾 {s.PetAbilities.Sum(p => p.Total) / Math.Max(1, s.CombatSeconds):0.#} dps",
                 "loot" => $"\U0001F392 {s.LootTotal}",
                 "money" => $"\U0001F4B0 {StatsSnapshot.FormatCoin(s.Copper)}",
                 "xp" => $"\U0001F4C8 {s.XpPercent:0.0}%" +
@@ -1462,42 +1725,8 @@ public partial class MainWindow : Window
     /// falls the longer you go without using it. The burst rate (total ÷ the ability's
     /// own active time) lives in the tooltip. The bar follows the sorted column.</summary>
     private void FillBreakdown(ItemsControl list, IEnumerable<SourceDamage> stats,
-        StatSort sort, double combatSeconds, string rateLabel)
-    {
-        var secs = Math.Max(1, combatSeconds);
-        double Rate(SourceDamage d) => d.Total / secs;
-        static double Avg(SourceDamage d) => (double)d.Total / Math.Max(1, d.Hits);
-        var sorted = (sort switch
-        {
-            StatSort.Hits => stats.OrderByDescending(d => d.Hits),
-            StatSort.Avg => stats.OrderByDescending(Avg),
-            StatSort.Rate => stats.OrderByDescending(Rate),
-            _ => stats.OrderByDescending(d => d.Total),
-        }).ToList();
-        list.Items.Clear();
-        if (sorted.Count == 0) return;
-        var grand = Math.Max(1, sorted.Sum(d => d.Total));
-        Func<SourceDamage, double> metric = sort switch
-        {
-            StatSort.Hits => d => d.Hits,
-            StatSort.Avg => Avg,
-            StatSort.Rate => Rate,
-            _ => d => d.Total,
-        };
-        var topMetric = Math.Max(1e-9, sorted.Max(metric));
-        var barBrush = BreakdownRows.BarBrush(this);
-
-        foreach (var d in sorted)
-        {
-            var critPart = d.Crits > 0 ? $" · {100.0 * d.Crits / Math.Max(1, d.Hits):0}% crit" : "";
-            var value = $"{d.Total:N0} · ×{d.Hits} · avg {Avg(d):0.#} · {Rate(d):0.#} {rateLabel}{critPart}";
-            var tooltip = $"{100.0 * d.Total / grand:0.#}% of total · {rateLabel} = total ÷ {secs:0}s in combat" +
-                (d.ActiveSeconds > 0
-                    ? $" · burst {d.Total / Math.Max(1, d.ActiveSeconds):0.#}/s over the ~{d.ActiveSeconds:0}s it was in use"
-                    : "");
-            list.Items.Add(BreakdownRows.Row(this, d.Name, value, metric(d) / topMetric, barBrush, tooltip));
-        }
-    }
+        StatSort sort, double combatSeconds, string rateLabel) =>
+        BreakdownRows.FillAbilityRowsSorted(this, list, stats, sort, combatSeconds, rateLabel);
 
     /// <summary>Render a Total/Count/Avg stat list in the chosen sort order.</summary>
     private void FillStatList(ItemsControl list, IEnumerable<SourceDamage> stats, StatSort sort, string unit)
@@ -1552,7 +1781,8 @@ public partial class MainWindow : Window
     }
 
     private void FillList(ItemsControl list, IEnumerable<(string Name, string Value)> rows,
-        Func<string, Brush>? valueBrush = null)
+        Func<string, Brush>? valueBrush = null, Action<string>? onNameClick = null,
+        Func<string, string?>? tooltip = null)
     {
         var items = rows.ToList();
         list.Items.Clear();
@@ -1566,6 +1796,20 @@ public partial class MainWindow : Window
                 Text = name, FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis,
                 Foreground = (Brush)FindResource("TextBrush"), Margin = new Thickness(0, 1, 8, 1),
             };
+            if (tooltip?.Invoke(name) is { Length: > 0 } tip)
+            {
+                var tipText = new TextBlock { Text = tip, TextWrapping = TextWrapping.Wrap, MaxWidth = 340 };
+                // Multi-line tips are stat blocks — monospace keeps their columns readable.
+                if (tip.Contains('\n')) tipText.FontFamily = new FontFamily("Consolas");
+                left.ToolTip = new System.Windows.Controls.ToolTip { Content = tipText };
+            }
+            if (onNameClick is not null)
+            {
+                var clickName = name;
+                left.Cursor = System.Windows.Input.Cursors.Hand;
+                left.ToolTip ??= "Click for item info (eqlwiki)";
+                left.MouseLeftButtonUp += (_, _) => onNameClick(clickName);
+            }
             var right = new TextBlock
             {
                 Text = value, FontSize = 12,
@@ -1576,6 +1820,43 @@ public partial class MainWindow : Window
             grid.Children.Add(right);
             list.Items.Add(grid);
         }
+    }
+
+    // ---- hide while the game is unfocused (FOCUS-*, discussion #41) ----
+
+    private bool _hiddenForFocus;
+
+    /// <summary>When enabled, the widget hides while the game runs WITHOUT being the
+    /// foreground app — alt-tab to a browser and the corner it lives in is the browser's
+    /// again. Never hides when the game isn't running (configuring the widget outside the
+    /// game must stay possible) or when EQBuddy itself is what has focus (clicking the
+    /// widget must not vanish it). Satellite windows follow via their own tick gates.</summary>
+    private void UpdateFocusHide()
+    {
+        var hide = ShouldHideForFocus();
+        if (hide == _hiddenForFocus) return;
+        _hiddenForFocus = hide;
+        Visibility = hide ? Visibility.Hidden : Visibility.Visible;
+    }
+
+    private bool ShouldHideForFocus()
+    {
+        if (!_settings.HideWhenGameUnfocused) return false;
+        var fg = Native.GetForegroundWindow();
+        if (fg == IntPtr.Zero) return false;
+        Native.GetWindowThreadProcessId(fg, out var fgPid);
+        if (fgPid == (uint)Environment.ProcessId) return false;
+        try
+        {
+            using var p = System.Diagnostics.Process.GetProcessById((int)fgPid);
+            if (p.ProcessName.Equals("eqgame", StringComparison.OrdinalIgnoreCase)) return false;
+        }
+        catch { return false; }   // foreground process already gone — don't flicker
+
+        // Foreground is some third app: hide only if the game is actually running.
+        var game = System.Diagnostics.Process.GetProcessesByName("eqgame");
+        try { return game.Length > 0; }
+        finally { foreach (var g in game) g.Dispose(); }
     }
 
     // ---- global hotkeys + click-through (INPUT-*) ----
@@ -1602,6 +1883,11 @@ public partial class MainWindow : Window
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         public static extern bool GetCursorPos(out Point point);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        public static extern IntPtr GetForegroundWindow();
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
     }
 
     /// <summary>
@@ -1711,6 +1997,7 @@ public partial class MainWindow : Window
         _settings.WindowLeft = Left;
         _settings.WindowTop = Top;
         _settings.Save();
+        foreach (var w in _breakouts.Values) w.Close();   // each persists its spot on Closed
         _archiver.FinalizeActiveSync(_stats.Snapshot(), "ApplicationExit");
         _watcher.Dispose();
         _repo.Dispose();

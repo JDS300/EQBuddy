@@ -89,6 +89,16 @@ public sealed class SessionStats
     private readonly Dictionary<string, (int Count, long Total)> _healsByHealer = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, AbilityAgg> _healsBySpell = new(StringComparer.OrdinalIgnoreCase);
     private int _regenTicks;
+    private long _regenEstimated;
+    private string? _regenSpell;
+    private string? _lastRegenCast;
+    private (string Name, DateTime Time)? _lastConsider;
+
+    /// <summary>Player-supplied hp-per-tick for the regen estimate (Options), 0 = unset.
+    /// The log can't know instrument resonance or ranks; the player's health bar can —
+    /// same "your number wins" rule the spawn timers use.</summary>
+    public int RegenPerTickOverride { get; set; }
+
     private string? _characterName;
 
     /// <summary>The watched character's name — needed to recognize self-heals
@@ -117,6 +127,17 @@ public sealed class SessionStats
     private double _xpPercent; private int _xpTicks;
     private double _xpSinceLevel;
     private int _aaGained; private int _aaTotal;
+    /// <summary>AA abilities owned: name → (highest observed rank, when). Survives session
+    /// resets deliberately — purchases are character state, not session activity, and the
+    /// duration models that read them need the full picture, not since-last-camp.</summary>
+    private readonly Dictionary<string, (int Rank, DateTime Time)> _aaAbilities = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Optional durable ledger behind <see cref="_aaAbilities"/> — purchases write
+    /// through to it, and snapshots read the union, so truncated logs can't forget an AA.</summary>
+    public AaLedgerStore? AaStore { get; set; }
+
+    private string AaCharacterKey =>
+        CharacterName is { Length: > 0 } c ? $"{c}_{ServerName}".ToLowerInvariant() : "";
     private readonly List<(DateTime Time, int Level)> _levels = new();
 
     private readonly Dictionary<string, (int Ups, int Value)> _skills = new(StringComparer.OrdinalIgnoreCase);
@@ -148,6 +169,10 @@ public sealed class SessionStats
         /// The fight is already keyed by the attacker, so rows don't repeat its name.</summary>
         public readonly Dictionary<string, AbilityAgg> ByIncoming = new(StringComparer.OrdinalIgnoreCase);
         public readonly Dictionary<string, AbilityAgg> HealsBySpell = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>The pet's damage in this fight split by its ability — the per-fight
+        /// counterpart of the session-wide split, so a fight can answer "what did the pet
+        /// actually do here" (the ByAbility list keeps the pet as one labeled row).</summary>
+        public readonly Dictionary<string, AbilityAgg> PetAbilities = new(StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>The fight healing is currently credited to. Heals name a target, not a
@@ -447,6 +472,10 @@ public sealed class SessionStats
                     // cast-completion stats — twisting would swamp them.
                     if (!started.Song) _castsStarted++;
                     _pendingCast = (started.Spell, started.Time);
+                    // Amount-less regen family: remember the last one cast/sung, so the
+                    // shared "wounds begin to heal" tick line knows whose ticks these are.
+                    if (RegenCatalog.PerTick(SpellCatalog.BaseName(started.Spell)) is not null)
+                        _lastRegenCast = SpellCatalog.BaseName(started.Spell);
                     break;
                 case SpellInterruptedEvent:
                     _castsInterrupted++;
@@ -621,13 +650,32 @@ public sealed class SessionStats
                     if (h.Spell != "Unknown")
                         _spells.Learn(h.Spell, h.OverTime ? SpellCategory.HealOverTime : SpellCategory.Heal);
                     break;
+                case ConsiderEvent con:
+                    // Deliberate targeting: a /con names the creature you care about
+                    // without a swing landed — it competes with recent fights for the
+                    // target-drops surfaces (David, 2026-08-06).
+                    _lastConsider = (con.Name, con.Time);
+                    break;
                 case RegenTickEvent:
                     _regenTicks++;
+                    // Estimated regen healing (David, 2026-08-06): the tick line names no
+                    // spell and no amount, so this is attribution-by-own-cast × a per-tick
+                    // value — the player's Options override when set (they can read the
+                    // real number off their health bar; instruments/ranks raise it past
+                    // the wiki base), else the wiki base. No cast seen → count only.
+                    if (_lastRegenCast is { } regenSpell)
+                    {
+                        var perTick = RegenPerTickOverride > 0
+                            ? RegenPerTickOverride
+                            : RegenCatalog.PerTick(regenSpell) ?? 0;
+                        _regenEstimated += perTick;
+                        _regenSpell = regenSpell;
+                    }
                     break;
                 case LootEvent l:
                     var cur = _loot.TryGetValue(l.Item, out var lv) ? lv : (0, l.Source);
-                    _loot[l.Item] = (cur.Item1 + 1, l.Source);
-                    _lootCount++;
+                    _loot[l.Item] = (cur.Item1 + l.Count, l.Source);
+                    _lootCount += l.Count;
                     // Loot lines name the corpse — explicit creature correlation (CORRELATE-005).
                     Bump(Mob(l.Source).Loot, l.Item);
                     break;
@@ -672,6 +720,13 @@ public sealed class SessionStats
                     break;
                 case AaEvent aa:
                     _aaGained += aa.Points; _aaTotal = aa.TotalPoints;
+                    break;
+                case AaPurchaseEvent ap:
+                    // Highest rank wins regardless of replay order; a re-observed rank-1
+                    // "gained" after an "improved" (log replay) must not regress the ledger.
+                    if (!_aaAbilities.TryGetValue(ap.Ability, out var known) || ap.Rank > known.Rank)
+                        _aaAbilities[ap.Ability] = (ap.Rank, ap.Time);
+                    AaStore?.Record(AaCharacterKey, ap.Ability, ap.Rank, ap.Time);
                     break;
                 case StanceEvent stc:
                     // Close the open combat window under the OLD stance before switching,
@@ -874,9 +929,14 @@ public sealed class SessionStats
         TrackCombat(t, amount);
         TouchFight(target, t, dmgOut: amount);
         // The pet's damage joins the fight's ability rows as one labeled row (mirrors the
-        // session list, where the pet is a single row with its own split behind a click).
+        // session list, where the pet is a single row with its own split behind a click),
+        // and the per-fight pet split keyed by ability alongside it.
         if (_activeFights.TryGetValue(target, out var petFight))
+        {
             Ability(petFight.ByAbility, label).Add(t, amount, critical);
+            Ability(petFight.PetAbilities, ability.Length > 0 ? ability
+                : kind == DamageKind.Melee ? "Melee" : "Spell").Add(t, amount, critical);
+        }
     }
 
     private MobAgg Mob(string name) =>
@@ -926,7 +986,8 @@ public sealed class SessionStats
         var byIncoming = Breakdown(f.ByIncoming);
         _encounters.Add(new EncounterInfo(target, f.Start, dur, f.DmgOut, f.DmgIn,
             f.DmgOut / dur, outcome, f.Healed)
-        { ByAbility = byAbility, HealsBySpell = heals, ByIncoming = byIncoming });
+        { ByAbility = byAbility, HealsBySpell = heals, ByIncoming = byIncoming,
+          PetAbilities = Breakdown(f.PetAbilities) });
         if (_encounters.Count > 300) _encounters.RemoveRange(0, 100);
         var mob = Mob(target);
         mob.Encounters++;
@@ -955,6 +1016,7 @@ public sealed class SessionStats
                 ByAbility = Breakdown(kv.Value.ByAbility),
                 HealsBySpell = Breakdown(kv.Value.HealsBySpell),
                 ByIncoming = Breakdown(kv.Value.ByIncoming),
+                PetAbilities = Breakdown(kv.Value.PetAbilities),
             })).ToList();
         if (pool.Count == 0) return null;
 
@@ -968,7 +1030,54 @@ public sealed class SessionStats
         return new LastFightInfo(pull.Title, pull.DurationSeconds, pull.DamageOut,
             pull.DamageIn, pull.Healed, pull.Dps, pull.Healed / pull.DurationSeconds,
             outcome, inProgress, pull.ByAbility, pull.HealsBySpell, pull.ByIncoming)
-        { Fights = pull.Fights };
+        { Fights = pull.Fights, PetAbilities = pull.PetAbilities };
+    }
+
+    /// <summary>How long a finished fight's creature stays "the target" for the Loot
+    /// card's drops block — long enough to read the list after the kill, short enough
+    /// that walking away really clears it.</summary>
+    private static readonly TimeSpan TargetLinger = TimeSpan.FromSeconds(45);
+
+    /// <summary>The creatures to show target drops for. The log never says which one is
+    /// actually TARGETED, so in a multi-creature pull the pool is EVERY open fight
+    /// (David's live report, 2026-08-06: picking the most-recently-touched one made the
+    /// window cycle with whoever swung last and reset its lookups). Ordered oldest fight
+    /// first so the list is stable while the pull lasts, capped at 5 — an AE farm pull
+    /// doesn't need thirty wiki lookups. Between fights: the newer of the last finished
+    /// fight and the last /consider, each within <see cref="TargetLinger"/>.</summary>
+    private List<string> BuildCurrentTargetsLocked()
+    {
+        if (_activeFights.Count > 0)
+            return _activeFights.OrderBy(kv => kv.Value.Start)
+                .Select(kv => kv.Key)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(5).ToList();
+        if (_lastEventTime is not { } last) return [];
+
+        var best = ""; var bestAt = DateTime.MinValue;
+        if (_encounters.Count > 0)
+        {
+            var e = _encounters[^1];
+            var end = e.Start.AddSeconds(e.DurationSeconds);
+            if (last - end <= TargetLinger) { best = e.Name; bestAt = end; }
+        }
+        if (_lastConsider is { } con && last - con.Time <= TargetLinger && con.Time > bestAt)
+            best = con.Name;
+        return best.Length > 0 ? [best] : [];
+    }
+
+    /// <summary>The AA ledger a snapshot shows: union of this run's observations and the
+    /// durable store, highest rank per ability — the store is what survives log truncation,
+    /// the in-memory side is what a store-less test (or first run) sees.</summary>
+    private List<AaAbilityInfo> BuildAaLedgerLocked()
+    {
+        var merged = new Dictionary<string, (int Rank, DateTime Time)>(_aaAbilities, StringComparer.OrdinalIgnoreCase);
+        if (AaStore is { } store && AaCharacterKey.Length > 0)
+            foreach (var (name, e) in store.For(AaCharacterKey))
+                if (!merged.TryGetValue(name, out var known) || e.Rank > known.Rank)
+                    merged[name] = (e.Rank, e.Time);
+        return merged.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(kv => new AaAbilityInfo(kv.Key, kv.Value.Rank, kv.Value.Time)).ToList();
     }
 
     private static List<SourceDamage> Breakdown(Dictionary<string, AbilityAgg> d) =>
@@ -1046,6 +1155,17 @@ public sealed class SessionStats
         lock (_lock) ResetLocked();
     }
 
+    /// <summary>Wipe character-scoped state that outlives session resets (the AA ledger).
+    /// Called on character switch, where the whole new log is replayed anyway — NOT part of
+    /// <see cref="ResetLocked"/>, because the initial full-log ingest replays session-gap
+    /// resets and clearing there would forget every purchase made before the last gap.
+    /// Caveat (until the ledger gets a durable store): log truncation erases purchase
+    /// lines, so a restart after auto-empty starts the ledger over.</summary>
+    public void ClearCharacterState()
+    {
+        lock (_lock) _aaAbilities.Clear();
+    }
+
     private void ResetLocked()
     {
         _sessionStart = null; _lastEventTime = null;
@@ -1057,6 +1177,7 @@ public sealed class SessionStats
         _lastDamageFrom = null;
         _healingDone = 0; _healCount = 0; _healingReceived = 0;
         _healsByHealer.Clear(); _healsBySpell.Clear(); _regenTicks = 0;
+        _regenEstimated = 0; _regenSpell = null; _lastRegenCast = null; _lastConsider = null;
         _loot.Clear(); _lootCount = 0; _crafted.Clear();
         _copper = 0; _coinDrops = 0; _biggestDrop = 0;
         _vendorCopper = 0; _salesCount = 0; _soldItems.Clear();
@@ -1264,6 +1385,7 @@ public sealed class SessionStats
                 PetAbilities = _petAbilities.OrderByDescending(kv => kv.Value.Total)
                     .Select(kv => new SourceDamage(kv.Key, kv.Value.Count, kv.Value.Total,
                         kv.Value.Crits, kv.Value.ActiveSeconds)).ToList(),
+                PetName = _petName ?? "",
                 SpecialHits = _specialHits.OrderByDescending(kv => kv.Value)
                     .Select(kv => new NameCount(kv.Key, kv.Value)).ToList(),
                 SessionDps = sessionDps,
@@ -1283,6 +1405,8 @@ public sealed class SessionStats
                         0, kv.Value.ActiveSeconds)).ToList(),
                 Hps = combatSeconds > 0 ? _healingDone / combatSeconds : 0,
                 RegenTicks = _regenTicks,
+                RegenEstimatedHealed = _regenEstimated,
+                RegenSpell = _regenSpell ?? "",
                 LootTotal = _lootCount,
                 Loot = _loot.OrderByDescending(kv => kv.Value.Count)
                     .Select(kv => new LootDetail(kv.Key, kv.Value.Count, kv.Value.LastSource)).ToList(),
@@ -1305,6 +1429,7 @@ public sealed class SessionStats
                     ? Math.Max(0, 100 - Math.Min(_xpSinceLevel, 100)) / (_xpPercent / hours)
                     : null,
                 AaGained = _aaGained,
+                AaAbilities = BuildAaLedgerLocked(),
                 AaTotal = _aaTotal,
                 AaPerHour = _aaGained / hours,
                 Levels = _levels.Select(l => new TimedDetail(l.Time, $"Level {l.Level}")).ToList(),
@@ -1329,6 +1454,7 @@ public sealed class SessionStats
                 Tracked = tracked,
                 Markers = _markers.Select(m => new TimedDetail(m.Time, m.Label)).ToList(),
                 LastFight = BuildLastFight(),
+                CurrentTargets = BuildCurrentTargetsLocked(),
                 RecentEncounters = _encounters.TakeLast(8).Reverse().ToList(),
                 Encounters = _encounters.ToList(),
                 EncounterCount = _encounters.Count,
@@ -1414,6 +1540,13 @@ public sealed class StatsSnapshot
     /// <summary>Your pet's damage split by what it used (melee skill or spell name), summing
     /// to the pet rows in <see cref="DamageBySource"/>. Empty when no pet damage was seen.</summary>
     public List<SourceDamage> PetAbilities { get; init; } = [];
+    /// <summary>The current pet's name, or "" when none is claimed — window titles want the
+    /// name without fishing it back out of a "Pet (Name)" row label.</summary>
+    public string PetName { get; init; } = "";
+    /// <summary>The creatures being fought right now (every open fight — the log can't
+    /// say which is targeted), or the one just killed / last considered, briefly. Feeds
+    /// the target-drops surfaces. Empty between pulls.</summary>
+    public List<string> CurrentTargets { get; init; } = [];
     public List<NameCount> SpecialHits { get; init; } = [];
     public double SessionDps { get; init; }
     public double CurrentDps { get; init; }
@@ -1428,6 +1561,11 @@ public sealed class StatsSnapshot
     public List<SourceDamage> HealsBySpell { get; init; } = [];
     public double Hps { get; init; }
     public int RegenTicks { get; init; }
+    /// <summary>Estimated regen healing: ticks × (player override, else wiki base) for
+    /// the attributed spell. A floor, labeled est., never part of <see cref="Hps"/>.</summary>
+    public long RegenEstimatedHealed { get; init; }
+    /// <summary>The regen spell the ticks were attributed to ("" when no own cast seen).</summary>
+    public string RegenSpell { get; init; } = "";
     public int LootTotal { get; init; }
     public List<LootDetail> Loot { get; init; } = [];
     public List<NameCount> Crafted { get; init; } = [];
@@ -1446,6 +1584,9 @@ public sealed class StatsSnapshot
     /// <summary>Estimated hours to next level at this session's XP rate; null when the rate is negligible. Exact when a level-up was seen this session, otherwise an upper bound.</summary>
     public double? HoursToLevel { get; init; }
     public int AaGained { get; init; }
+    /// <summary>AA abilities owned (name, highest rank seen, last purchase time) —
+    /// character-scoped, rebuilt from the whole log at ingest, alphabetical.</summary>
+    public List<AaAbilityInfo> AaAbilities { get; init; } = [];
     public int AaTotal { get; init; }
     public double AaPerHour { get; init; }
     public List<TimedDetail> Levels { get; init; } = [];

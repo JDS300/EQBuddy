@@ -34,6 +34,10 @@ public sealed class AppSettings
     /// <summary>Alert sound: a built-in name (Ding, Notify, Chimes, Chord, Tada,
     /// Exclamation, Alarm) or the full path of a custom .wav/.mp3 file.</summary>
     public string AlertSound { get; set; } = "Ding";
+    /// <summary>Alert playback volume, 0..1. Defaults to FULL — WPF's MediaPlayer
+    /// default is 0.5 and nothing ever set it, so alerts played at half loudness
+    /// for everyone (Reddit report: "very quiet, needs a booster").</summary>
+    public double AlertVolume { get; set; } = 1.0;
     /// <summary>Position of the floating alert tile; NaN = above the widget.</summary>
     public double AlertLeft { get; set; } = double.NaN;
     public double AlertTop { get; set; } = double.NaN;
@@ -132,6 +136,66 @@ public sealed class AppSettings
     /// the "good" colour either way, to separate them at a glance from the ones on people
     /// whose buff bar you cannot see.</summary>
     public bool ShowSelfHotChips { get; set; } = true;
+
+    /// <summary>Target-drops block in the Loot card (wiki drops for the creature being
+    /// fought). Default on; the toggle exists for lean-card people.</summary>
+    public bool ShowTargetDrops { get; set; } = true;
+
+    /// <summary>Loot list order: "count" (biggest stacks first, the original behavior) or
+    /// "name" (alphabetical — Klona11's ask, discussion #43).</summary>
+    public string LootSort { get; set; } = "count";
+
+    /// <summary>Player-supplied hp-per-tick for the regen healing estimate (0 = use the
+    /// wiki base value). The log can't see instrument resonance or spell ranks; the
+    /// player's own health bar can — their number wins (David, 2026-08-06).</summary>
+    public int RegenPerTickOverride { get; set; }
+
+    /// <summary>Hide the widget (and its satellite windows) while the game is running but
+    /// NOT the foreground app — alt-tabbing to a browser shouldn't leave the widget over
+    /// its buttons (sicliffe-cloud, discussion #41). Off by default; when the game isn't
+    /// running at all the widget always shows (people configure it outside the game).</summary>
+    public bool HideWhenGameUnfocused { get; set; }
+
+    // Breakout stat windows (BREAKOUT-*): one position + Fight/Session scope per kind.
+    // They open while the widget is minimized with the matching star set, so there is no
+    // enabled flag — the star is the switch.
+    public double BreakoutDamageLeft { get; set; } = double.NaN;
+    public double BreakoutDamageTop { get; set; } = double.NaN;
+    public string BreakoutDamageScope { get; set; } = "fight";
+    public double BreakoutHealingLeft { get; set; } = double.NaN;
+    public double BreakoutHealingTop { get; set; } = double.NaN;
+    public string BreakoutHealingScope { get; set; } = "fight";
+    public double BreakoutPetLeft { get; set; } = double.NaN;
+    public double BreakoutPetTop { get; set; } = double.NaN;
+    public string BreakoutPetScope { get; set; } = "fight";
+    /// <summary>The Watch breakout (CrispyPigeon131, discussion #44): pinned watch rules
+    /// as a floating window while minimized. No scope — rules are session counters.</summary>
+    public double BreakoutWatchLeft { get; set; } = double.NaN;
+    public double BreakoutWatchTop { get; set; } = double.NaN;
+    /// <summary>The Loot breakout (David's live report 2026-08-06): target drops while
+    /// fighting, session loot between fights, opened by the 🎒 star while minimized.</summary>
+    public double BreakoutLootLeft { get; set; } = double.NaN;
+    public double BreakoutLootTop { get; set; } = double.NaN;
+    /// <summary>"target" (drops for the creature you're fighting or last /considered) or
+    /// "session" (what you've looted).</summary>
+    public string BreakoutLootScope { get; set; } = "target";
+    // Per-breakout manual size (NaN = auto-size to content). Set the moment the resize
+    // grip is dragged; cleared by double-clicking it (David: let me resize the loot
+    // window and scroll, 2026-08-06).
+    public double BreakoutDamageWidth { get; set; } = double.NaN;
+    public double BreakoutDamageHeight { get; set; } = double.NaN;
+    public double BreakoutHealingWidth { get; set; } = double.NaN;
+    public double BreakoutHealingHeight { get; set; } = double.NaN;
+    public double BreakoutPetWidth { get; set; } = double.NaN;
+    public double BreakoutPetHeight { get; set; } = double.NaN;
+    public double BreakoutWatchWidth { get; set; } = double.NaN;
+    public double BreakoutWatchHeight { get; set; } = double.NaN;
+    public double BreakoutLootWidth { get; set; } = double.NaN;
+    public double BreakoutLootHeight { get; set; } = double.NaN;
+    // Per-breakout row sort for the stat kinds: "total" | "hits" | "avg" | "rate".
+    public string BreakoutDamageSort { get; set; } = "total";
+    public string BreakoutHealingSort { get; set; } = "total";
+    public string BreakoutPetSort { get; set; } = "total";
 
     private static string FilePath => AppPaths.File("settings.json");
 

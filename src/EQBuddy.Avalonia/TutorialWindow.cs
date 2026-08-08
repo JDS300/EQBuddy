@@ -67,9 +67,11 @@ public sealed class TutorialWindow : Window
 
         new("Mini mode & hotkeys",
             "Star ★ the stats you care about, then minimize: a tiny pill shows just those, " +
-            "plus watch-rule chips. Global hotkeys: Ctrl+Shift+H hide/show · Ctrl+Shift+T " +
-            "click-through (play right through the widget) · Ctrl+Shift+M mini mode · " +
-            "Ctrl+Shift+K camp marker.",
+            "plus watch-rule chips.\n\n" +
+            "Global hotkeys ship unbound, so EQBuddy never takes a shortcut away from your " +
+            "browser or the game. Want one? ⚙ Options → Global hotkeys, type something like " +
+            "Ctrl+Shift+H next to show/hide, click-through, mini mode or camp marker, then " +
+            "restart.",
             "t-mini.png"),
 
         new("Session history",

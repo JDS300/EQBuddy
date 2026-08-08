@@ -114,6 +114,7 @@ public static class OverlaySections
     public static readonly (string Key, string Title)[] Catalog =
     [
         ("combat", "Combat"), ("healing", "Healing"), ("kills", "Kills"), ("loot", "Loot"),
+        ("motes", "Motes"),
         // Key stays "tracked" — it's persisted in SectionOrder/HiddenSections. Only the
         // label follows the feature's rename from tracked loot to watch rules (#5).
         ("tracked", "Watch"), ("money", "Money"), ("progress", "Progress"),
@@ -151,6 +152,13 @@ public sealed class OptionsViewModel : INotifyPropertyChanged
         set { _settings.UiScale = Math.Clamp(value, 0.5, 2.0); Changed(); Changed(nameof(ScaleLabel)); }
     }
     public string ScaleLabel => $"{_settings.UiScale * 100:0}%";
+
+    public double ChipScale
+    {
+        get => _settings.ChipScale;
+        set { _settings.ChipScale = Math.Clamp(value, 0.5, 2.0); Changed(); Changed(nameof(ChipScaleLabel)); }
+    }
+    public string ChipScaleLabel => $"{_settings.ChipScale * 100:0}%";
 
     public double Opacity
     {
@@ -339,10 +347,6 @@ public sealed class OptionsViewModel : INotifyPropertyChanged
     }
 
     // ---- hotkeys ----
-    public string HotkeyNote =>
-        $"{_settings.HotkeyToggleOverlay} show/hide · {_settings.HotkeyClickThrough} click-through · " +
-        $"{_settings.HotkeyMiniMode} mini · {_settings.HotkeyCampMarker} camp marker";
-
     private void PersistAnd(string? alsoNotify = null, [CallerMemberName] string? propertyName = null)
     {
         _persist();

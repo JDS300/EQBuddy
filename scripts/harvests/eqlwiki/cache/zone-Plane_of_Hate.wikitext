@@ -1,0 +1,175 @@
+{{Classic Era}}
+
+[[File:plane_of_hate_kronas.jpg|600px|right|Map of the Plane of Hate, first floor ]]
+[[File:HateSecondFloorTrimmed.jpg|600px|right|Map of the Plane of Hate, second floor ]]
+
+The Plane of Hate is home to Innoruuk and his numerous minions. The plane opened back in 1999 after the famous in game event - The Battle of [[Kithicor Forest]] between the armies of Lanys T'Vyl and Firiona Vie. The terrible battle both cursed Kithicor forever and opened the Plane of Hate to mortals permanently.
+
+Innoruuk does not care for trespassers into his realm. All those entering, even his followers, are met with vicious resistance.
+
+{|
+|rowspan="6" valign="top"| <div style='float:left;'>__TOC__</div>
+|valign="top"|
+{| class="zoneTopTable"
+! ''' Level of Monsters: '''
+|48+
+|-
+! ''' Minimum Player Level: '''
+|46+
+|-
+! ''' Adjacent Zones: '''
+|[[Wizard]] Port-In, or one-way from [[Oasis of Marr]]
+|-
+! ''' Name in /who: '''
+|hateplane/hateplaneb
+|-
+! '''Succor/Evacuate:'''
+| -375, -354 (Zone-in)
+|-
+! [[Recommended Levels and ZEM List | ZEM]] ''' Value:'''
+|<s>75</s> '''86''' (115%)
+|-
+|}
+|}
+
+
+== Map Locations ==
+
+* 1. Port In Location
+* 2-19. Various buildings.
+* 20. The Church
+* 21-28. Various buildings.
+* 29. The Organ Hall with [[Maestro of Rancor]]. This building has a second floor.
+* 30. Spiral staircase to the second level. The Fountain is immediately to the east.
+
+
+== Getting In and Out ==
+
+The Plane of Hate can either be reached via the [[wizard]] spell [[Alter Plane: Hate]], which requires the reagent [[Fuligan Soulstone of Innoruuk]], or by a one-way portal in the [[Oasis of Marr]]. The stone is sold by Wizard spell supply vendors in various locations and costs 62.5pp. The zone in in the [[Oasis of Marr]] is done by interacting with the black sword at the top of the tower for the public instance, or the voidling for the raid instance.  Any character below level 46 will not be able to enter the Plane of Hate. Many monsters will see through [[invisibility]] and [[Invisibility versus Undead]]. 
+
+There are no conventional zone exits; players must [[Gate]], [[Origin]], use a wizard or druid portal, or use other means to exit the zone.
+
+
+== Enemies and Loot ==
+
+General foes in the Plane of Hate drop planar-level armor for Head, Arms, Wrist, and Legs. They can be divided into 2 groups:
+
+Group 1 drops armor for Wisdom casters, Berserkers, Monks, and also all pieces of [[Lustrous Russet Armor]]. ([[Ethereal Mist Armor|Cleric]], [[Vermiculated Armor|Druid]], [[Rune Etched Armor|Shaman]], [[Anthemion Armor|Beastlord]], [[Thorny Vine Armor|Ranger]], [[Valorium Armor|Paladin]], [[Shadow Rage Armor|Berserker]], [[Shiverback-hide Armor|Monk]])
+
+Group 2 drops armor for Intelligence casters, Rogues, Warriors, and also all pieces of [[Midnight Clad Armor]]. ([[Insidious Armor|Enchanter]], [[Apothic Armor|Magician]], [[Blighted Armor|Necromancer]], [[Carmine Armor|Wizard]], [[Imbrued Armor|Bard]], [[Umbral Platemail|Shadow Knight]], [[Woven Shadow Armor|Rogue]], [[Indicolite Armor|Warrior]])
+
+[[a haunted chest]] can drop any planar armor, including pieces that normally drop only in [[Plane of Fear]]!
+
+Additionally, some specific mob types also drop various class-specific items. 
+
+=== Armor drops, condensed table ===
+
+{| class="wikitable"
+! 
+! '''Group 1:''' <br> [[Ethereal Mist Armor|CLR]] [[Vermiculated Armor|DRU]] [[Rune Etched Armor|SHM]] <br> [[Anthemion Armor|BST]] [[Thorny Vine Armor|RNG]] [[Valorium Armor|PAL]] <br> [[Shadow Rage Armor|BER]] [[Shiverback-hide Armor|MNK]] <br> [[Lustrous Russet Armor|Lustrous Russet]] 
+! '''Group 2:''' <br> [[Insidious Armor|ENC]] [[Apothic Armor|MAG]] [[Blighted Armor|NEC]] [[Carmine Armor|WIZ]] <br> [[Imbrued Armor|BRD]] [[Umbral Platemail|SHD]] <br> [[Woven Shadow Armor|ROG]] [[Indicolite Armor|WAR]] <br> [[Midnight Clad Armor|Midnight Clad]]
+|-
+| Head || [[Cleric of Innoruuk]] || [[a spite golem]]
+|-
+| Arms || [[a forsaken revenant]] (female)<br>[[an ire ghast]] || [[a forsaken revenant]] (male)<br>[[an ashenbone drake]]
+|-
+| Wrist || [[an abhorrent]]<br>[[a scorn banshee]] || [[a kiraikuei]]<br>[[a loathling lich]]<br>[[a revultant rat]]
+|-
+| Legs || [[an elite dragoon]] (male)<br>[[Innoruuk's Chosen]] (male)<br>[[a Disciple of Innoruuk]]<br>[[a Knight of Innoruuk]] || [[an elite dragoon]] (female)<br>[[Innoruuk's Chosen]] (female)<br>[[an Agent of Innoruuk]]<br>[[a Champion of Innoruuk]]<br>[[a Sage of Innoruuk]]
+|}
+
+=== Common Mobs ===
+
+A listing of the foes you are likely to encounter here, with a brief description and any special skills they possess, along with a list of their drops. As with other planar mobs, they can all randomly drop high level research components and gems.
+
+{| class="eoTable2 sortable" style="width: 80%"
+|-
+! Mob Name !! Sees invis? !! Creature Type !! Class !! Abilities !! Armor Type !! Unique Drops 
+|-
+| [[an abhorrent]] || NO || Gargoyle || Rogue || Low MR || Wrist <br> Group 1 || {{:Shrieking Ahlspiess}}
+|-
+| [[an Agent of Innoruuk]] || NO || Dark Elf || Rogue || Backstab || Legs <br> Group 2 || 
+|-
+| [[an ashenbone drake]] || YES || Skeleton || Necromancer || Knockback, High MR || Arms <br> Group 2 || {{:Ashenbone Axe}} <br> {{:Decrepit Hide}} <br> {{:Ashenbone Abbasi}} <br> {{:Ashenbone Shield}}
+|-
+| [[a Champion of Innoruuk]] || NO || Dark Elf || Warrior ||  || Legs <br> Group 2 ||
+|-
+| [[Cleric of Innoruuk]] || NO || Guard || Cleric || Low HP || Head <br> Group 1 || {{:Prismatic Shield}}
+|-
+| [[a Disciple of Innoruuk]] || NO || Dark Elf || Cleric ||  || Legs <br> Group 1 ||
+|-
+| [[an elite dragoon]] (female) || NO || Dark Elf || Warrior ||  || Legs <br> Group 2 ||
+|-
+| [[an elite dragoon]] (male) || NO || Dark Elf || Warrior ||  || Legs <br> Group 1 ||
+|-
+| [[a forsaken revenant]] (female) || YES || Vampire || Enchanter ||  || Arms <br> Group 1 || {{:Wand of Swiftness}} <br> {{:Essence of a Vampire}}
+|-
+| [[a forsaken revenant]] (male) || YES || Vampire || Magician ||  || Arms <br> Group 2 ||
+|-
+| [[a haunted chest]] || YES || Mimic || Warrior || [[Nullify Magic]] || Any <br> Any group || 
+|-
+| [[Innoruuk's Chosen]] (female) || NO || Dark Elf || Shadow Knight ||  || Legs <br> Group 2 ||
+|-
+| [[Innoruuk's Chosen]] (male) || NO || Dark Elf || Shadow Knight ||  || Legs <br> Group 1 ||
+|-
+| [[an ire ghast]] || YES || Ghoul (Undead) || Shadow Knight ||  || Arms <br> Group 1 || {{:Theologian Claymore}} <br> {{:Darkmetal Holy Water Sprinkler}} <br> {{:Trueheart Shield}}
+|-
+| [[a kiraikuei]] || YES || Mummy (Undead) || Monk || [[Strong Disease]] || Wrist <br> Group 2 || {{:Shuriken of the Tranquil}}
+|-
+| [[a Knight of Innoruuk]] || NO || Dark Elf || Shadow Knight ||  || Legs <br> Group 1 ||
+|-
+| [[a loathling lich]] || ALL || Spectre (Undead) || Wizard || Melee stun proc || Wrist <br> Group 2 || {{:Wand of Conflagration}} <br> {{:Hate Crystal}}
+|-
+| [[a revultant rat]] || NO || Rat || Warrior || [[Deadly Poison]] || Wrist <br> Group 2 || {{:Revultant Whip}}
+|-
+| [[a Sage of Innoruuk]] || NO || Dark Elf || Necromancer ||  || Legs <br> Group 2 ||
+|-
+| [[a scorn banshee]] || ALL || Zombie (Undead) || Warrior || [[Strong Disease]]  || Wrist <br> Group a || {{:Martune Rapier}}
+|-
+| [[a spite golem]] || NO || Golem || Shaman || Very high MR || Head <br> Group 2 || {{:Runewood Shield}} <br> {{:Spitestone Shield}}
+|}
+
+=== Minibosses and Bosses ===
+
+{| class="eoTable2" style="text-align: center; width: 80%"
+|-
+! style="text-align: center"|Mob Name !! style="text-align: center"| Creature Type !! style="text-align: center"| Class !! style="text-align: center"| Abilities !! style="text-align: center"| Notes !! style="text-align: center"| Unique Drops 
+|-
+| [[Ashenbone Broodmaster]] || Skeleton || Necromancer || Knockback, See Invis || Miniboss [[an ashenbone drake|ashenbone drake]] || [[Ashenbone Broodmaster|Various]]
+|-
+| [[Avatar of Abhorrence]] || Gargoyle || Rogue || See Invis || Miniboss [[an abhorrent|abhorrent]] || [[Avatar of Abhorrence|Various]], [[Woven Shadow Armor]]
+|-
+| [[Coercer T`vala]] || Vampire || Enchanter || See Invis || Miniboss female [[a forsaken revenant|forsaken revenant]] || [[Coercer T`vala|Various]], [[Insidious Armor]]
+|-
+| [[Grandmaster R`Tal]] || Zombie || Monk || [[Strong Disease]], See Invis || Miniboss [[a kiraikuei|kiraikuei]] || [[Grandmaster R`Tal|Various]], [[Indicolite Armor]]
+|-
+| [[High Priest M`kari]] || Dark Elf Guard || Cleric || None || Miniboss [[Cleric of Innoruuk]] || [[High Priest M`kari|Various]], [[Ethereal Mist Armor]]
+|-
+| [[Lord of Ire]] || Ghoul || Shadow Knight || See Invis || Miniboss [[an ire ghast|ire ghast]] || [[Lord of Ire|Various]]
+|-
+| [[Lord of Loathing]] || Spectre || Wizard || Melee stun proc || Miniboss [[a loathling lich|loathling lich]] || [[Lord of Loathing|Various]]
+|-
+| [[Magi P`Tasa]] || Vampire || Magician || See Invis || Miniboss male [[a forsaken revenant|forsaken revenant]] || [[Magi P`Tasa|Various]], [[Apothic Armor]]
+|-
+| [[Master of Spite]] || Golem || Shaman || Very high MR || Miniboss [[a spite golem|spite golem]] || [[Master of Spite|Various]], [[Rune Etched Armor]]
+|-
+| [[Mistress of Scorn]] || Zombie || Warrior || [[Strong Disease]], See Invis || Miniboss [[a scorn banshee|scorn banshee]] || [[Mistress of Scorn|Various]], [[Imbrued Platemail Armor]]
+|-
+| [[Maestro of Rancor]] || Vampire || Bard || [[Maestro Lifetap]], See Invis || Raid Boss || [[Maestro of Rancor|Various]]
+|-
+| [[Innoruuk (God)|Innoruuk]] || Diety || Wizard || [[Pillage Enchantment]], Lifetap, Knockback || Raid Boss || [[Innoruuk (God)|Various]]
+|}
+
+
+== Alternate Maps ==
+
+[[File:hateplane2.jpg|600px|Simplified first floor map with some patrol routes]]
+[[File:HateSecondFloorWithFirstOverlay.jpg|600px|Second floor map with the first floor overlaid in grey.]]
+
+== What's in this zone? ==
+
+{{Special:DynamicZoneList/Plane of Hate}}
+
+[[Category:Zones]]
+[[Category:Plane of Hate]]
+[[Category:Loc Mapped]]

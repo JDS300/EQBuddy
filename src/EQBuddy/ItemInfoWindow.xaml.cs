@@ -119,6 +119,8 @@ public partial class ItemInfoWindow : Window
         if (SearchBox.Text.Trim().Length > 0) Lookup(SearchBox.Text.Trim());
     }
 
+    private void OnLinkDown(object sender, MouseButtonEventArgs e) => e.Handled = true;
+
     private void OnOpenWiki(object sender, MouseButtonEventArgs e)
     {
         if (_currentUrl is null) return;

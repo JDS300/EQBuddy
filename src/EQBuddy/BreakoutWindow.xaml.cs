@@ -194,19 +194,76 @@ public partial class BreakoutWindow : Window
         }
     }
 
+    /// <summary>First resize gesture of any kind: freeze the current auto size and take
+    /// manual control, so the resize isn't immediately undone by SizeToContent.</summary>
+    private void EnterManualSize()
+    {
+        if (SizeToContent == SizeToContent.Manual) return;
+        var w = ActualWidth; var h = ActualHeight;
+        SizeToContent = SizeToContent.Manual;
+        Width = w; Height = h;
+        RowsScroll.MaxHeight = double.PositiveInfinity;
+    }
+
     private void OnGripDrag(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
     {
-        if (SizeToContent != SizeToContent.Manual)
-        {
-            // First drag: freeze the current auto size and take manual control.
-            var w = ActualWidth; var h = ActualHeight;
-            SizeToContent = SizeToContent.Manual;
-            Width = w; Height = h;
-            RowsScroll.MaxHeight = double.PositiveInfinity;
-        }
+        EnterManualSize();
         Width = Math.Clamp(Width + e.HorizontalChange, MinManualWidth, 900);
         Height = Math.Clamp(Height + e.VerticalChange, MinManualHeight,
             SystemParameters.WorkArea.Height);
+    }
+
+    // ---- native edge-resize (discussion feedback via David, 2026-08-06: "I still can't
+    // resize the loot window" — a frameless window has no resize borders, and a corner
+    // glyph nobody finds isn't an affordance). WM_NCHITTEST maps the right/bottom edges
+    // to resize zones so the window behaves like windows do; the grip stays as the
+    // visible hint. ----
+
+    private const int WmNcHitTest = 0x84;
+    private const int WmNcLButtonDown = 0xA1;
+    private const int WmExitSizeMove = 0x232;
+    private const int HtLeft = 10, HtRight = 11, HtTop = 12, HtTopLeft = 13,
+        HtTopRight = 14, HtBottom = 15, HtBottomLeft = 16, HtBottomRight = 17;
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        if (PresentationSource.FromVisual(this) is System.Windows.Interop.HwndSource src)
+            src.AddHook(ResizeHook);
+    }
+
+    private IntPtr ResizeHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        switch (msg)
+        {
+            case WmNcHitTest:
+            {
+                // lParam: screen coords, low word X, high word Y (signed for multi-monitor).
+                var x = (short)((long)lParam & 0xFFFF);
+                var y = (short)(((long)lParam >> 16) & 0xFFFF);
+                var p = PointFromScreen(new Point(x, y));
+                // Any side, any corner (David: resize like a normal window). Zone math is
+                // pure and unit-tested in EQBuddy.UI.Shared.ResizeZones.
+                var hit = EQBuddy.UI.Shared.ResizeZones.Hit(p.X, p.Y, ActualWidth, ActualHeight);
+                if (hit != 0) { handled = true; return hit; }
+                break;
+            }
+            case WmNcLButtonDown when (long)wParam is >= HtLeft and <= HtBottomRight:
+                // The native size loop is about to start — leave SizeToContent first or
+                // the height snaps back the moment layout runs.
+                EnterManualSize();
+                break;
+            case WmExitSizeMove when SizeToContent == SizeToContent.Manual:
+                // ActualWidth/Height, not Width/Height: the native size loop moves the
+                // window without writing the dependency properties. SavePosition too — a
+                // top/left resize moves the window's origin.
+                Width = ActualWidth;
+                Height = ActualHeight;
+                SetSizeSetting(ActualWidth, ActualHeight);
+                SavePosition();
+                break;
+        }
+        return IntPtr.Zero;
     }
 
     private void OnGripDone(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
@@ -408,7 +465,8 @@ public partial class BreakoutWindow : Window
     private Grid BuildItemRow(string name, string value, Brush barBrush)
     {
         var cachedTip = Main?.CachedItemStats(name);
-        var row = BreakdownRows.Row(this, name, value, 0, barBrush, null);
+        var row = BreakdownRows.Row(this, name, value, 0, barBrush, null,
+            nameBrush: Main?.QuestItemBrush(name));
         var tipText = new TextBlock
         {
             Text = cachedTip ?? "Looking up on eqlwiki…",

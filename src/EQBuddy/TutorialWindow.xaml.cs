@@ -76,9 +76,8 @@ public partial class TutorialWindow : Window
 
         new("Mini mode & hotkeys",
             "Star ★ the stats you care about, then minimize: a tiny pill shows just those, " +
-            "plus watch-rule chips. Global hotkeys: Ctrl+Shift+H hide/show · Ctrl+Shift+T " +
-            "click-through (play right through the widget) · Ctrl+Shift+M mini mode · " +
-            "Ctrl+Shift+K camp marker.",
+            "plus watch-rule chips. Right-click for click-through mode (game clicks pass " +
+            "straight through the widget; the 🔒 chip beside it turns it back off).",
             "t-mini.png"),
 
         new("Session history",

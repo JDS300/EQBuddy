@@ -107,6 +107,7 @@ public sealed class MainWindow : Window
     private readonly ItemsControl _markerList = new();
     private readonly Button _gearBtn = AppTheme.IconButton(AppIcon.Settings, "Settings");
     private readonly MenuItem _trackSpawnsItem = new() { Header = "Track spawns (named respawn timers)" };
+    private readonly MenuItem _clickThroughItem = new() { Header = "Click-through (clicks pass to the game)" };
     private readonly Dictionary<string, Button> _stars = new();
     private readonly Dictionary<string, SectionPanel> _sections = new(StringComparer.OrdinalIgnoreCase);
     private readonly StackPanel _sectionsPanel = new();
@@ -676,6 +677,14 @@ public sealed class MainWindow : Window
         // Avalonia flips IsChecked in MenuItem's class handler before instance Click
         // handlers run, so this reads the value the user just chose (WPF parity).
         _trackSpawnsItem.Click += (_, _) => SetTrackSpawns(_trackSpawnsItem.IsChecked);
+        // The hotkey ships unbound, so the menu is click-through's only reliable door —
+        // and the only way back out of a window the mouse can no longer touch.
+        _clickThroughItem.ToggleType = MenuItemToggleType.CheckBox;
+        _clickThroughItem.IsChecked = _clickThrough;
+        // Avalonia flips IsChecked before this runs, so re-sync from the field afterwards:
+        // ToggleClickThrough bails without changing anything when X11ClickThrough.Set fails,
+        // and a tick left standing over an unchanged window would be a lie.
+        _clickThroughItem.Click += (_, _) => { ToggleClickThrough(); _clickThroughItem.IsChecked = _clickThrough; };
         var choose = new MenuItem { Header = "Choose log folder..." };
         choose.Click += OnChooseLogFolder;
         var detect = new MenuItem { Header = "Auto-detect log folder" };
@@ -694,6 +703,7 @@ public sealed class MainWindow : Window
         menu.Items.Add(history);
         menu.Items.Add(spawns);
         menu.Items.Add(_trackSpawnsItem);
+        menu.Items.Add(_clickThroughItem);
         menu.Items.Add(new Separator());
         menu.Items.Add(choose);
         menu.Items.Add(detect);
@@ -1503,18 +1513,27 @@ public sealed class MainWindow : Window
             (s.CurrentZone.Length > 0 ? $" - {s.CurrentZone}" : ""));
     }
 
+    /// <summary>Upstream deleted global hotkeys in 1.34 because Windows' RegisterHotKey is
+    /// system-wide and swallowed Ctrl+Shift+T from every browser on the machine. This fork
+    /// keeps them for Linux but ships every binding empty, so nothing is taken until the
+    /// user types a combination into Options.</summary>
     private void RegisterGlobalHotkeys()
     {
         if (_hotkeys is not null) return;
+        (string Spec, Action Action)[] specs =
+        [
+            (_settings.HotkeyToggleOverlay, ToggleOverlayVisibility),
+            (_settings.HotkeyClickThrough, ToggleClickThrough),
+            (_settings.HotkeyMiniMode, () => SetMode(!_settings.Minimized)),
+            (_settings.HotkeyCampMarker, DropCampMarker),
+        ];
+        // Nothing bound means nothing to listen for: skip opening an X display and
+        // starting a poll thread with an empty map, and skip the "hotkeys disabled"
+        // error a Wayland session would otherwise log for a feature nobody asked for.
+        if (specs.All(h => string.IsNullOrWhiteSpace(h.Spec))) return;
         try
         {
-            _hotkeys = new X11HotkeyService(
-            [
-                (_settings.HotkeyToggleOverlay, ToggleOverlayVisibility),
-                (_settings.HotkeyClickThrough, ToggleClickThrough),
-                (_settings.HotkeyMiniMode, () => SetMode(!_settings.Minimized)),
-                (_settings.HotkeyCampMarker, DropCampMarker),
-            ]);
+            _hotkeys = new X11HotkeyService(specs);
         }
         catch (Exception ex)
         {
@@ -1549,9 +1568,13 @@ public sealed class MainWindow : Window
         _chipsWindow?.ApplyClickThrough(next);
         _root.BorderBrush = _clickThrough ? AppTheme.WarnBrush : AppTheme.BorderBrush;
         Topmost = true;
-        ToolTip.SetTip(_root, _clickThrough
-            ? $"Click-through ON - press {_settings.HotkeyClickThrough} to interact again"
-            : null);
+        // With the hotkey unbound there is no key to name, and "press  to interact again"
+        // is worse than saying nothing: point at the menu item that always works.
+        ToolTip.SetTip(_root, !_clickThrough ? null
+            : string.IsNullOrWhiteSpace(_settings.HotkeyClickThrough)
+                ? "Click-through ON - unlock from the right-click menu"
+                : $"Click-through ON - press {_settings.HotkeyClickThrough} to interact again");
+        _clickThroughItem.IsChecked = _clickThrough;
     }
 
     private void OnGear(object? sender, EventArgs e) => _root.ContextMenu?.Open(_root);

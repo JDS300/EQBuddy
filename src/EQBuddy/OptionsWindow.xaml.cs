@@ -32,6 +32,7 @@ public partial class OptionsWindow : Window
         ThemeCombo.SelectedIndex = _vm.ThemeIndex;
 
         ScaleSlider.Value = _vm.UiScale;
+        ChipScaleSlider.Value = Math.Clamp(_vm.ChipScale, ChipScaleSlider.Minimum, ChipScaleSlider.Maximum);
         OpacitySlider.Value = _vm.Opacity;
         BgOpacitySlider.Value = _vm.BackgroundOpacity;
         TruncateCheck.IsChecked = _vm.TruncateLogs;
@@ -54,7 +55,7 @@ public partial class OptionsWindow : Window
         BuildRulesEditor();
         BuildCardsEditor();
         UpdateCustomColorsPanel();
-        HotkeyNote.Text = _vm.HotkeyNote;
+        BuildBreakoutChecks();
 
         // Restore the examples panel without persisting — this isn't the user changing it.
         ApplyGuideOpen(_main.Settings.ShowWatchGuide, persist: false);
@@ -79,8 +80,17 @@ public partial class OptionsWindow : Window
     private void UpdateLabels()
     {
         ScaleLabel.Text = _vm.ScaleLabel;
+        ChipScaleLabel.Text = _vm.ChipScaleLabel;
         OpacityLabel.Text = _vm.OpacityLabel;
         BgOpacityLabel.Text = _vm.BackgroundOpacityLabel;
+    }
+
+    private void OnChipScaleChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (!_ready) return;
+        _vm.ChipScale = ChipScaleSlider.Value;
+        _main.SetChipScale(_vm.ChipScale);
+        UpdateLabels();
     }
 
     private void OnScaleChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -125,6 +135,49 @@ public partial class OptionsWindow : Window
     private void OnHideUnfocusedToggled(object sender, RoutedEventArgs e)
     {
         if (_ready) _vm.HideWhenGameUnfocused = HideUnfocusedCheck.IsChecked == true;
+    }
+
+    /// <summary>One checkbox per breakout kind — the re-enable path for a window that was
+    /// ✕-closed (discussion #45: the star should keep its chip without forcing the
+    /// window).</summary>
+    private void BuildBreakoutChecks()
+    {
+        BreakoutsPanel.Children.Clear();
+        foreach (var kind in Enum.GetValues<BreakoutKind>())
+        {
+            var name = kind.ToString();
+            var check = new System.Windows.Controls.CheckBox
+            {
+                IsChecked = !_main.Settings.DisabledBreakouts.Contains(name),
+                Margin = new Thickness(0, 2, 14, 0),
+                Content = new System.Windows.Controls.TextBlock
+                {
+                    Text = kind switch
+                    {
+                        BreakoutKind.Damage => "⚔ Damage",
+                        BreakoutKind.Healing => "⚕ Healing",
+                        BreakoutKind.Pet => "🐾 Pet",
+                        BreakoutKind.Watch => "🎯 Watch",
+                        _ => "🎒 Loot",
+                    },
+                    FontSize = 12,
+                },
+            };
+            ((System.Windows.Controls.TextBlock)check.Content).SetResourceReference(
+                System.Windows.Controls.TextBlock.ForegroundProperty, "TextBrush");
+            check.Checked += (_, _) => SetBreakout(name, enabled: true);
+            check.Unchecked += (_, _) => SetBreakout(name, enabled: false);
+            BreakoutsPanel.Children.Add(check);
+        }
+
+        void SetBreakout(string name, bool enabled)
+        {
+            if (!_ready) return;
+            if (enabled) _main.Settings.DisabledBreakouts.Remove(name);
+            else if (!_main.Settings.DisabledBreakouts.Contains(name))
+                _main.Settings.DisabledBreakouts.Add(name);
+            _vm.Persist();
+        }
     }
 
     private void OnRegenPerTickChanged(object sender, RoutedEventArgs e)

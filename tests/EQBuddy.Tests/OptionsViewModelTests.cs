@@ -84,5 +84,11 @@ public sealed class OptionsViewModelTests
         Assert.Equal("200%", vm.ScaleLabel);
         vm.BackgroundOpacity = 0.0;
         Assert.Equal(0.15, s.BackgroundOpacity, 3);
+        Assert.Equal(1.0, s.ChipScale);                  // default: chips at 100%
+        vm.ChipScale = 9;                                // clamps like UiScale
+        Assert.Equal(2.0, s.ChipScale);
+        Assert.Equal("200%", vm.ChipScaleLabel);
+        vm.ChipScale = 0.1;
+        Assert.Equal(0.5, s.ChipScale);
     }
 }

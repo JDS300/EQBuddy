@@ -470,17 +470,28 @@ another zone by hand must NOT untick Follow, and zoning afterwards snaps back.
 
 ## Mini mode
 
-Minimize (or `Ctrl+Shift+M`) collapses to a pill: status dot + starred stats (star
+Minimize (the – button) collapses to a pill: status dot + starred stats (star
 toggles live on each section header) + 📌-pinned watch-rule chips. Alert banners
 render above the pill. Double-click or ⤢ restores.
 
-## Global hotkeys & click-through
+## Click-through
 
-Defaults (editable as text in settings.json; conflicts/invalid bindings are reported
-in error.log): `Ctrl+Shift+H` show/hide · `Ctrl+Shift+T` click-through (border turns
-amber; clicks pass through to the game) · `Ctrl+Shift+M` mini · `Ctrl+Shift+K` camp
-marker. Windows: RegisterHotKey + WS_EX_TRANSPARENT. Linux: X11 implementation;
-Wayland and Wine-fullscreen topmost are known-limited (issue #2 discussion).
+Right-click menu → Click-through: the border turns amber and clicks pass through to
+the game (WS_EX_TRANSPARENT); a small clickable 🔒 chip parks beside the widget as
+the way back — a transparent window can't be clicked to unlock itself. On Linux the
+right-click menu item is itself the way back: it is a checkbox, and the menu is still
+reachable because the widget's own hit-testing is what's turned off, not the desktop's.
+
+**Global hotkeys** (show/hide overlay, click-through, mini mode, camp marker) are kept
+on this fork but ship UNBOUND. Upstream removed them outright in 1.34: bound by default,
+RegisterHotKey is system-wide, so EQBuddy was swallowing Ctrl+Shift+T (reopen browser
+tab) and friends from every app on the machine — a player caught it in the wild. With
+nothing bound, nothing is taken, and the service isn't even constructed. Bind one in
+⚙ Options → Global hotkeys by typing a combination like `Ctrl+Shift+H`, then restart:
+registration happens once, at window load. A combination another app already owns is
+reported in `error.log` and skipped. Installs upgrading from a version that shipped the
+old defaults get them cleared once, on load — unless the value was customised, which is
+left exactly as chosen.
 
 **Camp marker:** stamps a timestamped marker into the journal; shows under Travels &
 Deaths. Intended use: "since I set up camp here" bookkeeping.

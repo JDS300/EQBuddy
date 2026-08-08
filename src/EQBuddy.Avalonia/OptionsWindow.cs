@@ -322,9 +322,20 @@ public sealed class OptionsWindow : Window
 
         panel.Children.Add(Heading("Overlay cards", new Thickness(0, 14, 0, 2)));
         panel.Children.Add(_cardsPanel);
+
+        panel.Children.Add(Heading("Global hotkeys", new Thickness(0, 14, 0, 2)));
+        AddHotkeyRow(panel, "Show/hide overlay",
+            () => _main.Settings.HotkeyToggleOverlay, v => _main.Settings.HotkeyToggleOverlay = v);
+        AddHotkeyRow(panel, "Click-through",
+            () => _main.Settings.HotkeyClickThrough, v => _main.Settings.HotkeyClickThrough = v);
+        AddHotkeyRow(panel, "Mini mode",
+            () => _main.Settings.HotkeyMiniMode, v => _main.Settings.HotkeyMiniMode = v);
+        AddHotkeyRow(panel, "Drop camp marker",
+            () => _main.Settings.HotkeyCampMarker, v => _main.Settings.HotkeyCampMarker = v);
         panel.Children.Add(AppTheme.DimText(
-            $"Hotkeys (global, editable in settings.json):\n{_main.Settings.HotkeyToggleOverlay} show/hide - {_main.Settings.HotkeyClickThrough} click-through - {_main.Settings.HotkeyMiniMode} mini - {_main.Settings.HotkeyCampMarker} camp marker",
-            new Thickness(0, 14, 0, 0)));
+            "Unbound by default so EQBuddy never takes a shortcut from another app. Type a combination like Ctrl+Shift+H to bind one - restart to apply. Conflicts are reported in error.log.",
+            new Thickness(0, 4, 0, 0)));
+
         panel.Children.Add(AppTheme.DimText("Size also scales all text. Changes apply instantly and are saved.",
             new Thickness(0, 8, 0, 0)));
         return panel;
@@ -687,6 +698,22 @@ public sealed class OptionsWindow : Window
         var custom = Array.IndexOf(SoundNames, _main.Settings.AlertSound) < 0;
         _soundFileNote.Text = custom ? $"Custom: {_main.Settings.AlertSound}" : "";
         _soundFileNote.IsVisible = custom;
+    }
+
+    /// <summary>One "label: [combination]" row. Written back on LostFocus like the watch-rule
+    /// text boxes, and read by RegisterGlobalHotkeys at the next launch only — hence the
+    /// "restart to apply" note rather than a live re-register path that doesn't exist.</summary>
+    private void AddHotkeyRow(Panel panel, string label, Func<string> get, Action<string> set)
+    {
+        var box = DarkBox(get(), "A combination like Ctrl+Shift+H; leave empty to bind nothing");
+        box.PlaceholderText = "unbound";   // Watermark is the obsolete spelling of this
+        box.Width = 140;
+        box.LostFocus += (_, _) =>
+        {
+            set((box.Text ?? "").Trim());
+            _main.PersistSettings();
+        };
+        panel.Children.Add(Row(label, box, new Thickness(0, 4, 0, 0)));
     }
 
     private static TextBox DarkBox(string text, string tip)

@@ -14,6 +14,11 @@ public sealed class AppSettings
     public double WindowTop { get; set; } = double.NaN;
     public double Opacity { get; set; } = 0.96;
     public double UiScale { get; set; } = 1.0;
+    /// <summary>Scale for the small floating windows — spawn/mez chips and the alert
+    /// banner — independent of UiScale so 4K players can grow just those (discussion #47).</summary>
+    public double ChipScale { get; set; } = 1.0;
+    public double QuestsLeft { get; set; } = double.NaN;
+    public double QuestsTop { get; set; } = double.NaN;
     /// <summary>Opacity of the widget's background panel only — text stays fully opaque.</summary>
     public double BackgroundOpacity { get; set; } = 0.95;
     /// <summary>Empty finished-session logs automatically. Off = logs grow forever
@@ -73,11 +78,20 @@ public sealed class AppSettings
     public List<string> SectionOrder { get; set; } = [];
     /// <summary>Hidden overlay cards (still collect data — OVERLAY acceptance).</summary>
     public List<string> HiddenSections { get; set; } = [];
-    /// <summary>Global hotkeys ("Ctrl+Shift+H" style; empty disables one).</summary>
-    public string HotkeyToggleOverlay { get; set; } = "Ctrl+Shift+H";
-    public string HotkeyClickThrough { get; set; } = "Ctrl+Shift+T";
-    public string HotkeyMiniMode { get; set; } = "Ctrl+Shift+M";
-    public string HotkeyCampMarker { get; set; } = "Ctrl+Shift+K";
+    /// <summary>Global hotkeys ("Ctrl+Shift+H" style). EMPTY BY DEFAULT and deliberately
+    /// so: upstream removed these in 1.34 because system-wide registration swallowed
+    /// Ctrl+Shift+T (reopen browser tab) from every app on the machine. This fork keeps
+    /// the feature but steals nothing until the user opts in by binding a key in Options.
+    /// An empty or whitespace spec is skipped by X11HotkeyService.Register.</summary>
+    public string HotkeyToggleOverlay { get; set; } = "";
+    public string HotkeyClickThrough { get; set; } = "";
+    public string HotkeyMiniMode { get; set; } = "";
+    public string HotkeyCampMarker { get; set; } = "";
+    /// <summary>Whether the one-time unbind of the old shipped hotkey defaults has run.
+    /// A new default protects only new installs; everyone already running EQBuddy has the
+    /// old combinations written into settings.json, so they keep eating Ctrl+Shift+T until
+    /// something clears them. See <see cref="UnbindLegacyHotkeyDefaults"/>.</summary>
+    public bool HotkeysUnboundMigrated { get; set; }
     /// <summary>Color theme key (see EQBuddy.UI.Shared.ThemeCatalog); defaults to the
     /// original parchment-and-brass look so existing installs don't change on upgrade.</summary>
     public string Theme { get; set; } = "ParchmentBrass";
@@ -157,8 +171,13 @@ public sealed class AppSettings
     public bool HideWhenGameUnfocused { get; set; }
 
     // Breakout stat windows (BREAKOUT-*): one position + Fight/Session scope per kind.
-    // They open while the widget is minimized with the matching star set, so there is no
-    // enabled flag — the star is the switch.
+    // They open while the widget is minimized with the matching star set.
+
+    /// <summary>Breakout kinds the player ✕-closed for good ("Damage", "Loot", …): the
+    /// star keeps its mini-pill chip, the window stays away until re-enabled in Options
+    /// (Frankthetankk, discussion #45 — ✕-until-next-minimize made the window a
+    /// whack-a-mole).</summary>
+    public List<string> DisabledBreakouts { get; set; } = [];
     public double BreakoutDamageLeft { get; set; } = double.NaN;
     public double BreakoutDamageTop { get; set; } = double.NaN;
     public string BreakoutDamageScope { get; set; } = "fight";
@@ -229,7 +248,8 @@ public sealed class AppSettings
         // assigned at construction, and persisting them NOW is what makes the id stable
         // across restarts rather than re-rolled every launch until some unrelated edit
         // happens to save settings.
-        if (settings.ApplyDefaultRules() | settings.TrackedRules.Any(r => r.IdWasGenerated))
+        if (settings.ApplyDefaultRules() | settings.UnbindLegacyHotkeyDefaults()
+            | settings.TrackedRules.Any(r => r.IdWasGenerated))
             settings.Save();
         return settings;
     }
@@ -264,6 +284,31 @@ public sealed class AppSettings
             });
         }
         DefaultRulesVersion = CurrentDefaultRulesVersion;
+        return true;
+    }
+
+    /// <summary>
+    /// One-time unbind of the hotkey combinations EQBuddy used to ship bound out of the
+    /// box. Changing the property defaults protects new installs only — every existing
+    /// settings.json already has "Ctrl+Shift+H"/"T"/"M"/"K" written into it, and
+    /// Ctrl+Shift+T is the one that matters: bound system-wide, it takes "reopen closed
+    /// tab" away from every browser on the machine.
+    ///
+    /// Only values that still match the old default are cleared. Someone who deliberately
+    /// picked their own combination chose it, and a migration that overwrote a considered
+    /// choice would be a bug wearing a fix's clothes.
+    ///
+    /// Always returns true the first time so the flag itself gets persisted; otherwise the
+    /// pass would run again at every launch and re-clear a binding the user just set.
+    /// </summary>
+    public bool UnbindLegacyHotkeyDefaults()
+    {
+        if (HotkeysUnboundMigrated) return false;
+        HotkeysUnboundMigrated = true;
+        if (HotkeyToggleOverlay == "Ctrl+Shift+H") HotkeyToggleOverlay = "";
+        if (HotkeyClickThrough == "Ctrl+Shift+T") HotkeyClickThrough = "";
+        if (HotkeyMiniMode == "Ctrl+Shift+M") HotkeyMiniMode = "";
+        if (HotkeyCampMarker == "Ctrl+Shift+K") HotkeyCampMarker = "";
         return true;
     }
 

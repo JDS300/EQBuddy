@@ -136,6 +136,14 @@ public sealed class SessionStats
     /// through to it, and snapshots read the union, so truncated logs can't forget an AA.</summary>
     public AaLedgerStore? AaStore { get; set; }
 
+    /// <summary>Optional quest-item ledger, fed from loot events the same way AaStore
+    /// rides AA purchases (QUEST-*; the UI wires catalog + path).</summary>
+    public QuestLedgerStore? QuestStore { get; set; }
+
+    /// <summary>The per-character ledger key ("dranak_legends") the stores are written
+    /// under — the Quest Tracker window queries the ledger with this.</summary>
+    public string LedgerCharacterKey => AaCharacterKey;
+
     private string AaCharacterKey =>
         CharacterName is { Length: > 0 } c ? $"{c}_{ServerName}".ToLowerInvariant() : "";
     private readonly List<(DateTime Time, int Level)> _levels = new();
@@ -678,6 +686,9 @@ public sealed class SessionStats
                     _lootCount += l.Count;
                     // Loot lines name the corpse — explicit creature correlation (CORRELATE-005).
                     Bump(Mob(l.Source).Loot, l.Item);
+                    // Quest ledger rides the same event; the store's own filter and
+                    // time high-water mark decide whether anything actually lands.
+                    QuestStore?.RecordLoot(AaCharacterKey, l.Item, l.Count, l.Time);
                     break;
                 case CraftEvent c:
                     Bump(_crafted, c.Item);

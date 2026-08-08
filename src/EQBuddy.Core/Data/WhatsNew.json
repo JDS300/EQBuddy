@@ -1,5 +1,41 @@
 [
  {
+  "version": "1.37.0",
+  "date": "2026-08-07",
+  "highlights": [
+   "Two big EXPANDED BETA features below — built in one day from your reports, and shaped by what you send next. Tell us what's confusing, wrong, or missing via the ✉ Send feedback button; that loop built everything you see here.",
+   "NEW (beta): 🗺 QUEST TRACKER — right-click menu or the 🗺 in the Loot header. 914 wiki quests matched against what you loot (plus a \"+ I have this\" box for pre-EQBuddy inventory). Three views: MINE (your items and 📌-pinned quests), ZONE (everything workable where you're standing — including dialogue chains with no items), ALL (browse). Each card: rewards up top (hover for wiki stats, click to open the page), turn-in progress with the same hover, giver/level/class, how many zones away the turn-in is (hover for the route — zone connections courtesy of eqltools.com), a 📌 to track, ✕ to dismiss. Filter by class. Click ✔ ready when you hand in — it consumes the items from your counts and marks it done (repeatables show \"ready ×3\" style counts instead of disappearing).",
+   "NEW (beta): quest loot shows GREEN in the Loot lists with a small 🗺 — green means a real quest wants that item, so think before you vendor it. Click the 🗺 to see exactly which quests, and pin the ones you care about. Dismissing a quest (✕) un-greens items only it wanted.",
+   "NEW: 🔮 MOTES gets its own card — every Mote of … Potential tier with counts and motes/hour, sorted by the ladder, counting both looted and stored-as-currency motes (flipwon's idea, filed through Send feedback). Star it for the mini pill.",
+   "Honest limits worth knowing: the game never logs hand-ins (that's what the ✔ click is for), the ledger starts counting from this update forward, and \"zones away\" counts a boat ride as one hop."
+  ]
+ },
+ {
+  "version": "1.36.0",
+  "date": "2026-08-07",
+  "highlights": [
+   "New Options slider: Chips & alerts size — scales the spawn timer chips, mez chips, and the alert banner together, up to 200%, separately from the widget (jlewisnj's 4K report through Send feedback). Drag it with Options open and watch the ★ alert tile resize live."
+  ]
+ },
+ {
+  "version": "1.35.0",
+  "date": "2026-08-06",
+  "highlights": [
+   "Breakout windows now resize from ANY side or corner, like a normal window — grab an edge and go (the corner grip stays as the visible hint; double-click it to auto-size again).",
+   "\"Open wiki page\" in the Item info popup works again — the window's drag handler was quietly stealing the click (thanks twidget76, filed through Send feedback). Same fix applied to clickable item names everywhere.",
+   "Named mobs with \"The\" names show their drops — The Prophet in Crushbone was coming up empty because the wiki page keeps its \"The\" and EQBuddy's lookup didn't. And when no exact name matches at all, a fuzzy wiki search now backstops the lookup (typos and punctuation drift resolve; a wrong creature never sneaks in)."
+  ]
+ },
+ {
+  "version": "1.34.0",
+  "date": "2026-08-06",
+  "highlights": [
+   "FIXED: EQBuddy was silently swallowing Ctrl+Shift+T (reopen browser tab) and a few other shortcuts from EVERY app on your PC — the global hotkeys registered system-wide. They're gone entirely (thanks to the sharp-eyed Reddit report). Everything they did is on the widget itself: – for mini mode, right-click for camp markers and click-through.",
+   "Click-through moved to the right-click menu, with a small 🔒 chip beside the widget while it's on — click the chip to interact again (a click-through window can't be clicked to unlock itself).",
+   "✕ on a breakout window now hides it for good — its ⭐ chip stays on the mini pill, and Options → Breakout windows has checkboxes to bring any window back (thanks Frankthetankk, reported through Send feedback within an hour of 1.33.0)."
+  ]
+ },
+ {
   "version": "1.33.0",
   "date": "2026-08-06",
   "highlights": [

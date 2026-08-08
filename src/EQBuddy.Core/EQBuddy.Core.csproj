@@ -23,6 +23,8 @@
     <EmbeddedResource Include="Data\AaCatalog.json" />
     <EmbeddedResource Include="Data\CcSpells.json" />
     <EmbeddedResource Include="Data\RegenSpells.json" />
+    <EmbeddedResource Include="Data\QuestCatalog.json" />
+    <EmbeddedResource Include="Data\ZoneGraph.json" />
   </ItemGroup>
 
 </Project>

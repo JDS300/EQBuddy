@@ -22,8 +22,11 @@
                 <MenuItem Header="Drop camp marker" Click="OnCampMarker"/>
                 <MenuItem Header="Session history…" Click="OnHistory"/>
                 <MenuItem Header="Spawn timers…" Click="OnSpawnsWindow"/>
+                <MenuItem Header="Quest tracker…" Click="OnQuestsWindow"/>
                 <MenuItem x:Name="TrackSpawnsItem" Header="Track spawns (named respawn timers)"
                           IsCheckable="True" Click="OnTrackSpawns"/>
+                <MenuItem x:Name="ClickThroughItem" Header="Click-through (game clicks pass through)"
+                          IsCheckable="True" Click="OnClickThrough"/>
                 <MenuItem Header="Send feedback…" Click="OnFeedback"/>
                 <Separator/>
                 <MenuItem x:Name="ChooseLogFolderItem" Header="Choose log folder…" Click="OnChooseLogFolder"/>
@@ -312,10 +315,16 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="&#x1F392; Loot" FontSize="13"/>
                         <TextBlock x:Name="LootHeader" Grid.Column="1" Style="{StaticResource StatValue}" Text="0 items"/>
-                        <ToggleButton x:Name="StarLoot" Grid.Column="2" Style="{StaticResource StarToggle}"
+                        <TextBlock Grid.Column="2" Text="&#x1F5FA;" FontSize="12" Cursor="Hand"
+                                   Margin="8,0,0,0" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource DimBrush}"
+                                   ToolTip="Open the Quest Tracker"
+                                   MouseLeftButtonUp="OnLootQuestMap"/>
+                        <ToggleButton x:Name="StarLoot" Grid.Column="3" Style="{StaticResource StarToggle}"
                                       Tag="loot" Click="OnStarChanged" ToolTip="Show loot count in mini dashboard"/>
                     </Grid>
                 </Expander.Header>
@@ -343,6 +352,29 @@
                                    Foreground="{DynamicResource WarnBrush}" TextWrapping="Wrap"/>
                         <ItemsControl x:Name="TargetDropsList" Margin="10,2,0,0"/>
                     </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <!-- Motes (discussion #49, flipwon): the Potential upgrade-currency ladder as a
+                 first-class card — the Loot list keeps showing them too; this is the
+                 at-a-glance view with the per-hour rate farmers actually watch. -->
+            <Expander x:Name="MotesSection" Style="{StaticResource Section}">
+                <Expander.Header>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="&#x1F52E; Motes" FontSize="13"/>
+                        <TextBlock x:Name="MotesHeader" Grid.Column="1" Style="{StaticResource StatValue}" Text="0"/>
+                        <ToggleButton x:Name="StarMotes" Grid.Column="2" Style="{StaticResource StarToggle}"
+                                      Tag="motes" Click="OnStarChanged" ToolTip="Show motes in mini dashboard"/>
+                    </Grid>
+                </Expander.Header>
+                <StackPanel>
+                    <TextBlock x:Name="MotesSummaryText" Style="{StaticResource Dim}" Margin="0,2,0,4"/>
+                    <ItemsControl x:Name="MotesList"/>
                 </StackPanel>
             </Expander>
 

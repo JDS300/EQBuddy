@@ -1,0 +1,503 @@
+# Quest harvest report
+
+- Quest Items category members: 3993
+- Pages enumerated: 914
+- Parsed: 914 (empty pages: 0)
+- With turn-in items: 456
+- Unique turn-in item names: 1183
+- Missing quest giver: 32
+- Backoff events: 0
+
+## Quests with no turn-in items parsed (review these)
+- Acumen Mask Quest
+- Aenia and Behroe
+- Air Tight Box Quest
+- Ale for Beur
+- Ancient Dragon Tome
+- Armor Size
+- Azzar's Dreadful Hat Quest
+- Azzar's Dreadful Hat, Part 2
+- Bandit Spectacles
+- Bard Kael Armor Quests
+- Bard Mail
+- Bard Reports
+- Bat Fur and Beetle Legs
+- Bat Fur Quest
+- Bat Wings and Snake Fangs
+- Bearskin Gloves Quest
+- Beguile Plants Quest
+- Behead the Freeport Militia
+- Beta Neutral
+- Blackburrow Brewers
+- Blackburrow Stout Delivery
+- Blackburrow Stout Shipment
+- Blank Scrolls
+- Blessed Oil
+- Blessed Oil Quest
+- Blizzent's Fang Quest
+- Blood Ink
+- Bloodboil Quest
+- Bone Chips Quests
+- Boysenberry Pie Quest
+- Bracers of Erollisi Quest
+- Bread Shipment Quests
+- Broken Lute
+- Broom Of Trilon Quest
+- Bug Collection
+- Bulthar Trunks
+- Burynai Bundt Cake
+- Bvellos' Bounty
+- Cabilis Pale Ale (Firiona Vie)
+- Captain Nealith's Brother
+- Catfish Tail
+- Catman Alliance
+- Cazic Thule Symbol Quests
+- Cheslin's Illusion Cards
+- Circlet of Mist Quest
+- Class Race Quest List
+- Clay Bracelet Quest
+- Clear Water Quest
+- Cleric Spells (Evil)
+- Cleric Spells (Good)
+- Cleric Supplies
+- Cleric Thurgadin Armor Quests
+- Clurg's New Creation
+- Coldain Books of Tactics
+- Collect Drops of Shadow
+- Collier's Weapon Treatment
+- Corrupt Guards
+- Cougarskin Boots Quest
+- Cougarskin Mask Quest
+- Cougarskin Sleeves Quest
+- Crafted Armor Quests
+- Crest of the Drixie Quest
+- Crest of the Faerie Dragons Quest
+- Crest of the Fauns Quest
+- Crest of the Wood Nymphs Quest
+- Crude Stein Quest
+- Crush the Undead
+- Crustacean Shell Armor Quest
+- Cures
+- Custom Plate Helms - Kael Drakkel
+- Cutthroat Rings
+- Dain's Head
+- Darkforge Armor Quests
+- Death of Lyda Nasin
+- Deck of Spontaneous Generation Quest
+- Demise of Blizzent
+- Deputy Tagil's Debt
+- Dire Wolf-Hide Cloak Quest
+- Direwolf Fur Cloak Quest
+- Direwolf Fur Hood Quest
+- Divine Duty
+- Dozekar Tear Quests
+- Dragon Heads
+- Drolvarg Teeth
+- Drosco the Zombie (evil)
+- Druid Kael Armor Quests
+- Druid Thurgadin Armor Quests
+- Emberfold Exchange
+- Enchant Bonethunder
+- Enchanter Kael Armor Quests
+- Enchanter Plane of Sky Tests
+- Enchanter Spells (Evil)
+- Enchanter Spells (Good)
+- Enchanter Thurgadin Armor Quests
+- Errand for Tonmerk
+- Erud's Tonic Quest
+- Erudin Cures
+- Essence Lens Quest
+- Faction Quests
+- Faerie Dragon Wings
+- Fang Tooth (quest)
+- Faren's Tacklebox
+- Feeding Dooga
+- Fern Flower Collection
+- Feskr's Supplies
+- Fire Goblin Runner
+- First Test of Kejaar
+- Fish Dinner
+- Fresh Baked Muffins (Qeynos)
+- Froglok Tad Tongues
+- Frostbite's Fish
+- Fusibility Research
+- Garath's Weapons to Trade
+- Gathering Grain
+- Gearheart (Quest)
+- Geozite Tool Quest
+- Gharin's Note (good)
+- Gindlin's Poison
+- Gnasher's Head
+- Gnoll Paws
+- Gnomish Toy
+- Goblin Battlemasters
+- Goblin Caster Necklace
+- Goblin Raiders
+- Going Postal
+- Greenblood Tunics
+- Grim's Tiger Revenge
+- Groflah Steadirt's Death
+- Guard of Ik Quest
+- Guard Shilster's Stout
+- Guild Summons
+- Guild Summons - Abbey of Deep Musing Cleric
+- Guild Summons - Abbey of Deep Musing Rogue
+- Guild Summons - Cathedral of Fortitude
+- Guild Summons - Cauldron of Hate
+- Guild Summons - Coalition of Tradefolk Underground
+- Guild Summons - Craft Keepers
+- Guild Summons - Crimson Hands
+- Guild Summons - Da Bashers
+- Guild Summons - Dark Ones
+- Guild Summons - Dark Reflection Cleric
+- Guild Summons - Dark Reflection Enchanter
+- Guild Summons - Dark Reflection Magician
+- Guild Summons - Dark Reflection Necromancer
+- Guild Summons - Dark Reflection Rogue
+- Guild Summons - Dark Reflection Warrior
+- Guild Summons - Dark Reflection Wizard
+- Guild Summons - Deepwater Cleric
+- Guild Summons - Deepwater Paladin
+- Guild Summons - Dismal Rage Cleric
+- Guild Summons - Dismal Rage Enchanter
+- Guild Summons - Dismal Rage Magician
+- Guild Summons - Dismal Rage Necromancer
+- Guild Summons - Dismal Rage Shadowknight
+- Guild Summons - Dismal Rage Warrior
+- Guild Summons - Dismal Rage Wizard
+- Guild Summons - Faydark's Champions
+- Guild Summons - Fortress Craknek
+- Guild Summons - Gate Callers
+- Guild Summons - Gemchopper Hall
+- Guild Summons - Greenblood Rock
+- Guild Summons - Hall of Sorcery Enchanter
+- Guild Summons - Hall of Sorcery Magician
+- Guild Summons - Hall of Sorcery Wizard
+- Guild Summons - Hall of the Ebon Mask
+- Guild Summons - Hall of Truth Cleric
+- Guild Summons - Hall of Truth Paladin
+- Guild Summons - Jaggedpine Treefolk
+- Guild Summons - Libary Mechanimagica Enchanter
+- Guild Summons - Libary Mechanimagica Magician
+- Guild Summons - Libary Mechanimagica Wizard
+- Guild Summons - Marsheart's Chords
+- Guild Summons - Murdunk's Palace
+- Guild Summons - Night Keep
+- Guild Summons - Priests of Innoruuk
+- Guild Summons - Protectors of the Pine
+- Guild Summons - Rogues of the White Rose
+- Guild Summons - Scouts of Tunare
+- Guild Summons - Shamen of Justice
+- Guild Summons - Shrine of Bertoxxulous Enchanter
+- Guild Summons - Soldiers of Tunare
+- Guild Summons - Songweavers
+- Guild Summons - Tabernacle of Terror
+- Guild Summons - Temple of Bertoxxulous Cleric
+- Guild Summons - Temple of Divine Light Cleric
+- Guild Summons - Temple of Divine Light Paladin
+- Guild Summons - Temple of Life Cleric
+- Guild Summons - Temple of Life Paladin
+- Guild Summons - Temple of Marr Cleric
+- Guild Summons - Temple of Marr Paladin
+- Guild Summons - Temple of Thunder Cleric
+- Guild Summons - Temple of Thunder Paladin
+- Guild Summons - The Amethyst Palace
+- Guild Summons - The Dead Necromancer
+- Guild Summons - The Dead Shadowknight
+- Guild Summons - The Fell Blade
+- Guild Summons - The Spurned Enchanter
+- Guild Summons - The Spurned Magician
+- Guild Summons - The Spurned Wizard
+- Guild Summons - The Wind Spirit's Song
+- Guild Summons - Wolves of the North
+- Hate Tail Guard Shield
+- Head of Granin O'Gill
+- Heal Yourself
+- Healing (Dismal Rage)
+- Healing Quest
+- Health Potion
+- Helm of the Tracker Quest
+- Herb Shop
+- Heretic Battle
+- Heretic Toy
+- Heretic's Toy
+- High Guard Battlestaff
+- Holy Armor Buff Quest
+- Hopeless Love, Part 1
+- Hopeless Love, Part 2
+- How the Goblins Stole Frostmas
+- Hungry Deputy
+- Icestar's Eve Snowdrift Feast
+- Ilanic's Scroll
+- Illegible Cantrip Quest
+- Illweed Parchment Quest
+- Incandescent Mask quest
+- Inert Potion Quest
+- Jillin's Stew
+- Journal Strongbox
+- Karana's Blessing
+- Keeper Rott's Pages
+- Kelorek's Scales
+- Kevlin Diggs' Debt
+- Key to Charasis Quest
+- Key to Jaled Dar's Lair (Neb)
+- Key to Jaled Dar's Lair (Zlandicar)
+- Key to Sleeper's Tomb
+- Kilij's Plans
+- Kobold Molars (Evil)
+- Kobold Molars (Good)
+- Kobold Shaman Paws
+- Kwinn's Quest
+- Kwint's Kwest
+- Lambent Armor Quests
+- Legion Lager Quest
+- Library Book
+- Lion Meat Shipment Quest
+- Lionskin Gloves Quest
+- Living Dragons
+- Lizard Dolls
+- Lizard Meat No 2
+- Lizard Tails
+- Lodizal Shell Shield Quest
+- Long Iron Rod Quest
+- Lord Grimlot's Love
+- Lupine Claw Gauntlets Quest
+- Lydl Mastat
+- Lynuga's Gem Collection
+- Madame Serena Quest
+- Magic Elixir for the Warriors
+- Magician Kael Armor Quests
+- Magician Spells (Evil Version)
+- Magician Spells (Evil)
+- Magician Spells (Good)
+- Marr Minnows for Palon
+- Mask of War Quest
+- Medallion of the Jarsath Quest
+- Medallion of the Kylong Quest
+- Medallion of the Obulus Quest
+- Merona's Brother
+- Message Intercept
+- Messages For Neriak
+- Metal Bits for the New Sebilisian Expedition
+- Mining Caps
+- Miranda's Chocolate
+- Miranda's Dice
+- Monk Headband Quests
+- Monk Kael Armor Quests
+- Monk Quests
+- Mooto's Proof
+- Natures Defender Quest
+- Necro Spells
+- Necromancer Kael Armor Quests
+- Necromancer Spells (Cabilis)
+- Necromancer Thurgadin Armor Quests
+- Necromancer Words - X`Ta Tempi
+- Necromancer Words - X`Ta Timpi
+- Necromancer Words - X`Ta Tompi
+- Nesiff's Statue
+- Newbie Quest: Halfling Druid
+- Newbie Quest: Troll Warrior
+- Nillipuss the Brownie
+- Note for Konem
+- Note for Rebby
+- Note to Neclo Quest
+- Odus Pearls
+- Orc Belt Quests
+- Orc Picks
+- Ortallius' Cutthroat Rings
+- Paladin Kael Armor Quests
+- Paw of Opolla Quest
+- Pirate Earrings
+- Plane of Mischief Faction Quest
+- Popular Quests by Level
+- Preserved Meat Delivery
+- Quest:Druid Spells
+- Quest:Necromancer Spells
+- Rallos Zek Symbol Quests
+- Ranger Kael Armor Quests
+- Rare Coins
+- Rat Fur Cap Quest
+- Rat Pelt Cape Quest
+- Rat Shaped Rings
+- Rathmana's Traveling Offer
+- Ratskin Gloves Quest
+- Razortooth
+- Red Dragonscale Armor Quest
+- Reebo's Carrots
+- Research Aid
+- Reserve Militia
+- Robe of the Elements Quest
+- Rogue Errands
+- Rogue Kael Armor Quests
+- Rogue Plane of Sky Tests
+- Runescale Cloak Quest
+- Rusted Black Boxes
+- Sad Klandicar
+- Saucy Salted Seadragon Steak
+- Scaled Mystic Armor Quests
+- Scout Blade
+- Scrap Metal Quest
+- Scroll of G'han
+- Scrolls of the Ancient Totem
+- Second Test of Kejaar
+- Sentry Xyrin Quest
+- Shadowknight Kael Armor Quests
+- Shakey the Scarecrow's Head
+- Shaman Kael Armor Quests
+- Shaman Spells (Evil - Iksar)
+- Shaman Spells (Evil)
+- Shaman Spells (Good)
+- Shaman's Velium Sleeves
+- Shestar's Scaled Coif Quest
+- Shiny Rings
+- Shiny Robe of the Underfoot Quest
+- Shovel Of Ponz Quest
+- Sifaye Abominations
+- Sir Morgan's Armor
+- Skunk Scent Gland (quest)
+- Snake Fang Necklace Quest
+- Soil of Underfoot
+- Solusek's Flower
+- Something is Wrrrong
+- Spider Legs Quest
+- Spirit Powder
+- Staff of Temperate Flux Quest
+- Steel Warrior Initiation
+- Stein Of Ulissa Quest
+- Strategies of the Ancient Dragons
+- Strife to the Coldain
+- Supplies for the New Sebilisian Expedition
+- Talym Shoontar's Head
+- Tarton's Wheel
+- Taskmaster Earring
+- Taxes
+- Tayla Ironforge
+- Temple Blankets Quest
+- Tergon's Spellbook Quest
+- Terrorantula Quest
+- Test of the Emerald Tear
+- Test of the Fire Storm
+- Test of the Living Flame
+- Test of the Platinum Tear
+- Test of the Ruby Tear
+- The Acolyte
+- The Ancient Tomes
+- The Bind
+- The Bloody Shank
+- The Bridge
+- The Broodling
+- The Burning Dead
+- The Cigar
+- The Crate (evil)
+- The Crate (good)
+- The Donations
+- The Emissary
+- The Falchion
+- The Family Chest Straps
+- The First Arcane Test
+- The Four Fragments
+- The Four Idols
+- The Grammar Manual
+- The Icestar Dims
+- The Loom
+- The Lost Circle
+- The Lost Tome
+- The Lottery Ticket
+- The Luck of Allix
+- The Mighty Garou
+- The Mudtoes
+- The Package
+- The Painting
+- The Power of the Gatecallers
+- The Rat King
+- The Realm of Heroes -- Felwithe
+- The Rogue Take
+- The Seax
+- The Second Arcane Test
+- The Supply Run - Wakening Land
+- The Sword of Nobility
+- The Tattered Pouch
+- The Telescope
+- The Test of the Green and Blue
+- The Tome Raider
+- The Torn Pouch
+- The Vengeful Musicians
+- The Waylaid Courier
+- The Worldly Path
+- This Means Warrr
+- Tinmizer's Fabulous Compactor (Quest)
+- Tiny Savages
+- Titan Samples (evil)
+- Titan Samples (good)
+- Toko's Head
+- Tome of Ages
+- Toolset Delivery
+- Torch Of Alna Quest
+- Tormax's Head - Dwarves
+- Totemic Armor Quests
+- Toxdil's Poison
+- Tribunal Healing
+- Trumpy's Head
+- Ulthork Tusks Quest
+- Unkempt Druids (Quest)
+- Unsar's Glory
+- Unser's Call
+- Vambraces of Avoidance Quest
+- Velious Class Armor
+- Velious Class Armor Comparisons
+- Vengeance for Frenway
+- Visceral Dagger
+- Vkjor's Major Task
+- Wage War Upon The Coldain
+- Wall Squad Ring
+- Warrior Kael Armor Quests
+- Weeping Wand Quest
+- Wenbie's Muffins
+- Wenglawks The Traitor
+- Werewolf Skin Cloak Quest
+- White Dragonscale Cloak Quest
+- Winds of Karana
+- Wisdom - The Long Battle
+- Wislen Mamluk's Catfish
+- Wizard Kael Armor Quests
+- Wizard Spells (Evil)
+- Wizard Spells (Good)
+- Wizard Thurgadin Armor Quests
+- Wolf Hide Armor
+- Wolfskin Gloves Quest
+- Xelha's Cyclops Eye
+- Yelinak's Head Quest
+
+## Missing quest giver
+- 10th Coldain Ring Quest
+- All Positive Faction Quests
+- Bone Chips Quests
+- Bread Shipment Quests
+- Class Race Quest List
+- Cleric Plane of Sky Tests
+- Cougarskin Boots Quest
+- Cougarskin Sleeves Quest
+- Dozekar Tear Quests
+- Druid Plane of Sky Tests
+- Enchanter Plane of Sky Tests
+- Faction Quests
+- Guild Summons
+- Hollow Skull Quest
+- Magician Plane of Sky Tests
+- Monk Plane of Sky Tests
+- Monk Quests
+- Muffin Quests
+- Necromancer Plane of Sky Tests
+- Orc Belt Quests
+- Paladin Plane of Sky Tests
+- Ranger Plane of Sky Tests
+- Rogue Plane of Sky Tests
+- Scroll of G'han
+- Shadow Knight Plane of Sky Tests
+- Shaman Plane of Sky Tests
+- The Bread Shipment
+- The Mighty Snowfang Hero
+- Velious Class Armor
+- Velious Class Armor Comparisons
+- Warrior Plane of Sky Tests
+- Wizard Plane of Sky Tests

@@ -35,3 +35,11 @@ Licensed under the MIT License:
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 --------------------------------------------------------------------------------
+
+Zone connection data (ZoneGraph.json)
+--------------------------------------------------------------------------------
+Zone-line connections are derived from the eqltools.com Zone Atlas
+(https://eqltools.com/atlas), which parses them from EverQuest Legends client
+files; boat and port routes supplement from eqlwiki.com (CC BY-SA 4.0).
+Quest and item knowledge derives from eqlwiki.com, the community wiki.
+--------------------------------------------------------------------------------

@@ -45,8 +45,51 @@ public class EqlWikiMobsTests
             });
         var result = await svc.LookupAsync("Spite golem");
         Assert.Equal(ItemLookupState.Live, result.State);
-        Assert.Equal(["Spite golem", "A spite golem", "Spite Golem", "A Spite Golem"], requested);
+        Assert.Equal(["Spite golem", "A spite golem", "The spite golem", "Spite Golem", "A Spite Golem"],
+            requested);
         Assert.Equal("Apothic Crown", result.Mob!.Drops.Single().Item);
+    }
+
+    [Fact]
+    public async Task TheNamedMobsResolveViaTheirArticle()
+    {
+        // Normalize strips "the " like any article, so The Prophet arrives as "Prophet" —
+        // and bare "Prophet" is missing on the wiki (David's report: a well-known named
+        // showing no drops). The ladder must try the "The" forms.
+        var svc = new EqlWikiMobService(
+            Path.Combine(Path.GetTempPath(), $"mobcache-{Guid.NewGuid():N}"),
+            title => Task.FromResult<string?>(title == "The Prophet"
+                ? "{{Namedmobpage\n| name = The Prophet\n| known_loot = \n{{:Prophet Skull}}\n}}"
+                : null));
+        var result = await svc.LookupAsync("Prophet");
+        Assert.Equal(ItemLookupState.Live, result.State);
+        Assert.Equal("Prophet Skull", result.Mob!.Drops.Single().Item);
+    }
+
+    /// <summary>The fuzzy fallback (David, 2026-08-06): when every exact form misses,
+    /// wiki search results are accepted under the spawn catalog's bounded-edit-distance
+    /// rule — a one-letter drift resolves, a merely-related page never does.</summary>
+    [Fact]
+    public async Task WikiSearchRescuesANearMissButNeverAStranger()
+    {
+        var svc = new EqlWikiMobService(
+            Path.Combine(Path.GetTempPath(), $"mobcache-{Guid.NewGuid():N}"),
+            title => Task.FromResult<string?>(title == "Emperor Crushbone"
+                ? "{{Namedmobpage\n| name = Emperor Crushbone\n| known_loot = \n{{:Crown of the Emperor}}\n}}"
+                : null),
+            _ => Task.FromResult<List<string>>(["Emperor Crushbone"]));
+        // One letter off — every exact candidate misses, search + fuzzy resolve it.
+        var result = await svc.LookupAsync("Emperor Crushbon");
+        Assert.Equal(ItemLookupState.Live, result.State);
+        Assert.Equal("Crown of the Emperor", result.Mob!.Drops.Single().Item);
+
+        // A dissimilar search hit is rejected: better no answer than a wrong creature.
+        var strict = new EqlWikiMobService(
+            Path.Combine(Path.GetTempPath(), $"mobcache-{Guid.NewGuid():N}"),
+            _ => Task.FromResult<string?>(null),
+            _ => Task.FromResult<List<string>>(["Crushbone (Zone)"]));
+        Assert.Equal(ItemLookupState.NotFound,
+            (await strict.LookupAsync("Emperor Crushbon")).State);
     }
 
     [Fact]
@@ -54,7 +97,8 @@ public class EqlWikiMobsTests
     {
         var svc = new EqlWikiMobService(
             Path.Combine(Path.GetTempPath(), $"mobcache-{Guid.NewGuid():N}"),
-            _ => Task.FromResult<string?>(null));
+            _ => Task.FromResult<string?>(null),
+            _ => Task.FromResult<List<string>>([]));   // stubbed: no network from a unit test
         var result = await svc.LookupAsync("Utterly Fictional");
         Assert.Equal(ItemLookupState.NotFound, result.State);
         Assert.Equal(ItemLookupState.Offline,

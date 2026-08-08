@@ -23,6 +23,7 @@ public partial class AlertWindow : Window
     {
         InitializeComponent();
         _settings = settings;
+        ChipScale.Apply(this, settings.ChipScale);
         _hide = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
         _hide.Tick += (_, _) => { _hide.Stop(); if (!_placement) Hide(); };
         SourceInitialized += (_, _) => ApplyClickThrough(!_placement);

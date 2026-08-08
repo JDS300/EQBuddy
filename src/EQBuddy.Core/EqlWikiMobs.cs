@@ -35,12 +35,15 @@ public sealed partial class EqlWikiMobService
 
     private readonly string _cacheDir;
     private readonly Func<string, Task<string?>> _fetch;
+    private readonly Func<string, Task<List<string>>> _search;
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(12) };
 
-    public EqlWikiMobService(string cacheDir, Func<string, Task<string?>>? fetchOverride = null)
+    public EqlWikiMobService(string cacheDir, Func<string, Task<string?>>? fetchOverride = null,
+        Func<string, Task<List<string>>>? searchOverride = null)
     {
         _cacheDir = cacheDir;
         _fetch = fetchOverride ?? FetchFromApi;
+        _search = searchOverride ?? SearchFromApi;
     }
 
     public async Task<MobLookupResult> LookupAsync(string creatureName)
@@ -66,7 +69,41 @@ public sealed partial class EqlWikiMobService
             WriteCache(title, candidate, wikitext);
             return new MobLookupResult(Parse(wikitext, candidate), ItemLookupState.Live, DateTime.UtcNow);
         }
+
+        // Every exact form missed: ask the wiki's own search, and accept its top hits
+        // only under the spawn catalog's fuzzy rule (bounded edit distance on folded
+        // names, exact-first doctrine) — typos and punctuation drift resolve, but a
+        // vaguely-related page can never masquerade as the creature (David, 2026-08-06).
+        try
+        {
+            foreach (var found in (await _search(title).ConfigureAwait(false)).Take(5))
+            {
+                if (!SpawnCatalog.NameMatchesFuzzy(found, title)) continue;
+                var wikitext = await _fetch(found).ConfigureAwait(false);
+                if (wikitext is null) continue;
+                WriteCache(title, found, wikitext);
+                return new MobLookupResult(Parse(wikitext, found), ItemLookupState.Live, DateTime.UtcNow);
+            }
+        }
+        catch
+        {
+            return cached is { } stale
+                ? new MobLookupResult(Parse(stale.Wikitext, stale.Title), ItemLookupState.StaleCache, stale.FetchedAt)
+                : new MobLookupResult(null, ItemLookupState.Offline, null);
+        }
         return new MobLookupResult(null, ItemLookupState.NotFound, null);
+    }
+
+    private static async Task<List<string>> SearchFromApi(string query)
+    {
+        var url = "https://eqlwiki.com/api.php?action=query&list=search&srlimit=5&format=json&srsearch="
+            + Uri.EscapeDataString(query);
+        using var doc = JsonDocument.Parse(await Http.GetStringAsync(url).ConfigureAwait(false));
+        var results = new List<string>();
+        foreach (var hit in doc.RootElement.GetProperty("query").GetProperty("search").EnumerateArray())
+            if (hit.GetProperty("title").GetString() is { Length: > 0 } t)
+                results.Add(t);
+        return results;
     }
 
     /// <summary>SessionStats mob names arrive article-stripped and first-letter-capitalized
@@ -88,8 +125,13 @@ public sealed partial class EqlWikiMobService
             yield return title;
             yield return "A " + lower;
             if ("aeiou".Contains(lower[0])) yield return "An " + lower;
+            // Normalize strips EVERY leading article, including "The" — but named mobs
+            // often live at "The <Name>" pages ("The Prophet" in Crushbone showed no
+            // drops, David 2026-08-06; bare "Prophet" is missing on the wiki).
+            yield return "The " + lower;
             yield return titleCase;
             yield return "A " + titleCase;
+            yield return "The " + titleCase;
             var noBacktick = title.Replace("`", "");
             if (noBacktick != title)
             {

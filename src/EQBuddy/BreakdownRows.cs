@@ -21,7 +21,7 @@ internal static class BreakdownRows
 
     /// <summary>One breakdown row: a bar sized to frac behind "name … value".</summary>
     public static Grid Row(FrameworkElement resources, string name, string value, double frac,
-        Brush barBrush, string? tooltip)
+        Brush barBrush, string? tooltip, Brush? nameBrush = null)
     {
         frac = Math.Clamp(frac, 0.004, 1.0);
         var row = new Grid { Margin = new Thickness(0, 1, 0, 0), HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -40,7 +40,7 @@ internal static class BreakdownRows
         content.Children.Add(new TextBlock
         {
             Text = name, FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis,
-            Foreground = (Brush)resources.FindResource("TextBrush"),
+            Foreground = nameBrush ?? (Brush)resources.FindResource("TextBrush"),
         });
         var right = new TextBlock
         {

@@ -36,8 +36,12 @@
                           HorizontalScrollBarVisibility="Disabled">
                 <StackPanel x:Name="Body"/>
             </ScrollViewer>
+            <!-- MouseLeftButtonDown must be swallowed here: it otherwise bubbles to the
+                 window's OnDrag, DragMove() captures the mouse, and the Up that opens the
+                 browser never arrives (discussion #46 — the link just nudged the window). -->
             <TextBlock x:Name="WikiLink" FontSize="11" Margin="0,8,0,0" Cursor="Hand"
                        Foreground="{DynamicResource AccentBrush}" Visibility="Collapsed"
+                       MouseLeftButtonDown="OnLinkDown"
                        MouseLeftButtonUp="OnOpenWiki" Text="Open wiki page ↗"/>
         </StackPanel>
     </Border>

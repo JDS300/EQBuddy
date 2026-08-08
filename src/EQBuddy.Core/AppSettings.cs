@@ -256,22 +256,35 @@ public sealed class AppSettings
             CoreLog.Error(ex); // corrupted settings — start fresh, but say so
             settings = new AppSettings();
         }
-        // Non-short-circuiting on purpose: rules saved before ids existed get theirs
-        // assigned at construction, and persisting them NOW is what makes the id stable
-        // across restarts rather than re-rolled every launch until some unrelated edit
-        // happens to save settings.
-        // UnbindLegacyHotkeyDefaults is deliberately NOT in this chain. The two passes here
-        // are additive bookkeeping — they add rules and pin down generated ids — but clearing
-        // a hotkey DESTROYS a user's setting, and Load() runs from tests, from theme
-        // application, and from any tool that reads settings. Wired here it emptied the
-        // developer's own live profile during a test run, which is the same trap 552e7da
-        // already had to close once. Destructive one-shots run from the app's startup, beside
-        // WatchPinsMigrated and SpawnFollowRepaired, where "the user actually launched
+        // Load() IS A PURE READ. Nothing here may write.
+        //
+        // It runs from tests, from theme application, and from any tool that reads settings
+        // — none of which is a user launching EQBuddy — so anything it writes lands in
+        // whatever profile happens to be current. This chain used to carry the default-rules
+        // pass and the generated-id pass, "harmless" because both only add. In practice a
+        // plain `dotnet test` run reached out and rewrote the developer's own live
+        // ~/.config/EQBuddy/settings.json twice in one day: once emptying hotkeys, once
+        // injecting a watch rule. 552e7da had already closed this once for a single test.
+        //
+        // All of it — defaults, id persistence, one-shot migrations — now runs from the
+        // app's startup instead, via ApplyStartupPasses, where "the user actually launched
         // EQBuddy" is a precondition rather than an accident.
-        if (settings.ApplyDefaultRules()
-            | settings.TrackedRules.Any(r => r.IdWasGenerated))
-            settings.Save();
         return settings;
+    }
+
+    /// <summary>
+    /// The passes that need a real launch behind them, run once from the app's startup and
+    /// saved together. Kept out of <see cref="Load"/> so reading settings never writes to
+    /// whatever profile is current — see the note there.
+    ///
+    /// Non-short-circuiting on purpose: rules saved before ids existed get theirs assigned
+    /// at construction, and persisting them NOW is what makes the id stable across restarts
+    /// rather than re-rolled every launch until some unrelated edit happens to save.
+    /// </summary>
+    public void ApplyStartupPasses()
+    {
+        if (ApplyDefaultRules() | TrackedRules.Any(r => r.IdWasGenerated))
+            Save();
     }
 
     /// <summary>

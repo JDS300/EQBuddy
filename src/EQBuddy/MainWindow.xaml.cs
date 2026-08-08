@@ -83,6 +83,11 @@ public partial class MainWindow : Window
         SourceInitialized += (_, _) => UpdateHeightCaps();
         LocationChanged += (_, _) => UpdateHeightCaps();
 
+        // Built-in watch rules and generated-id persistence. Runs here rather than in
+        // AppSettings.Load() so that reading settings never writes — and before the pin
+        // migration below, which reasons about the built-in rule already existing.
+        _settings.ApplyStartupPasses();
+
         // Migration: any per-rule pin from older versions turns on the group pin.
         if (!_settings.PinWatchChips && _settings.TrackedRules.Any(r => r.Pinned))
             _settings.PinWatchChips = true;

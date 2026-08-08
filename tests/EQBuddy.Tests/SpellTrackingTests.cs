@@ -978,6 +978,41 @@ public class SpellTrackingTests
         Assert.Single(settings.TrackedRules);
     }
 
+    /// <summary>
+    /// Load() is a PURE READ. It runs from tests, from theme application, and from any tool
+    /// that reads settings — none of which is a user launching EQBuddy — so anything it
+    /// writes lands in whatever profile happens to be current. With the default-rules pass
+    /// on its save path, a plain `dotnet test` run twice reached out and rewrote the
+    /// developer's own ~/.config/EQBuddy/settings.json: once emptying hotkeys, once
+    /// injecting a rule. Both were "harmless"; neither was asked for.
+    ///
+    /// Applying defaults belongs to app startup, beside the other one-shot passes.
+    /// </summary>
+    [Fact]
+    public void LoadingSettingsNeverWritesToTheProfile()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "eqb-pure-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var previous = Environment.GetEnvironmentVariable("EQBUDDY_APPDATA");
+        try
+        {
+            Environment.SetEnvironmentVariable("EQBUDDY_APPDATA", dir);
+            var file = Path.Combine(dir, "settings.json");
+            File.WriteAllText(file, """{"DefaultRulesVersion":0,"TrackedRules":[]}""");
+            var before = File.ReadAllBytes(file);
+
+            var loaded = AppSettings.Load();
+
+            Assert.Equal(before, File.ReadAllBytes(file));
+            Assert.Empty(loaded.TrackedRules);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("EQBUDDY_APPDATA", previous);
+            try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ }
+        }
+    }
+
     // ---- rules v2: making sure charm is actually covered ----
 
     /// <summary>

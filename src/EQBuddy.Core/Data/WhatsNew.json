@@ -1,5 +1,12 @@
 [
  {
+  "version": "1.42.3",
+  "date": "2026-08-08",
+  "highlights": [
+   "FIX: reading your settings no longer rewrites them. Loading settings also applied the built-in watch rules and pinned down generated rule ids, then saved — which is fine when EQBuddy itself is starting, and wrong for everything else that reads settings without being a launch. Those passes now run from startup, and loading is a pure read. Nothing about your rules changes; they just stop being written at moments nobody asked for."
+  ]
+ },
+ {
   "version": "1.42.2",
   "date": "2026-08-08",
   "highlights": [

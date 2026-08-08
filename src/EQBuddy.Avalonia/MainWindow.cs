@@ -201,6 +201,11 @@ public sealed class MainWindow : Window
         Opacity = _settings.Opacity;
         Content = BuildRoot();
 
+        // Built-in watch rules and generated-id persistence. Runs here rather than in
+        // AppSettings.Load() so that reading settings never writes — and before the pin
+        // migration below, which reasons about the built-in rule already existing.
+        _settings.ApplyStartupPasses();
+
         // Migration: any old per-rule pin enables the replacement group pin.
         if (!_settings.PinWatchChips && _settings.TrackedRules.Any(r => r.Pinned))
             _settings.PinWatchChips = true;

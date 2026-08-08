@@ -259,6 +259,16 @@ public sealed class MainWindow : Window
             _settings.Save();
         }
 
+        // Upstream removed global hotkeys in 1.34 because they shipped BOUND and the
+        // registration is system-wide, so EQBuddy quietly owned Ctrl+Shift+T (reopen browser
+        // tab) machine-wide. This fork keeps the feature with empty defaults — but a default
+        // only reaches new installs, so anyone already running EQBuddy still has the old
+        // combinations on disk. Clear those, and only those: a combination the user typed
+        // themselves is a decision, not a leftover. Runs from here rather than
+        // AppSettings.Load() because it is destructive and Load() runs from tests too.
+        if (_settings.UnbindLegacyHotkeyDefaults())
+            _settings.Save();
+
         _uiTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _uiTimer.Tick += (_, _) => RefreshUi();
         _uiTimer.Start();

@@ -260,7 +260,15 @@ public sealed class AppSettings
         // assigned at construction, and persisting them NOW is what makes the id stable
         // across restarts rather than re-rolled every launch until some unrelated edit
         // happens to save settings.
-        if (settings.ApplyDefaultRules() | settings.UnbindLegacyHotkeyDefaults()
+        // UnbindLegacyHotkeyDefaults is deliberately NOT in this chain. The two passes here
+        // are additive bookkeeping — they add rules and pin down generated ids — but clearing
+        // a hotkey DESTROYS a user's setting, and Load() runs from tests, from theme
+        // application, and from any tool that reads settings. Wired here it emptied the
+        // developer's own live profile during a test run, which is the same trap 552e7da
+        // already had to close once. Destructive one-shots run from the app's startup, beside
+        // WatchPinsMigrated and SpawnFollowRepaired, where "the user actually launched
+        // EQBuddy" is a precondition rather than an accident.
+        if (settings.ApplyDefaultRules()
             | settings.TrackedRules.Any(r => r.IdWasGenerated))
             settings.Save();
         return settings;

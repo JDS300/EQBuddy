@@ -90,6 +90,38 @@ public class HotkeyUnbindMigrationTests
         Assert.Equal("Ctrl+Shift+M", restored.HotkeyMiniMode);
     }
 
+    /// <summary>
+    /// Load() must NOT run this pass. It is destructive — it empties a setting — and Load()
+    /// is called by tests, by theme application, and by anything that reads settings without
+    /// having been launched by a user. Wired into Load(), it reached out of a test run and
+    /// emptied the developer's own live ~/.config/EQBuddy/settings.json. 552e7da closed the
+    /// same trap for a different test; this pins it shut at the source.
+    /// </summary>
+    [Fact]
+    public void LoadingSettingsNeverClearsAHotkeyByItself()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "eqb-load-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var previous = Environment.GetEnvironmentVariable("EQBUDDY_APPDATA");
+        try
+        {
+            Environment.SetEnvironmentVariable("EQBUDDY_APPDATA", dir);
+            File.WriteAllText(Path.Combine(dir, "settings.json"),
+                """{"HotkeyClickThrough":"Ctrl+Shift+T","HotkeyToggleOverlay":"Ctrl+Shift+H"}""");
+
+            var loaded = AppSettings.Load();
+
+            Assert.Equal("Ctrl+Shift+T", loaded.HotkeyClickThrough);
+            Assert.Equal("Ctrl+Shift+H", loaded.HotkeyToggleOverlay);
+            Assert.False(loaded.HotkeysUnboundMigrated);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("EQBUDDY_APPDATA", previous);
+            try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ }
+        }
+    }
+
     /// <summary>An old settings.json predates the flag, so it deserializes false and the
     /// pass fires exactly where it's needed.</summary>
     [Fact]

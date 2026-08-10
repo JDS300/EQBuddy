@@ -52,6 +52,7 @@ public sealed class OptionsViewModelTests
         Assert.Equal("kills", s.SectionOrder[0]);
         Assert.Equal(OverlaySections.Catalog.Length, s.SectionOrder.Count);
         Assert.DoesNotContain("bogus", s.SectionOrder);
+        Assert.Contains(vm.Cards, c => c.Key == "sky" && c.Title == "Sky Quest");
 
         vm.MoveCard("kills", -1);                        // top can't move up
         Assert.Equal("kills", s.SectionOrder[0]);
@@ -90,5 +91,48 @@ public sealed class OptionsViewModelTests
         Assert.Equal("200%", vm.ChipScaleLabel);
         vm.ChipScale = 0.1;
         Assert.Equal(0.5, s.ChipScale);
+    }
+
+    [Fact]
+    public void SkyQuestSectionSlotsInAfterMotes()
+    {
+        // Insert-only on purpose: unknown-key cleanup stays the UI layer's job
+        // (CardsNormalizeMoveAndToggle above), so Core never carries a section
+        // catalog copy. Hidden sections and stray keys pass through untouched.
+        var settings = new AppSettings
+        {
+            SectionOrder = ["combat", "motes", "tracked", "bogus"],
+            HiddenSections = ["loot"],
+        };
+
+        Assert.True(settings.ApplyDefaultSkyQuestSection());
+        Assert.Equal(["combat", "motes", "sky", "tracked", "bogus"], settings.SectionOrder);
+        Assert.Equal(["loot"], settings.HiddenSections);
+        Assert.False(settings.ApplyDefaultSkyQuestSection());   // idempotent
+
+        // No motes to anchor on: append; the UI's own ordering takes it from there.
+        var noMotes = new AppSettings { SectionOrder = ["combat", "kills"] };
+        Assert.True(noMotes.ApplyDefaultSkyQuestSection());
+        Assert.Equal(["combat", "kills", "sky"], noMotes.SectionOrder);
+
+        // A fresh install's empty order stays empty — the UI appends the catalog.
+        Assert.False(new AppSettings().ApplyDefaultSkyQuestSection());
+    }
+
+    [Fact]
+    public void SkyQuestDefaultsMergeOnce()
+    {
+        var settings = new AppSettings();
+
+        Assert.True(settings.ApplyDefaultSkyQuestChecklist());
+        Assert.Contains(settings.SkyQuestChecklist, i => i.ClassName == "Monk" && i.Reward == "Wu's Fist of Mastery");
+        Assert.Contains(settings.SkyQuestChecklist, i => i.ClassName == "Shaman" && i.QuestItem == "Efreeti War Club");
+        Assert.Contains(settings.SkyQuestChecklist, i => i.ClassName == "Shadow Knight" && i.Reward == "Pearlescent Pauldrons");
+        var count = settings.SkyQuestChecklist.Count;
+
+        settings.SkyQuestChecklist[0].Acquired = true;
+        Assert.False(settings.ApplyDefaultSkyQuestChecklist());
+        Assert.Equal(count, settings.SkyQuestChecklist.Count);
+        Assert.True(settings.SkyQuestChecklist[0].Acquired);
     }
 }

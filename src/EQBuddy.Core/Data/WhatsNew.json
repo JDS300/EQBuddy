@@ -1,5 +1,56 @@
 [
  {
+  "version": "1.47.0",
+  "date": "2026-08-09",
+  "highlights": [
+   "🔊 Alerts can SPEAK now, contributed by dandrews2930 (PR #71): each watch rule gets an S toggle that reads the alert aloud with the Windows voice — \"Spirit of the Puma faded off you\" — with duplicate lines suppressed so a chain of fades doesn't chant at you. Speech travels in rule share strings too. (Windows only for now; the toggle is honest about it on Linux.)",
+   "Also from PR #71: a Buff filter for Spell Fade rules — one rule that hears ANY cataloged beneficial buff fade (stat buffs, protections, haste, clarity, movement…) — and a searchable buff picker for By-name rules: start typing and pick from the 903-spell fade catalog instead of spelling Ervaj from memory.",
+   "Sky Quest rewards get their own checkbox (chrstahl's ask, #73, filed hours after 1.46 shipped): the reward line now marks \"I turned this in\" — completing it checks off its items and dims them, unchecking reopens the quest. Manual on purpose: the log shows nothing reliable at the NPC hand-over, so the player is the source of truth, including for quests done before the card existed.",
+   "The wiki catch-up is now automatic: a weekly knowledge refresh re-harvests eqlwiki-derived catalogs (incremental — only pages that actually changed) and opens a review PR with the delta. Its first pass already landed here: 2 new quests, 8 updated Plane of Sky Tests pages, and the Wind Runes joining the don't-vendor list — the community updated the wiki to match the Sky checklist the same day it shipped. Curated data (spawn timers, AAs, mez/CC lists) is never auto-written; a human reviews the flags."
+  ]
+ },
+ {
+  "version": "1.46.0",
+  "date": "2026-08-09",
+  "highlights": [
+   "☁ Sky Quest checklist, contributed by dandrews2930 (PR #70): a new overlay card tracks all 222 Plane of Sky quest turn-in items — a tab per class, reward-grouped checkboxes, each item's isle and source under its name. Loot ticks boxes by itself: win a quest item and it checks off, scoped to the class tab you actually use (five classes each need a Wind Rune Azia; yours is the one that gets it). Progress persists across sessions, restarts, and log splits.",
+   "The ↻ button finishes joeymavity's log-splitting ask (#52): with \"Keep a timestamped copy\" on, Reset session stats now splits the live log on the spot — everything so far moves to Logs\\archive under the exact eqlog_name_server_STAMP.txt naming and a fresh log begins immediately, mid-play, no waiting for the session to go stale. 1.38 shipped the janitor half of the original request; this was the half still owed. (Tools that tail the log with their own byte offset — GINA and kin — will want a restart after a split, same as after any cleanup.)",
+   "Linux: the Avalonia janitor now honors the archive checkbox — it was truncating stale logs without keeping the copy the option promised."
+  ]
+ },
+ {
+  "version": "1.45.0",
+  "date": "2026-08-09",
+  "highlights": [
+   "Watch rules travel now: the ⤴ on any rule row copies it as a compact EQB1 share string sized for guild chat or Discord, and the import box under the rule list turns one back into a rule — with a preview of exactly what it does BEFORE you accept it. Imports are rebuilt field by field (fresh identity, custom sound paths never leave the sharer's machine), so a share string can never do anything the rule editor couldn't. Your raid's CH-chain cues are one paste away from the whole channel.",
+   "▦ Grid overlay (garr's guild-mate energy, discussion #34): right-click → Grid overlay drapes a faint click-through grid over your whole desk for lining up game UI elements — stronger lines every fourth square, spacing slider in Options (live while it's up), and it never eats a click or steals focus. Toggle off in the same menu when everything's finally straight.",
+   "Divine Invocation's proc heals now carry its name in the HPS tracker: the invocation heals your party's lowest-health member for the mana of whatever you cast, and that heal line names no spell — it used to pile up under \"Unknown\". While the divine invocation is being recited, unattributed heals are attributed where they belong.",
+   "The wiki contribution pack gained an OBSERVED STAT BLOCK per creature (Frankthetankk's field list, round two): zone at kill time (not wherever you're standing at export), money per kill in the wiki's own low–high range format — one sample honestly labeled as one sample — and faction hits with counts against your kill count, including \"no hits observed across N kills\", because a confirmed absence saves the next tester the experiment. Everything framed for reconciliation: compare, don't overwrite.",
+   "The multiSpawn doctrine went global: every zone's multi-location names (EC griffons, Lesser Fay brownie guards, Permafrost elite guards, Skyfire shadow drakes, the West Karana ogre shrine, Crushbone's warden) now carry the flag, so sibling kills and sightings can't poison their clocks anywhere. And spawn cycles with several placeholders finally work: Queen Dracnia's webmaster/lurker/purifier rotation restarts her clock from any of the three.",
+   "Spawn timers grew a doctrine, forged in a live Crushbone session: for ACTUAL nameds, an observation beats a lock — a named acting in the final stretch of its countdown out-measures even a \"trusted\" catalog clock (only your own typed values rank higher). For mobs that spawn in several places (Royal Guard, the trainers, the taskmasters — now flagged multiSpawn), the opposite: sightings and re-kill gaps prove nothing when siblings roam, so their clocks are kill-driven only, and any noise they'd already learned heals itself on your next kill. Also fixed: \"orc trainee\" no longer restarts the Orc Trainer clock — fuzzy name matching now knows wiki typos live at the front of names while sibling ranks inflect the end. The Crushbone trio runs its measured 8:00 (Adaptive tier), verified at the camps."
+  ]
+ },
+ {
+  "version": "1.44.0",
+  "date": "2026-08-09",
+  "highlights": [
+   "Mez durations: upstream's third pass (rahvynn's report — 1.43's sanity ceiling clipped genuine mote-upgraded durations, a 44s Mesmerization shrank to its 24s base) is NOT merged, because this fork never had the ceiling that caused it. Upstream now trusts the latest clean fade in both directions; this build keeps its sample-cluster estimator, which moves up or down on its own as samples accumulate and additionally rejects fades it cannot attribute (two same-named mezzes of yours open at once). The fork's learner also keeps NO brokeRecently guard and does not tick-floor individual samples — both were measured against a 690k-line log to cost far more real samples than they save. Upgraded durations stick here too.",
+   "FIXED: the default \"CC broke\" rule pinged when a mob stunned YOU (rahvynn again — \"You are no longer stunned.\" joined the fade catalog in 1.42 and the CC filters heard it). Self-recovery lines no longer satisfy CC filters, which mean \"MY control of a mob ended\"; By-name and Any-spell rules still hear your own buffs fade, as designed.",
+   "✦ wiki flagging, first field report applied (Frankthetankk): apostrophes now fold when comparing against wiki loot lists ({{:Packmasters Lash}} vs \"Packmaster's Lash\" was a false ✦), the contribution pack adds a paste line + edit link for each ITEM page's own Drops-from list, and drops carry their last-seen log time so you can find the moment in your own log again.",
+   "Spawn timers learn from SIGHTINGS: a named acting in your log before its chip says DUE proves the respawn already happened — the countdown completes on the spot (chip flips DUE, alert fires) and the observed cycle becomes the learned timer. Re-kill learning could never catch a slightly-long timer, because kill-to-kill gaps include the time you take to notice and kill the spawn. Twin protection: only the final fifth of a countdown accepts sightings, so same-named camps (looking at you, Crushbone taskmasters) can't finish each other's clocks. Your own typed timer values are never overwritten — but the chip still flips DUE when the mob is provably up."
+  ]
+ },
+ {
+  "version": "1.43.0",
+  "date": "2026-08-08",
+  "highlights": [
+   "FIXED upstream, already fixed here: mez chips showing impossible durations (Taendar's report — Mesmerization V wearing a 1:10 timer on a 24-second mez). This fork closed that in 1.42.1 by a different route: durations come from the cluster of your own land→fade samples rather than a single stored scalar, so one artifact cannot become the answer and cannot become permanent. Legacy scalar stores are still quarantined on load. Upstream's sanity ceiling is deliberately NOT taken — see 1.44.0 below for why.",
+   "Dismissing a breakout window with its ✕ now announces itself on the alert banner with the re-enable path (⚙ Options → Breakout windows) — the ✕ is a small target floating over a game screen, and a stray click could silently hide a window forever (ask David where his DPS breakout went).",
+   "FIXED: dismissing the last spawn-timer chip left a ghost chip painted until the stack closed — a bug Don Thompson caught while porting the chips to Linux, fixed on both sides.",
+   "Linux/Avalonia: Don Thompson's parity work through 1.32 is merged — breakout windows (damage/healing/pet), the full encounter review in Session History, mez chips, target drops on the Loot card, item info popups, Send feedback, alert volume with proper per-backend handling, and per-rule banner colors. The Linux build is catching up fast."
+  ]
+ },
+ {
   "version": "1.42.3",
   "date": "2026-08-08",
   "highlights": [

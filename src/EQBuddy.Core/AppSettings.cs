@@ -104,9 +104,29 @@ public sealed class AppSettings
     /// old combinations written into settings.json, so they keep eating Ctrl+Shift+T until
     /// something clears them. See <see cref="UnbindLegacyHotkeyDefaults"/>.</summary>
     public bool HotkeysUnboundMigrated { get; set; }
+    /// <summary>Persistent Plane of Sky quest turn-in checklist shown in the overlay.</summary>
+    public List<SkyQuestChecklistItem> SkyQuestChecklist { get; set; } = [];
+    /// <summary>The class tab last selected in the Sky Quest card. Quest item names
+    /// repeat across classes (five classes each need a Wind Rune Azia), so loot
+    /// auto-check only ticks boxes for this class; empty = no tab picked yet, first
+    /// unacquired match wins.</summary>
+    public string SkyQuestClass { get; set; } = "";
+    /// <summary>Sky quest rewards marked turned-in, as "ClassName|Reward" keys
+    /// (discussion #73, chrstahl). Manual only: the log shows nothing reliable when
+    /// items change hands at an NPC, so the player is the source of truth — including
+    /// for quests finished before this feature existed. Marking one complete also
+    /// checks its items (they were acquired and then handed over).</summary>
+    public List<string> SkyQuestCompleted { get; set; } = [];
     /// <summary>Color theme key (see EQBuddy.UI.Shared.ThemeCatalog); defaults to the
     /// original parchment-and-brass look so existing installs don't change on upgrade.</summary>
     public string Theme { get; set; } = "ParchmentBrass";
+
+    /// <summary>The click-through alignment grid (discussion #34). Persisted so a grid
+    /// left on comes back after a restart — turning it off is the same one menu click
+    /// that turned it on.</summary>
+    public bool ShowGridOverlay { get; set; }
+    /// <summary>Minor grid line spacing in pixels; strong lines land every fourth.</summary>
+    public double GridSpacing { get; set; } = 32;
 
     /// <summary>The three colors behind the "Custom" theme (#RRGGBB); the rest of its
     /// palette is derived in EQBuddy.UI.Shared.CustomTheme. Null until first edited —
@@ -283,7 +303,10 @@ public sealed class AppSettings
     /// </summary>
     public void ApplyStartupPasses()
     {
-        if (ApplyDefaultRules() | TrackedRules.Any(r => r.IdWasGenerated))
+        var changed = ApplyDefaultRules();
+        changed |= ApplyDefaultSkyQuestSection();
+        changed |= ApplyDefaultSkyQuestChecklist();
+        if (changed | TrackedRules.Any(r => r.IdWasGenerated))
             Save();
     }
 
@@ -365,6 +388,38 @@ public sealed class AppSettings
         return true;
     }
 
+    /// <summary>
+    /// One-time migration for settings saved before the Sky Quest card existed: slot
+    /// "sky" in at its catalog position (after motes) instead of letting the UI append
+    /// it last. Deliberately insert-only — ordering, dedup, and unknown-key cleanup
+    /// stay the UI layer's job (ApplySectionLayout / the cards editor), so Core never
+    /// carries its own copy of the section catalog that could drift out of sync.
+    /// A fresh install's empty order is left empty: the UI appends the catalog itself.
+    /// </summary>
+    public bool ApplyDefaultSkyQuestSection()
+    {
+        if (SectionOrder.Count == 0 || SectionOrder.Contains("sky")) return false;
+        var motes = SectionOrder.IndexOf("motes");
+        SectionOrder.Insert(motes < 0 ? SectionOrder.Count : motes + 1, "sky");
+        return true;
+    }
+
+    public bool ApplyDefaultSkyQuestChecklist()
+    {
+        SkyQuestChecklist ??= [];
+        var changed = false;
+        foreach (var item in SkyQuestDefaults.Items)
+        {
+            if (SkyQuestChecklist.Any(i => string.Equals(i.Id, item.Id, StringComparison.Ordinal)))
+                continue;
+
+            SkyQuestChecklist.Add(item.Clone());
+            changed = true;
+        }
+
+        return changed;
+    }
+
     public void Save()
     {
         try
@@ -377,4 +432,26 @@ public sealed class AppSettings
             CoreLog.Error(ex); // non-fatal, but visible
         }
     }
+}
+
+public sealed class SkyQuestChecklistItem
+{
+    public string Id { get; set; } = "";
+    public string ClassName { get; set; } = "";
+    public string Npc { get; set; } = "";
+    public string Reward { get; set; } = "";
+    public string QuestItem { get; set; } = "";
+    public string Source { get; set; } = "";
+    public bool Acquired { get; set; }
+
+    public SkyQuestChecklistItem Clone() => new()
+    {
+        Id = Id,
+        ClassName = ClassName,
+        Npc = Npc,
+        Reward = Reward,
+        QuestItem = QuestItem,
+        Source = Source,
+        Acquired = Acquired,
+    };
 }

@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
+using EQBuddy.Core;
 using EQBuddy.UI.Shared;
 
 namespace EQBuddy;
@@ -40,6 +41,10 @@ public partial class OptionsWindow : Window
         ArchiveCheck.IsChecked = _vm.ArchiveLogs;
         PinChipsCheck.IsChecked = _vm.PinWatchChips;
         TutorialCheck.IsChecked = _vm.ShowTutorial;
+        GridOverlayCheck.IsChecked = _main.Settings.ShowGridOverlay;
+        GridSpacingSlider.Value = Math.Clamp(_main.Settings.GridSpacing,
+            GridSpacingSlider.Minimum, GridSpacingSlider.Maximum);
+        GridSpacingLabel.Text = $"{GridSpacingSlider.Value:0} px";
         TargetDropsCheck.IsChecked = _vm.ShowTargetDrops;
         HideUnfocusedCheck.IsChecked = _vm.HideWhenGameUnfocused;
         RegenPerTickBox.Text = _vm.RegenPerTickOverride > 0 ? _vm.RegenPerTickOverride.ToString() : "";
@@ -137,6 +142,20 @@ public partial class OptionsWindow : Window
     private void OnTargetDropsToggled(object sender, RoutedEventArgs e)
     {
         if (_ready) _vm.ShowTargetDrops = TargetDropsCheck.IsChecked == true;
+    }
+
+    private void OnGridOverlayToggled(object sender, RoutedEventArgs e)
+    {
+        if (_ready) _main.SetGridOverlay(GridOverlayCheck.IsChecked == true);
+    }
+
+    private void OnGridSpacingChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (!_ready) return;
+        _main.Settings.GridSpacing = GridSpacingSlider.Value;
+        GridSpacingLabel.Text = $"{GridSpacingSlider.Value:0} px";
+        _vm.Persist();
+        _main.RefreshGridSpacing();   // live while the grid is up
     }
 
     private void OnHideUnfocusedToggled(object sender, RoutedEventArgs e)
@@ -522,8 +541,10 @@ public partial class OptionsWindow : Window
         Auto("RulePin");
         Auto("RuleBanner");
         Auto("RuleColor");
+        Auto("RuleSpeech");
         Auto("RuleSound");
         Auto("RuleDelay");
+        Auto("RuleShare");
         Auto("RuleDelete");
         return grid;
     }
@@ -534,7 +555,7 @@ public partial class OptionsWindow : Window
 
         var header = RuleGrid();
         header.Margin = new Thickness(0, 2, 0, 2);
-        var headings = new[] { ("Watch", 0), ("Name", 1), ("Match", 2), ("Delay", 7) };
+        var headings = new[] { ("Watch", 0), ("Name", 1), ("Match", 2), ("Delay", 8) };
         foreach (var (text, column) in headings)
         {
             var label = new System.Windows.Controls.TextBlock
@@ -594,6 +615,96 @@ public partial class OptionsWindow : Window
             System.Windows.Controls.Grid.SetColumn(pattern, 1);
             matchArea.Children.Add(pattern);
 
+            var buffChoices = EQBuddy.Core.FadeMessageCatalog.Default.BuffSpellChoices.ToArray();
+            var spellName = DarkBox(rule.Pattern,
+                "Start typing a known buff/spell fade, then pick one. Free typing still works.");
+            spellName.Margin = new Thickness(4, 0, 0, 0);
+            var spellMatches = new System.Windows.Controls.ListBox
+            {
+                MaxHeight = 260,
+                MinWidth = 220,
+                FontSize = 12,
+            };
+            spellMatches.SetResourceReference(System.Windows.Controls.Control.BackgroundProperty, "PopupBrush");
+            spellMatches.SetResourceReference(System.Windows.Controls.Control.ForegroundProperty, "TextBrush");
+            var spellPopup = new System.Windows.Controls.Primitives.Popup
+            {
+                PlacementTarget = spellName,
+                Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom,
+                StaysOpen = false,
+                AllowsTransparency = true,
+                Child = new System.Windows.Controls.Border
+                {
+                    BorderThickness = new Thickness(1),
+                    Padding = new Thickness(2),
+                    Child = spellMatches,
+                },
+            };
+            ((System.Windows.Controls.Border)spellPopup.Child).SetResourceReference(
+                System.Windows.Controls.Control.BorderBrushProperty, "AccentBrush");
+            ((System.Windows.Controls.Border)spellPopup.Child).SetResourceReference(
+                System.Windows.Controls.Control.BackgroundProperty, "PopupBrush");
+            matchArea.Children.Add(spellPopup);
+
+            var choosingSpell = false;
+            void UpdateSpellChoices(string text, bool open)
+            {
+                var q = (text ?? "").Trim();
+                spellMatches.ItemsSource = q.Length == 0
+                    ? buffChoices
+                    : buffChoices
+                        .Where(s => s.Contains(q, StringComparison.OrdinalIgnoreCase))
+                        .ToArray();
+                spellPopup.IsOpen = open && spellMatches.Items.Count > 0;
+            }
+            void PickSpell(string picked)
+            {
+                choosingSpell = true;
+                rule.Pattern = picked;
+                spellName.Text = picked;
+                pattern.Text = picked;
+                spellName.CaretIndex = spellName.Text.Length;
+                spellPopup.IsOpen = false;
+                _vm.Persist();
+                choosingSpell = false;
+            }
+            UpdateSpellChoices(rule.Pattern, open: false);
+            spellName.TextChanged += (_, _) =>
+            {
+                if (choosingSpell) return;
+                rule.Pattern = spellName.Text.Trim();
+                pattern.Text = rule.Pattern;
+                UpdateSpellChoices(spellName.Text, spellName.IsKeyboardFocusWithin);
+            };
+            spellName.GotKeyboardFocus += (_, _) => UpdateSpellChoices(spellName.Text, open: true);
+            spellName.LostKeyboardFocus += (_, _) =>
+            {
+                rule.Pattern = (spellName.Text ?? "").Trim();
+                pattern.Text = rule.Pattern;
+                _vm.Persist();
+            };
+            spellName.PreviewKeyDown += (_, e) =>
+            {
+                if (e.Key == Key.Escape)
+                {
+                    spellPopup.IsOpen = false;
+                    e.Handled = true;
+                }
+                else if (e.Key == Key.Enter && spellPopup.IsOpen
+                    && spellMatches.Items.Count > 0)
+                {
+                    PickSpell((spellMatches.SelectedItem as string) ?? (string)spellMatches.Items[0]!);
+                    e.Handled = true;
+                }
+            };
+            spellMatches.SelectionChanged += (_, _) =>
+            {
+                if (!_ready || spellMatches.SelectedItem is not string picked) return;
+                PickSpell(picked);
+            };
+            System.Windows.Controls.Grid.SetColumn(spellName, 1);
+            matchArea.Children.Add(spellName);
+
             // A class filter needs no match text, so the box goes away rather than sitting
             // there inviting input that would be ignored.
             void SyncMatchArea()
@@ -601,10 +712,13 @@ public partial class OptionsWindow : Window
                 var isFade = rule.Kind == EQBuddy.Core.WatchKind.SpellFade;
                 var byName = rule.SpellFilter == EQBuddy.Core.SpellFilter.ByName;
                 spellFilter.Visibility = isFade ? Visibility.Visible : Visibility.Collapsed;
-                pattern.Visibility = isFade && !byName ? Visibility.Collapsed : Visibility.Visible;
+                pattern.Visibility = !isFade ? Visibility.Visible : Visibility.Collapsed;
+                spellName.Visibility = isFade && byName ? Visibility.Visible : Visibility.Collapsed;
                 // With no match box beside it the combo takes the whole cell, so its text
                 // and drop arrow stay inside the row instead of running under the toggles.
                 System.Windows.Controls.Grid.SetColumnSpan(spellFilter, isFade && !byName ? 2 : 1);
+                if (isFade && byName) spellName.Text = rule.Pattern;
+                else pattern.Text = rule.Pattern;
             }
             SyncMatchArea();
 
@@ -668,6 +782,9 @@ public partial class OptionsWindow : Window
             System.Windows.Controls.Grid.SetColumn(colorDot, 5);
             row.Children.Add(colorDot);
 
+            row.Children.Add(RuleToggle("S", "Speak this alert with the Windows voice", 6,
+                rule.AlertSpeech, v => rule.AlertSpeech = v));
+
             // Per-rule sound, so you can tell what happened from the audio alone.
             // Replaces the old on/off toggle: "Off" mutes, "Default" follows the shared
             // choice below, anything else is this rule's own sound.
@@ -711,7 +828,7 @@ public partial class OptionsWindow : Window
                 if (AlertSoundCatalog.Resolve(rule, _main.Settings.AlertSound) is { } preview)
                     _main.PlayAlertSound(preview);
             };
-            System.Windows.Controls.Grid.SetColumn(sound, 6);
+            System.Windows.Controls.Grid.SetColumn(sound, 7);
             row.Children.Add(sound);
 
             // Seconds to hold the alert back — 0 (or empty) is the immediate behaviour.
@@ -733,8 +850,31 @@ public partial class OptionsWindow : Window
                 delay.Text = DelayText.Format(rule.AlertDelaySeconds);   // shows any clamp
                 _vm.Persist();
             };
-            System.Windows.Controls.Grid.SetColumn(delay, 7);
+            System.Windows.Controls.Grid.SetColumn(delay, 8);
             row.Children.Add(delay);
+
+            // Share: the rule as a guild-chat string (WatchRuleShare). The ✓ flash is
+            // the only feedback a clipboard write can honestly give.
+            var share = new System.Windows.Controls.Button
+            {
+                Content = "⤴", Style = (Style)FindResource("IconButton"), FontSize = 11,
+                ToolTip = "Copy this rule as a share string — paste it in guild chat or Discord,\n" +
+                          "and any EQBuddy imports it from the box below the rule list",
+            };
+            share.Click += (_, _) =>
+            {
+                try { Clipboard.SetText(WatchRuleShare.Encode([rule])); }
+                catch (Exception ex) { CoreLog.Error(ex); return; }
+                share.Content = "✓";
+                var revert = new System.Windows.Threading.DispatcherTimer
+                {
+                    Interval = TimeSpan.FromSeconds(1.5),
+                };
+                revert.Tick += (_, _) => { share.Content = "⤴"; revert.Stop(); };
+                revert.Start();
+            };
+            System.Windows.Controls.Grid.SetColumn(share, 9);
+            row.Children.Add(share);
 
             var del = new System.Windows.Controls.Button
             {
@@ -745,11 +885,43 @@ public partial class OptionsWindow : Window
                 _vm.RemoveRule(rule);
                 BuildRulesEditor();
             };
-            System.Windows.Controls.Grid.SetColumn(del, 8);
+            System.Windows.Controls.Grid.SetColumn(del, 10);
             row.Children.Add(del);
 
             RulesPanel.Children.Add(row);
         }
+    }
+
+    // ---- share-string import: paste → preview → confirm (nothing lands unseen) ----
+
+    private List<TrackedRule>? _pendingImport;
+
+    private void OnImportShare(object sender, RoutedEventArgs e)
+    {
+        _pendingImport = WatchRuleShare.TryDecode(ImportBox.Text, out var error);
+        ImportPreview.Visibility = Visibility.Visible;
+        if (_pendingImport is null)
+        {
+            ImportPreview.Text = error;
+            ImportConfirmBtn.Visibility = Visibility.Collapsed;
+            return;
+        }
+        ImportPreview.Text = "This will add:\n" +
+            string.Join("\n", _pendingImport.Select(r => "  • " + WatchRuleShare.Describe(r)));
+        ImportConfirmBtn.Content = _pendingImport.Count == 1
+            ? "✔ Add this rule" : $"✔ Add these {_pendingImport.Count} rules";
+        ImportConfirmBtn.Visibility = Visibility.Visible;
+    }
+
+    private void OnImportConfirm(object sender, RoutedEventArgs e)
+    {
+        if (_pendingImport is null) return;
+        _vm.ImportRules(_pendingImport);
+        _pendingImport = null;
+        ImportBox.Text = "";
+        ImportPreview.Visibility = Visibility.Collapsed;
+        ImportConfirmBtn.Visibility = Visibility.Collapsed;
+        BuildRulesEditor();
     }
 
     private System.Windows.Controls.Primitives.ToggleButton RuleToggle(

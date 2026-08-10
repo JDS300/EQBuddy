@@ -34,10 +34,12 @@ public enum WikiDropStatus
 /// </summary>
 public static class WikiContribution
 {
-    /// <summary>Tier suffixes fold ("Vest +2" → "Vest") and backticks drop (wikis
-    /// strip EQ's backticks — the Skeleton L`rodd lesson), then case-insensitive.</summary>
+    /// <summary>Tier suffixes fold ("Vest +2" → "Vest"), and backticks AND apostrophes
+    /// drop — wikis strip both (the Skeleton L`rodd lesson, then Frankthetankk's ✦ on
+    /// "Packmaster's Lash" when the page lists {{:Packmasters Lash}}, #65 test report).
+    /// Then case-insensitive.</summary>
     private static string Fold(string item) =>
-        QuestCatalog.BaseItemName(item).Replace("`", "");
+        QuestCatalog.BaseItemName(item).Replace("`", "").Replace("'", "").Replace("’", "");
 
     public static WikiDropStatus Classify(MobLookupResult? lookup, string item) => lookup switch
     {
@@ -167,10 +169,60 @@ public static class WikiContribution
                 break;
         }
         sb.AppendLine();
+        // Last-seen log times ride along (Frankthetankk, #65): a contributor double-
+        // checking their own claim can jump straight to the moment in their log file.
         sb.AppendLine("Suggested edit summary: EQBuddy-observed drops — " +
             string.Join("; ", news.Select(n =>
                 $"{n.Loot.Item} ×{n.Loot.Count} in {mob.Kills} kill{(mob.Kills == 1 ? "" : "s")}"
                 + (n.Loot.DropRatePct is { } pct ? $" ({pct:0.#}%)" : ""))) + ".");
+        var stamped = news.Where(n => n.Loot.LastAt is not null).ToList();
+        if (stamped.Count > 0)
+            sb.AppendLine("Log reference (for your own records, not the wiki): " +
+                string.Join("; ", stamped.Select(n => $"{n.Loot.Item} last at {n.Loot.LastAt:HH:mm:ss}")) + ".");
+
+        // The other half of the loop (#65 test report): each item's own page carries a
+        // dropsfrom list that may not name this creature. No lookup is made here — the
+        // contributor eyeballs the page the link opens and pastes only if it's missing.
+        var killZone = mob.Zone.Length > 0 ? mob.Zone : currentZone;
+        sb.AppendLine();
+        sb.AppendLine("Each item's own page has a \"Drops from\" list — if this creature is missing");
+        sb.AppendLine("there, add the line under the dropsfrom field" +
+                      (killZone.Length > 0 ? $" (zone heading [[{killZone}]]):" : ":"));
+        foreach (var (l, _) in news)
+        {
+            var item = QuestCatalog.BaseItemName(l.Item);
+            sb.AppendLine($"  {EditUrl(item)}");
+            sb.AppendLine($"    * [[{mob.Name}]]");
+        }
+
+        WriteStatBlock(sb, mob, killZone);
+    }
+
+    /// <summary>The observed stat block (#65, Frankthetankk's field list): zone at
+    /// kill time, per-kill money as the wiki's own low–high-per-coin format, and
+    /// faction hits — with a confirmed absence reported too, because "no faction
+    /// hit" saves the next tester the same experiment. Presented for RECONCILIATION,
+    /// never as a correction: a mismatch may mean the wiki captured a range our
+    /// sample hasn't seen. The same 10+ kill bar as rarity gates what's suggested.</summary>
+    private static void WriteStatBlock(StringBuilder sb, MobSummary mob, string killZone)
+    {
+        var thin = mob.Kills < 10;
+        sb.AppendLine();
+        sb.AppendLine($"Observed stat block ({mob.Kills} kill{(mob.Kills == 1 ? "" : "s")}"
+            + (thin ? " — thin sample, for your notes rather than the wiki yet):" : ") — compare, don't overwrite:"));
+        if (killZone.Length > 0)
+            sb.AppendLine($"  zone (at kill time): {killZone}");
+        if (mob.CoinMin >= 0)
+            sb.AppendLine("  money per kill: " + (mob.CoinMin == mob.CoinMax
+                ? $"{StatsSnapshot.FormatCoin(mob.CoinMin)} (single observed value — one sample can't tell \"always\" from \"lucky\")"
+                : $"{StatsSnapshot.FormatCoin(mob.CoinMin)} – {StatsSnapshot.FormatCoin(mob.CoinMax)}"));
+        if (mob.Factions.Count > 0)
+            foreach (var f in mob.Factions)
+                sb.AppendLine($"  faction: {f.Faction} {(f.Delta >= 0 ? "+" : "")}{f.Delta}"
+                    + $" ({f.Hits} of {mob.Kills} kill{(mob.Kills == 1 ? "" : "s")})");
+        else
+            sb.AppendLine($"  faction: no hits observed across {mob.Kills} kill{(mob.Kills == 1 ? "" : "s")}"
+                + " — a confirmed absence is data too");
     }
 
     /// <summary>One loot entry in page style: {{:Item}} transclusion (their tooltip

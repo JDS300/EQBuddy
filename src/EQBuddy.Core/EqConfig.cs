@@ -129,7 +129,11 @@ public static class EqConfig
         return truncated;
     }
 
-    private static void ArchiveCopy(FileInfo log)
+    private static void ArchiveCopy(FileInfo log) => log.CopyTo(ArchiveDest(log));
+
+    /// <summary>Pick Logs\archive\eqlog_name_server_STAMP.txt, stamp = the log's last
+    /// write (when the session actually ended), creating the folder if needed.</summary>
+    private static string ArchiveDest(FileInfo log)
     {
         var dir = Path.Combine(log.DirectoryName!, "archive");
         Directory.CreateDirectory(dir);
@@ -140,6 +144,38 @@ public static class EqConfig
         for (var n = 2; File.Exists(dest); n++)
             dest = Path.Combine(dir,
                 $"{Path.GetFileNameWithoutExtension(log.Name)}_{stamp}-{n}.txt");
-        log.CopyTo(dest);
+        return dest;
+    }
+
+    /// <summary>
+    /// Split a live log right now: move its content to Logs\archive and leave a fresh
+    /// empty file in its place (#52, the "Reset session stats" half of the ask).
+    /// Rename-not-truncate is deliberate: the game writes each line open-append-close
+    /// (joeymavity field-tested that EQL just starts writing the base name again), so a
+    /// move mid-play loses nothing — unlike SetLength(0), which could leave a
+    /// cached-offset writer null-padding the file. The empty base file is recreated
+    /// immediately so most-recently-written character detection doesn't wander off to
+    /// an alt's log while waiting for the game's next line. Note: a log-tailing tool
+    /// (GINA) will need its own restart after a split, same as after any truncation —
+    /// unlike the janitor sweep this runs on an explicit click, so it doesn't stand
+    /// down for them. Returns the archive path, or null if there was nothing to split
+    /// or the move failed (file locked — nothing is lost, the log just keeps growing).
+    /// </summary>
+    public static string? SplitLog(string logPath)
+    {
+        try
+        {
+            var fi = new FileInfo(logPath);
+            if (!fi.Exists || fi.Length == 0) return null;
+            var dest = ArchiveDest(fi);
+            fi.MoveTo(dest);
+            using (File.Create(logPath)) { }
+            return dest;
+        }
+        catch (Exception ex)
+        {
+            CoreLog.Error(ex);
+            return null;
+        }
     }
 }

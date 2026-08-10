@@ -266,6 +266,71 @@ public class MezTrackerTests
         finally { File.Delete(path); }
     }
 
+    /// <summary>Upstream's ChainMezPoisonHealsOnTheFirstCleanFade,
+    /// LegitimateLongUpgradedDurationSurvivesReload and LiveChainArtifactHealsItself were
+    /// dropped on the 1.47.0 merge. All three assert upstream's scalar learner — "the latest
+    /// clean fade wins outright, in both directions" — which this fork deliberately does not
+    /// have; it keeps a SAMPLE SET per rank and estimates from the cluster (see MezTracker's
+    /// class comment). The first two also require a legacy scalar store to LOAD as a learned
+    /// duration, which is the exact thing this fork quarantines on purpose — see
+    /// PoisonedStoreValuesAreQuarantinedOnLoad and
+    /// AnOldFormatScalarStoreLoadsWithoutThrowingAndItsInflatedValueIsDiscarded. The third's
+    /// scenario, an inflated outlier among honest fades, is covered at sample scale by
+    /// ARunOfThirtyEightSecondFadesWithOneFortyThreeSecondOutlierIgnoresTheOutlier.
+    ///
+    /// What upstream's third test does expose is a REAL difference in the small-sample
+    /// corner, pinned below so it is a known property rather than a surprise.</summary>
+    [Fact]
+    public void AnInflatedArtifactRulesUntilTheSampleSetIsBigEnoughToOutvoteIt()
+    {
+        // A clicky re-mez logs no cast line, so the fade measures against the original
+        // anchor: one 72s artifact for a 24s spell, from a single unambiguous fade.
+        var events = new List<GameEvent>
+        {
+            Ev(0, "You begin casting Mesmerization V."),
+            Ev(2, "a farmer has been mesmerized."),
+            Ev(74, "Your Mesmerization V spell has worn off of a farmer."),
+        };
+
+        // Below ModeMinimumSamples the estimate falls back to the LONGEST sample, so one
+        // honest 24s fade does not yet displace the artifact. Upstream heals here; this
+        // fork does not, and a chip reading 1:12 on a 24s mez is wrong in the dangerous
+        // direction until the evidence accumulates.
+        var t = Replay([.. events, Ev(100, "You begin casting Mesmerization V."),
+                                   Ev(102, "a rat has been mesmerized."),
+                                   Ev(126, "Your Mesmerization V spell has worn off of a rat.")]);
+        Assert.Equal(72, t.LearnedDurations["Mesmerization V"], 0);
+
+        // The artifact also has to fall out of the top decile before it stops ruling: the
+        // cluster floor is measured from the ClusterAnchor (0.9) percentile, so while the
+        // outlier IS that percentile the floor sits at 0.7x72 and every honest 24 is
+        // excluded from the vote. Nine clean fades (ten samples) put the anchor back on
+        // the real cluster, and the artifact is outvoted.
+        var at = 100;
+        foreach (var i in Enumerable.Range(0, MezTracker.ModeMinimumSamples + 1))
+        {
+            events.Add(Ev(at, "You begin casting Mesmerization V."));
+            events.Add(Ev(at + 2, $"a rat{i} has been mesmerized."));
+            events.Add(Ev(at + 26, $"Your Mesmerization V spell has worn off of a rat{i}."));
+            at += 40;
+        }
+
+        Assert.Equal(24, Replay([.. events]).LearnedDurations["Mesmerization V"], 0);
+    }
+
+    /// <summary>The genuine upgrade duration learns from its first natural fade; the
+    /// entry is retained past its visible expiry precisely so this fade can find it.</summary>
+    [Fact]
+    public void UpgradedRankDurationStillLearns()
+    {
+        var t = Replay(
+            Ev(0, "You begin casting Mesmerization VI."),
+            Ev(2, "a farmer has been mesmerized."),
+            Ev(38, "Your Mesmerization VI spell has worn off of a farmer."));
+
+        Assert.Equal(36, t.LearnedDurations["Mesmerization VI"], 0);
+    }
+
     [Fact]
     public void ZoningClearsEverything()
     {
@@ -804,4 +869,5 @@ public class MezTrackerTests
         t.Apply(Ev(6, "Twiddley slashes an orc pawn for 5 points of damage."));
         Assert.Empty(t.Snapshot(T0.AddSeconds(7)));
     }
+
 }

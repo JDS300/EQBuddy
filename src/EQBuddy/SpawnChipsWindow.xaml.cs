@@ -119,7 +119,10 @@ public partial class SpawnChipsWindow : Window
     {
         if (sender is not Border { Tag: SpawnChip chip } || chip.Zone.Length == 0) return;
         _vm.ClearTimer(chip.Zone, chip.Name);
-        _signature = "";
+        // Sentinel, not "": dismissing the LAST chip makes the new signature the empty
+        // string too, and a matching reset would skip the rebuild and leave a ghost
+        // chip painted (Don's catch porting this window to Avalonia, PR #67).
+        _signature = "￿";
         RefreshChips(DateTime.Now);
         e.Handled = true;
     }
@@ -139,7 +142,7 @@ public partial class SpawnChipsWindow : Window
         {
             // A due chip has said its piece — click acknowledges and clears the timer.
             _vm.ClearTimer(chip.Zone, chip.Name);
-            _signature = "";
+            _signature = "￿";   // sentinel, not "" — see OnChipDismiss
             RefreshChips(DateTime.Now);
             e.Handled = true;
             return;

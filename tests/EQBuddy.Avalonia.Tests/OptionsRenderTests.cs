@@ -37,6 +37,7 @@ public class OptionsRenderTests : IDisposable
                 "TruncateLogs": false, "ShowTutorial": false, "TrackSpawns": false,
                 "LastSeenVersion": {{System.Text.Json.JsonSerializer.Serialize(UpdateChecker.CurrentVersion.ToString())}},
                 "Theme": "ParchmentBrass",
+                "AlertVolume": 0.35,
                 "_comment": "DefaultRulesVersion must track AppSettings.CurrentDefaultRulesVersion so loading injects no built-in rule and the rule count stays fixed under these tests. Bump it whenever that constant moves: at 1 against a v2 build, the charm-coverage pass added a rule and the visible-picker count went 2 -> 3.",
                 "DefaultRulesVersion": 2,
                 "TrackedRules": [
@@ -83,6 +84,26 @@ public class OptionsRenderTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void AlertVolumeSliderLoadsAndPersistsTheSharedSetting()
+    {
+        var (main, options) = Open();
+        Assert.Contains(options.GetVisualDescendants().OfType<TextBlock>(),
+            text => text.Text == "Alert volume");
+        var slider = options.GetVisualDescendants().OfType<Slider>()
+            .Single(control => Math.Abs(control.Minimum - 0.1) < 0.001
+                && Math.Abs(control.Maximum - 1.0) < 0.001
+                && Math.Abs(control.Value - 0.35) < 0.001);
+
+        slider.Value = 0.7;
+
+        Assert.Equal(0.7, main.Settings.AlertVolume, 3);
+        Assert.Contains(options.GetVisualDescendants().OfType<TextBlock>(),
+            text => text.Text?.Contains("70") == true && text.Text.Contains('%'));
+        options.Close();
+        main.Close();
+    }
+
+    [AvaloniaFact]
     public void SpawnTrackingToggleUpdatesTheSharedSetting()
     {
         var (main, options) = Open();
@@ -96,6 +117,25 @@ public class OptionsRenderTests : IDisposable
         main.SetTrackSpawns(false);
         Assert.False(toggle.IsChecked);
         Assert.False(main.Settings.TrackSpawns);
+
+        options.Close();
+        main.Close();
+    }
+
+    [AvaloniaFact]
+    public void TargetDropsToggleAndAlertColorControlsAreAvailable()
+    {
+        var (main, options) = Open();
+        var targetDrops = options.GetVisualDescendants().OfType<CheckBox>()
+            .Single(c => (c.Content as TextBlock)?.Text?.Contains("known drops") == true);
+        Assert.True(targetDrops.IsChecked);
+        targetDrops.IsChecked = false;
+        Assert.False(main.Settings.ShowTargetDrops);
+
+        var colorDots = options.GetVisualDescendants().OfType<Button>()
+            .Where(button => Equals(button.Content, "●"))
+            .ToList();
+        Assert.Equal(main.Settings.TrackedRules.Count, colorDots.Count);
 
         options.Close();
         main.Close();
@@ -247,8 +287,10 @@ public class OptionsRenderTests : IDisposable
     }
 
     /// <summary>The other half of the bug fix: a class filter needs no match text, so the
-    /// text box hides while the combo takes its place — but switch back to "By name..."
-    /// and the text box has to reappear, live, without reopening the window.</summary>
+    /// input hides while the combo takes its place — but switch back to "By name..."
+    /// and it has to reappear, live, without reopening the window. Since 1.47.0 the
+    /// by-name input is the buff picker (an AutoCompleteBox over the fade catalog); the
+    /// plain match box now only serves the non-fade rule kinds.</summary>
     [AvaloniaFact]
     public void ChoosingAClassFilterHidesTheMatchTextBoxAndByNameBringsItBack()
     {
@@ -267,16 +309,16 @@ public class OptionsRenderTests : IDisposable
         var classCombo = options.GetVisualDescendants().OfType<ComboBox>()
             .Single(c => c.Items.Contains(OptionsViewModel.SpellFilterNames[0]));
         var matchArea = (Grid)classCombo.Parent!;
-        var matchBox = matchArea.Children.OfType<TextBox>().Single();
+        var picker = matchArea.Children.OfType<AutoCompleteBox>().Single();
 
-        Assert.False(matchBox.IsVisible);   // class filter already selected: no text needed
+        Assert.False(picker.IsVisible);   // class filter already selected: no text needed
 
         classCombo.SelectedIndex = (int)EQBuddy.Core.SpellFilter.ByName;
-        Assert.True(matchBox.IsVisible);
+        Assert.True(picker.IsVisible);
         Assert.Equal(EQBuddy.Core.SpellFilter.ByName, main.Settings.TrackedRules[0].SpellFilter);
 
         classCombo.SelectedIndex = (int)EQBuddy.Core.SpellFilter.Charm;
-        Assert.False(matchBox.IsVisible);
+        Assert.False(picker.IsVisible);
         Assert.Equal(EQBuddy.Core.SpellFilter.Charm, main.Settings.TrackedRules[0].SpellFilter);
 
         options.Close();
@@ -312,7 +354,10 @@ public class OptionsRenderTests : IDisposable
         var classCombo = options.GetVisualDescendants().OfType<ComboBox>()
             .Single(c => c.Items.Contains(OptionsViewModel.SpellFilterNames[0]));
         var matchArea = (Grid)classCombo.Parent!;
-        var matchBox = matchArea.Children.OfType<TextBox>().Single();
+        // The by-name input is the buff picker since 1.47.0; the geometry requirement this
+        // test exists for is unchanged — whatever sits in the cell must stay in the cell
+        // and stay clickable.
+        var matchBox = matchArea.Children.OfType<AutoCompleteBox>().Single();
         var row = (Grid)matchArea.Parent!;
 
         // Wide enough for a spell name, not just a couple of characters.
@@ -425,12 +470,13 @@ public class OptionsRenderTests : IDisposable
             Assert.Equal(Enum.GetValues<SpellFilter>().Length, picker.Items.Count));
         Assert.Equal(2, filterPickers.Count(picker => picker.IsVisible));
 
-        var namedPattern = options.GetVisualDescendants().OfType<TextBox>()
+        var namedPattern = options.GetVisualDescendants().OfType<AutoCompleteBox>()
             .Single(t => t.Text == "Befriend");
-        var classPattern = options.GetVisualDescendants().OfType<TextBox>()
+        var classPattern = options.GetVisualDescendants().OfType<AutoCompleteBox>()
             .Single(t => t.Text == "keep this");
         Assert.True(namedPattern.IsVisible);
         Assert.False(classPattern.IsVisible);
+        Assert.Contains("Spirit of the Puma", namedPattern.ItemsSource!.Cast<string>());
 
         var kindPickers = options.GetVisualDescendants().OfType<ComboBox>()
             .Where(c => c.Items.Contains(OptionsViewModel.KindNames[0]))
@@ -511,7 +557,7 @@ public class OptionsRenderTests : IDisposable
         var filterPicker = options.GetVisualDescendants().OfType<ComboBox>()
             .Where(c => c.Items.Contains(OptionsViewModel.SpellFilterNames[0]))
             .Single(c => c.SelectedIndex == (int)SpellFilter.ByName && c.IsVisible);
-        var pattern = options.GetVisualDescendants().OfType<TextBox>()
+        var pattern = options.GetVisualDescendants().OfType<AutoCompleteBox>()
             .Single(t => t.Text == "Befriend");
 
         filterPicker.SelectedIndex = (int)SpellFilter.Charm;

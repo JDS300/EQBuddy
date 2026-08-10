@@ -114,6 +114,7 @@
       <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel>
           <TextBlock FontSize="12"
+                     x:Name="DetailText"
                      TextWrapping="Wrap"
                      Foreground="{DynamicResource TextBrush}"
                      FontFamily="Consolas, monospace"
@@ -127,6 +128,26 @@
                   Background="{DynamicResource PanelBrush}" IsVisible="False">
             <Canvas x:Name="DpsGraphCanvas" Height="72" SizeChanged="OnGraphSizeChanged" />
           </Border>
+          <TextBlock x:Name="DamageVisualLabel" Text="Top damage sources"
+                     FontSize="12" FontWeight="SemiBold"
+                     Foreground="{DynamicResource AccentBrush}"
+                     Margin="0,6,0,2" IsVisible="False" />
+          <StackPanel x:Name="DamageVisualList" Margin="0,0,8,0" />
+          <TextBlock x:Name="HealVisualLabel" Text="Top heals"
+                     FontSize="12" FontWeight="SemiBold"
+                     Foreground="{DynamicResource AccentBrush}"
+                     Margin="0,8,0,2" IsVisible="False" />
+          <StackPanel x:Name="HealVisualList" Margin="0,0,8,0" />
+          <TextBlock x:Name="FightsLabel" FontSize="12" FontWeight="SemiBold"
+                     Foreground="{DynamicResource AccentBrush}"
+                     Margin="0,8,0,2" IsVisible="False" />
+          <!-- Pull detail is built lazily when a row first opens; long sessions can
+               retain hundreds of encounters. -->
+          <StackPanel x:Name="FightsPanel" Margin="0,0,8,0" />
+          <TextBlock x:Name="DetailRest" FontSize="12" TextWrapping="Wrap"
+                     Foreground="{DynamicResource TextBrush}"
+                     FontFamily="Consolas, monospace"
+                     Margin="0,8,0,0" IsVisible="False" />
         </StackPanel>
       </ScrollViewer>
 

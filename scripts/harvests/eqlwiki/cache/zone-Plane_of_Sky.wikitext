@@ -48,7 +48,7 @@ Boss NPCs no longer have a deathtouch (a.k.a. DT, [[Cazic Touch]]).
 Most of the loot from Plane of Sky quests are quite excellent for the Kunark era. All melee classes can quickly attain a 21% haste belt and eventually earn a 41% belt. There are also numerous useful clicky items for caster classes, such as the [[Vermilion Sky Ring]] for Shamans, the [[Duennan Shielding Ring]] for Magicians, and the [[Necklace of Resolution]] for Clerics. Magicians, Monks, Rangers, and Paladins will also find they must visit Plane of Sky for their epic quests. For these reasons, most casual raiding guilds will raid Plane of Sky once a week, and defeating every boss in Plane of Sky is considered a major milestone in a guild's rise to fame.
 
 = Travelling To/From Plane of Sky =
-The Plane of Sky is accessible via an orb in East Freeport, located on a rock in the bay (location approximately 425, -1200). Clicking the orb will send you to the zone.
+The Plane of Sky is accessible via an orb in East Freeport, located on a rock in the bay (location approximately -425, -1200). Clicking the orb will send you to the zone.
 
 The Plane of Sky, like the Plane of Hate, is also accessible through the Wizard's spell [[Alter Plane: Sky]], which requires [[Cloudy Stone of Veeshan]] for each cast. Upon entering, all buffs and debuffs are stripped from the characters. No form of teleport spell or ability will work within Plane of Sky, except for [[Alter Plane: Sky]] (which allows a group to return to island 1 with their keys). There are only three ways to leave, jumping or falling off an island, death, or Druid [[Wind of the South]] or [[Wind of the North]] ports. After falling, a character will have all of his keys from Plane of Sky destroyed, and land in the ocean of [[East Freeport]], east of the docks (swim directly west to get back to land, the docks should come into view quickly).
 
@@ -150,7 +150,7 @@ The next island is also aggressive, so be fully prepared and invised before movi
 * Key required: [[Avian Key]]
 * Key dropped: [[Key of the Swarm]]
 
-When farming this island, take note of the following: Killing [[a spiroc banisher]] will spawn the miniboss [[The Spiroc Guardian]], which in turn spawns [[The Spiroc Lord]], which will drop the key to the next island and the unique pieces required for quest armor. The [[a spiroc banisher]] will be up again when you kill [[The Spiroc Lord]], so this island can be endlessly farmed. 
+When farming this island, take note of the following: Killing [[a spiroc banisher]] , [[a spiroc walker]] , or [[a spiroc revolter]] will spawn the miniboss [[The Spiroc Guardian]], which in turn spawns [[The Spiroc Lord]], which will drop the key to the next island and the unique pieces required for quest armor. The island respawns quickly, and one of the mobs to spawn the Guardian will likely be up again when you kill [[The Spiroc Lord]], so this island can be endlessly farmed. 
 
 Spirocs are particularly nasty mobs not only for their respawn ability but also their spells. Besides having a range of druid and ranger nukes, some are capable of [[A Dark Terror]]-type knockbacks which can send your pullers and tanks careening off into the wild blue yonder. Again, the direction your character faces is the only thing that figures on the direction of the knockback. It takes additional effort, but all trash should be immediately turned after they are pulled so that the tank can face outwards, looking at the edge with his back towards the center of the island. If knocked back, the tank will probably glance off the hill and not get thrown too far. 
 
@@ -1341,7 +1341,7 @@ These are the various class quests, and in general, completing all of these ques
 <li>'''{{SkyNoDrop|[[Fine Wool Cloak]]}}''' (6-BZ)</li>
 </ul>
 </div>
-| {{:Scintillating Bracer of Protection}}
+| {{:Scintillating Bracer of Protection}}(item is actually SHIMMERING Bracer)
 |-
 | Rogue Test of Deception
 | Thalik Silenthand

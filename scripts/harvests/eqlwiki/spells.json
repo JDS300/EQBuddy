@@ -2,7 +2,7 @@
  {
   "name": "Aanya's Animation",
   "page_title": "Aanya's Animation",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Enchanter",
@@ -14,8 +14,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 200.0,
   "mana_raw": "200",
   "cast_time_seconds": 10.0,
@@ -34,7 +34,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Pet: [[Aanya's Animation Summon"
+    "effect": "Summon Pet: Level 31 [[Aanya's Animation Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -1969,8 +1969,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 200.0,
   "mana_raw": "200",
   "cast_time_seconds": 10.0,
@@ -1989,7 +1989,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon [[Animate Dead Summon"
+    "effect": "Summon Pet: Level 19 [[Animate Dead Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -4651,7 +4651,7 @@
   ],
   "msg_cast_on_you": "You have been charmed.",
   "msg_cast_on_other": "Someone  has been charmed.",
-  "msg_wears_off": "You are no longer charmed.",
+  "msg_wears_off": "Your beguile spell has worn off",
   "cc_families": [
    "charm"
   ]
@@ -7084,7 +7084,7 @@
  {
   "name": "Boltran's Animation",
   "page_title": "Boltran's Animation",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Enchanter",
@@ -7096,8 +7096,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 175.0,
   "mana_raw": "175",
   "cast_time_seconds": 9.0,
@@ -7116,7 +7116,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Pet: [[Boltran's Animation Summon"
+    "effect": "Summon Pet: Level 28 [[Boltran's Animation Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -7351,8 +7351,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 80.0,
   "mana_raw": "80",
   "cast_time_seconds": 7.0,
@@ -7371,7 +7371,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon [[Bone Walk Summon"
+    "effect": "Summon Pet: Level 9 [[Bone Walk Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -7498,7 +7498,7 @@
   "slot_effects": [
    {
     "slot": 2,
-    "effect": "Increase Mana by 7 per tick (L52) to 9 per tick (L64)"
+    "effect": "Increase Mana by 6 per tick (L42) to 9 per tick (L64)"
    }
   ],
   "msg_cast_on_you": "A cool breeze slips through your mind.",
@@ -9361,7 +9361,7 @@
  {
   "name": "Cackling Bones",
   "page_title": "Cackling Bones",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Shadow Knight",
@@ -9378,8 +9378,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 450.0,
   "mana_raw": "450",
   "cast_time_seconds": 15.0,
@@ -9398,7 +9398,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon [[Cackling Bones Summon"
+    "effect": "Summon Pet: Level 37 [[Cackling Bones Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -11297,8 +11297,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 15.0,
   "mana_raw": "15",
   "cast_time_seconds": 5.0,
@@ -11317,7 +11317,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon [[Cavorting Bones Summon"
+    "effect": "Summon Pet: Level 1 [[Cavorting Bones Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -15427,7 +15427,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Pet: [[Companion_Spirit_Summon"
+    "effect": "Summon Pet: Level 26 [[Companion_Spirit_Summon"
    }
   ],
   "msg_cast_on_you": "You summon a companion spirit.",
@@ -16156,8 +16156,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 120.0,
   "mana_raw": "120",
   "cast_time_seconds": 8.0,
@@ -16176,7 +16176,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon [[Convoke Shadow Summon"
+    "effect": "Summon Pet: Level 11 [[Convoke Shadow Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -19783,6 +19783,43 @@
  {
   "name": "Divine Might Effect",
   "page_title": "Divine Might Effect",
+  "template": "Spellpage",
+  "classes": [],
+  "classes_raw": "This spell is cast by NPCs only.",
+  "school": null,
+  "school_raw": null,
+  "target_type": "Single",
+  "spell_type_raw": "Detrimental",
+  "beneficial": false,
+  "mana": 0.0,
+  "mana_raw": "0",
+  "cast_time_seconds": 0.0,
+  "casting_time_raw": "0.00",
+  "recast_seconds": 0.0,
+  "recast_time_raw": "0.00",
+  "duration_raw": "Instant",
+  "duration_seconds": 0.0,
+  "resist_raw": "Magic (0)",
+  "resist": {
+   "type": "Magic",
+   "modifier": 0
+  },
+  "range_raw": "40",
+  "description": "Bestows divine might upon you, providing a chance to channel the will of the gods through your weapon when attacking.",
+  "slot_effects": [
+   {
+    "slot": 1,
+    "effect": "Decrease Hitpoints by 65"
+   }
+  ],
+  "msg_cast_on_you": "You have been struck by a surge of Divine Might.",
+  "msg_cast_on_other": "Someone  is struck by a surge of Divine Might.",
+  "msg_wears_off": null,
+  "cc_families": []
+ },
+ {
+  "name": "Divine Might Effect",
+  "page_title": "Divine Might Strike",
   "template": "Spellpage",
   "classes": [],
   "classes_raw": "This spell is cast by NPCs only.",
@@ -30175,7 +30212,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Pet: [[Frenzied_Spirit_Summon"
+    "effect": "Summon Pet: Level 36 [[Frenzied_Spirit_Summon"
    }
   ],
   "msg_cast_on_you": "You summon a frenzied spirit.",
@@ -34456,7 +34493,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Pet: [[Guardian_Spirit_Summon"
+    "effect": "Summon Pet: Level 32 [[Guardian_Spirit_Summon"
    }
   ],
   "msg_cast_on_you": "You summon a guardian spirit.",
@@ -35057,7 +35094,7 @@
  {
   "name": "Haunting Corpse",
   "page_title": "Haunting Corpse",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Necromancer",
@@ -35069,8 +35106,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 240.0,
   "mana_raw": "240",
   "cast_time_seconds": 11.0,
@@ -35089,7 +35126,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon [[Haunting Corpse Summon"
+    "effect": "Summon Pet: Level 22 [[Haunting Corpse Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -36646,7 +36683,7 @@
    "modifier": null
   },
   "range_raw": "100",
-  "description": "Provides magical information about the item that your target is holding.<br><br><br>To use the spell on yourself, pick the item you want to identify from your inventory by left clicking it, so that it's held on your cursor (as if you were moving the item).  Then, with the item held on your cursor, target yourself and cast the spell.<br><br>To use the spell on others, have them hold their item to be identified on their cursor while you cast the spell on them.",
+  "description": "Provides magical information about the item that your target is holding.<br><br><br>To use the spell on yourself, pick the item you want to identify from your inventory by left clicking it, so that it's held on your cursor (as if you were moving the item).  Then, with the item held on your cursor, target yourself and cast the spell.<br><br>To use the spell on others, have them hold their item to be identified on their cursor while you cast the spell on them.<br><br>\nThis spell doesn't exist in EQL for classes to scribe.",
   "slot_effects": [
    {
     "slot": 1,
@@ -41406,7 +41443,7 @@
  {
   "name": "Invoke Death",
   "page_title": "Invoke Death",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Necromancer",
@@ -41418,8 +41455,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 490.0,
   "mana_raw": "490",
   "cast_time_seconds": 16.0,
@@ -41438,7 +41475,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon [[Invoke Death Summon"
+    "effect": "Summon Pet: Level 41 [[Invoke Death Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -41555,7 +41592,7 @@
  {
   "name": "Invoke Shadow",
   "page_title": "Invoke Shadow",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Necromancer",
@@ -41567,8 +41604,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 340.0,
   "mana_raw": "340",
   "cast_time_seconds": 13.0,
@@ -41587,7 +41624,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon [[Invoke Shadow Summon"
+    "effect": "Summon Pet: Level 29 [[Invoke Shadow Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -42329,7 +42366,7 @@
  {
   "name": "Juli's Animation",
   "page_title": "Juli's Animation",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Enchanter",
@@ -42341,8 +42378,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 24.0,
   "mana_raw": "24",
   "cast_time_seconds": 2.0,
@@ -42361,7 +42398,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Pet: [[Juli's Animation Summon"
+    "effect": "Summon Pet: Level 5 [[Juli's Animation Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -42712,7 +42749,7 @@
  {
   "name": "Kilan's Animation",
   "page_title": "Kilan's Animation",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Enchanter",
@@ -42724,8 +42761,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 65.0,
   "mana_raw": "65",
   "cast_time_seconds": 4.0,
@@ -42744,7 +42781,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Pet: [[Kilan's Animation Summon"
+    "effect": "Summon Pet: Level 11 [[Kilan's Animation Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -42792,7 +42829,7 @@
  {
   "name": "Kintaz's Animation",
   "page_title": "Kintaz's Animation",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Enchanter",
@@ -42804,8 +42841,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 300.0,
   "mana_raw": "300",
   "cast_time_seconds": 12.0,
@@ -42824,7 +42861,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Pet: [[Kintaz's Animation Summon"
+    "effect": "Summon Pet: Level 39 [[Kintaz's Animation Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -43508,8 +43545,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 40.0,
   "mana_raw": "40",
   "cast_time_seconds": 6.0,
@@ -43528,7 +43565,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon [[Leering Corpse Summon"
+    "effect": "Summon Pet: Level 5 [[Leering Corpse Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -46431,7 +46468,7 @@
  {
   "name": "Malignant Dead",
   "page_title": "Malignant Dead",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Shadow Knight",
@@ -46448,8 +46485,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 390.0,
   "mana_raw": "390",
   "cast_time_seconds": 14.0,
@@ -46468,7 +46505,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon [[Malignant Dead Summon"
+    "effect": "Summon Pet: Level 33 [[Malignant Dead Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -50110,7 +50147,7 @@
  {
   "name": "Mircyl's Animation",
   "page_title": "Mircyl's Animation",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Enchanter",
@@ -50122,8 +50159,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 45.0,
   "mana_raw": "45",
   "cast_time_seconds": 3.0,
@@ -50142,7 +50179,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Pet: [[Mircyl's Animation Summon"
+    "effect": "Summon Pet: Level 9 [[Mircyl's Animation Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -50433,7 +50470,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Pet: [[Monster Summoning I Summon"
+    "effect": "Summon Pet: Level 29 [[Monster Summoning I Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -50476,7 +50513,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Pet: [[Monster Summoning II Summon"
+    "effect": "Summon Pet: Level 42 [[Monster Summoning II Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -53678,7 +53715,7 @@
  {
   "name": "Pendril's Animation",
   "page_title": "Pendril's Animation",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Enchanter",
@@ -53690,8 +53727,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 12.0,
   "mana_raw": "12",
   "cast_time_seconds": 1.5,
@@ -53710,7 +53747,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Pet: [[Pendril's Animation Summon"
+    "effect": "Summon Pet: Level 1 [[Pendril's Animation Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -59617,7 +59654,7 @@
  {
   "name": "Restless Bones",
   "page_title": "Restless Bones",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Necromancer",
@@ -59634,8 +59671,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 160.0,
   "mana_raw": "160",
   "cast_time_seconds": 9.0,
@@ -59654,7 +59691,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon [[Restless Bones Summon"
+    "effect": "Summon Pet: Level 16 [[Restless Bones Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -61817,7 +61854,7 @@
  {
   "name": "Sagar's Animation",
   "page_title": "Sagar's Animation",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Enchanter",
@@ -61829,8 +61866,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 130.0,
   "mana_raw": "130",
   "cast_time_seconds": 7.0,
@@ -61849,7 +61886,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Pet: [[Sagar's Animation Summon"
+    "effect": "Summon Pet: Level 22 [[Sagar's Animation Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -64423,7 +64460,7 @@
  {
   "name": "Shalee's Animation",
   "page_title": "Shalee's Animation",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Enchanter",
@@ -64435,8 +64472,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 85.0,
   "mana_raw": "85",
   "cast_time_seconds": 5.0,
@@ -64455,7 +64492,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Pet: [[Shalee's Animation Summon"
+    "effect": "Summon Pet: Level 16 [[Shalee's Animation Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -67172,7 +67209,7 @@
  {
   "name": "Sisna's Animation",
   "page_title": "Sisna's Animation",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Enchanter",
@@ -67184,8 +67221,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 105.0,
   "mana_raw": "105",
   "cast_time_seconds": 6.0,
@@ -67204,7 +67241,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Pet: [[Sisna's Animation Summon"
+    "effect": "Summon Pet: Level 19 [[Sisna's Animation Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -69442,7 +69479,7 @@
  {
   "name": "Spear of Warding",
   "page_title": "Spear of Warding",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Magician",
@@ -70166,7 +70203,7 @@
  {
   "name": "Spirit of Herikol",
   "page_title": "Spirit of Herikol",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Beastlord",
@@ -70198,7 +70235,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Warder: [[Spirit_of_Herikol_Summon"
+    "effect": "Summon Pet: Level 26 [[Spirit_of_Herikol_Summon"
    }
   ],
   "msg_cast_on_you": "You summon a warder to your aid.",
@@ -70297,7 +70334,7 @@
  {
   "name": "Spirit of Kashek",
   "page_title": "Spirit of Kashek",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Beastlord",
@@ -70329,7 +70366,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Warder: [[Spirit_of_Kashek_Summon"
+    "effect": "Summon Pet: Level 39 [[Spirit_of_Kashek_Summon"
    }
   ],
   "msg_cast_on_you": "You summon a warder to your aid.",
@@ -70340,7 +70377,7 @@
  {
   "name": "Spirit of Keshuval",
   "page_title": "Spirit of Keshuval",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Beastlord",
@@ -70372,7 +70409,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Warder: [[Spirit_of_Keshuval_Summon"
+    "effect": "Summon Pet: Level 22 [[Spirit_of_Keshuval_Summon"
    }
   ],
   "msg_cast_on_you": "You summon a warder to your aid.",
@@ -70383,7 +70420,7 @@
  {
   "name": "Spirit of Khaliz",
   "page_title": "Spirit of Khaliz",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Beastlord",
@@ -70415,7 +70452,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Warder: [[Spirit_of_Khaliz_Summon"
+    "effect": "Summon Pet: Level 16 [[Spirit_of_Khaliz_Summon"
    }
   ],
   "msg_cast_on_you": "You summon a warder to your aid.",
@@ -70760,7 +70797,7 @@
  {
   "name": "Spirit of Sharik",
   "page_title": "Spirit of Sharik",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Beastlord",
@@ -70792,7 +70829,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Warder: [[Spirit_of_Sharik_Summon"
+    "effect": "Summon Pet: Level 9 [[Spirit_of_Sharik_Summon"
    }
   ],
   "msg_cast_on_you": "You summon a warder to your aid.",
@@ -71231,7 +71268,7 @@
  {
   "name": "Spirit of Yekan",
   "page_title": "Spirit of Yekan",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Beastlord",
@@ -71263,7 +71300,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Warder: [[Spirit_of_Yekan_Summon"
+    "effect": "Summon Pet: Level 31 [[Spirit_of_Yekan_Summon"
    }
   ],
   "msg_cast_on_you": "You summon a warder to your aid.",
@@ -74629,8 +74666,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 290.0,
   "mana_raw": "290",
   "cast_time_seconds": 12.0,
@@ -74649,7 +74686,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon [[Summon Dead Summon"
+    "effect": "Summon Pet: Level 25 [[Summon Dead Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -76230,6 +76267,43 @@
   ],
   "msg_cast_on_you": null,
   "msg_cast_on_other": null,
+  "msg_wears_off": null,
+  "cc_families": []
+ },
+ {
+  "name": "Summoned Monster Attack",
+  "page_title": "Summoned Monster Attack",
+  "template": "Spellpagesmart",
+  "classes": [],
+  "classes_raw": "This spell is cast by NPCs only.",
+  "school": null,
+  "school_raw": null,
+  "target_type": "Single",
+  "spell_type_raw": "Direct Damage",
+  "beneficial": null,
+  "mana": 0.0,
+  "mana_raw": "0",
+  "cast_time_seconds": 0.0,
+  "casting_time_raw": "0.00",
+  "recast_seconds": 6.0,
+  "recast_time_raw": "6.00",
+  "duration_raw": "Instant",
+  "duration_seconds": 0.0,
+  "resist_raw": "Magic (0)",
+  "resist": {
+   "type": "Magic",
+   "modifier": 0
+  },
+  "range_raw": "120",
+  "description": "Slashes your target with shards of ice causing 2 to 51 damage.",
+  "slot_effects": [
+   {
+    "slot": 1,
+    "effect": "Decrease Hitpoints by 2 (L1) to 51 (L50)"
+   }
+  ],
+  "msg_cast_on_you": "Claws rake across your skin.",
+  "msg_cast_on_other": "Someone skin is torn by feral claws.",
   "msg_wears_off": null,
   "cc_families": []
  },
@@ -78478,7 +78552,7 @@
  {
   "name": "Tame Spirit",
   "page_title": "Tame Spirit",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Beastlord",
@@ -78510,7 +78584,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Warder: [[Tame_Spirit_Summon"
+    "effect": "Summon Pet: Level 5 [[Tame_Spirit_Summon"
    }
   ],
   "msg_cast_on_you": "You summon a warder to your aid.",
@@ -83123,7 +83197,7 @@
  {
   "name": "Uleen's Animation",
   "page_title": "Uleen's Animation",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Enchanter",
@@ -83135,8 +83209,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 150.0,
   "mana_raw": "150",
   "cast_time_seconds": 8.0,
@@ -83155,7 +83229,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Pet: [[Uleen's Animation Summon"
+    "effect": "Summon Pet: Level 25 [[Uleen's Animation Summon"
    }
   ],
   "msg_cast_on_you": null,
@@ -84112,7 +84186,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Pet: [[Vigilant_Spirit_Summon"
+    "effect": "Summon Pet: Level 29 [[Vigilant_Spirit_Summon"
    }
   ],
   "msg_cast_on_you": "You summon a vigilant spirit.",
@@ -86725,7 +86799,7 @@
  {
   "name": "Wild Spirit",
   "page_title": "Wild Spirit",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Beastlord",
@@ -86757,7 +86831,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Warder: [[Wild_Spirit_Summon"
+    "effect": "Summon Pet: Level 1 [[Wild_Spirit_Summon"
    }
   ],
   "msg_cast_on_you": "You summon a warder to your aid.",
@@ -88216,7 +88290,7 @@
  {
   "name": "Yegoreff's Animation",
   "page_title": "Yegoreff's Animation",
-  "template": "Spellpage",
+  "template": "Spellpagesmart",
   "classes": [
    {
     "class": "Enchanter",
@@ -88228,8 +88302,8 @@
   "school": "Conjuration",
   "school_raw": "[[Skill Conjuration | Conjuration]]",
   "target_type": "Self",
-  "spell_type_raw": "Beneficial",
-  "beneficial": true,
+  "spell_type_raw": "Pet",
+  "beneficial": null,
   "mana": 250.0,
   "mana_raw": "250",
   "cast_time_seconds": 11.0,
@@ -88248,7 +88322,7 @@
   "slot_effects": [
    {
     "slot": 1,
-    "effect": "Summon Pet: [[Yegoreff's Animation Summon"
+    "effect": "Summon Pet: Level 34 [[Yegoreff's Animation Summon"
    }
   ],
   "msg_cast_on_you": null,

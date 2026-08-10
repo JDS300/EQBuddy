@@ -1,11 +1,11 @@
 # Quest harvest report
 
-- Quest Items category members: 3993
-- Pages enumerated: 914
-- Parsed: 914 (empty pages: 0)
-- With turn-in items: 531
-- Unique turn-in item names: 2109
-- Missing quest giver: 32
+- Quest Items category members: 4002
+- Pages enumerated: 916
+- Parsed: 916 (empty pages: 0)
+- With turn-in items: 533
+- Unique turn-in item names: 2112
+- Missing quest giver: 33
 - Backoff events: 0
 
 ## Quests with no turn-in items parsed (review these)
@@ -41,6 +41,7 @@
 - Broken Lute
 - Bug Collection
 - Bulthar Trunks
+- Burning Soul of the Pious
 - Burynai Bundt Cake
 - Bvellos' Bounty
 - Cabilis Pale Ale (Firiona Vie)
@@ -82,7 +83,6 @@
 - Drolvarg Teeth
 - Drosco the Zombie (evil)
 - Enchant Bonethunder
-- Enchanter Plane of Sky Tests
 - Enchanter Spells (Evil)
 - Enchanter Spells (Good)
 - Errand for Tonmerk
@@ -272,6 +272,7 @@
 - Pirate Earrings
 - Plane of Mischief Faction Quest
 - Popular Quests by Level
+- Potential of the Void
 - Preserved Meat Delivery
 - Quest:Druid Spells
 - Quest:Necromancer Spells
@@ -310,7 +311,6 @@
 - Solusek's Flower
 - Something is Wrrrong
 - Spider Legs Quest
-- Spirit Powder
 - Steel Warrior Initiation
 - Strategies of the Ancient Dragons
 - Strife to the Coldain
@@ -398,6 +398,7 @@
 - All Positive Faction Quests
 - Bone Chips Quests
 - Bread Shipment Quests
+- Burning Soul of the Pious
 - Class Race Quest List
 - Cleric Plane of Sky Tests
 - Cougarskin Boots Quest

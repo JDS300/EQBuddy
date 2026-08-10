@@ -32,8 +32,8 @@ public partial class BreakoutWindow : Window
     /// click/hover behavior through it (same shared builder the Loot card uses).</summary>
     public MainWindow? Main { get; set; }
 
-    /// <summary>Raised when the user ✕-dismisses the window — the owner suppresses this
-    /// kind until the widget is next minimized.</summary>
+    /// <summary>Raised when the user ✕-dismisses the window — the owner disables this
+    /// kind persistently (re-enabled under Options → Breakout windows, discussion #45).</summary>
     public event Action<BreakoutKind>? Dismissed;
 
     private bool _fightScope;

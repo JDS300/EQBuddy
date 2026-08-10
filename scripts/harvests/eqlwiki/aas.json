@@ -131,7 +131,7 @@
       "class": null,
       "max_rank": 6,
       "ranks_raw": "6",
-      "cost_per_rank_raw": "1/1/?/?/?/?",
+      "cost_per_rank_raw": "1/1/1/3/?/?",
       "level_requirement": 1,
       "requirements_raw": "Requirements: level 1.",
       "effect_text": "This passive ability increases the maximum health you can bind wound to 80/90/100/100/100/100% and increases the amount of healing provided by a single bandage by 0/0/0/10/25/50%. Requirements: level 1."
@@ -186,10 +186,10 @@
       "class": null,
       "max_rank": 5,
       "ranks_raw": "5",
-      "cost_per_rank_raw": "3/3/3/?/?",
+      "cost_per_rank_raw": "3/3/3/3/3",
       "level_requirement": 1,
       "requirements_raw": "Requirements: level 1.",
-      "effect_text": "This passive ability increases your strength, stamina, agility, dexterity, wisdom, intelligence, and charisma by 2/4/6/?/? points. Requirements: level 1."
+      "effect_text": "This passive ability increases your strength, stamina, agility, dexterity, wisdom, intelligence, and charisma by 2/4/6/8/10 points. Requirements: level 1."
     },
     {
       "name": "Innate Lung Capacity",
@@ -230,10 +230,10 @@
       "class": null,
       "max_rank": 5,
       "ranks_raw": "5",
-      "cost_per_rank_raw": "2/2/2/2/?",
+      "cost_per_rank_raw": "2/2/2/2/2",
       "level_requirement": 1,
       "requirements_raw": "Requirements: level 1.",
-      "effect_text": "This passive ability improves your cold, disease, fire, magic, and poison resistances by 2/4/6/8/? points. Requirements: level 1."
+      "effect_text": "This passive ability improves your cold, disease, fire, magic, and poison resistances by 2/4/6/8/10 points. Requirements: level 1."
     },
     {
       "name": "Jewel Craft Mastery",
@@ -475,7 +475,7 @@
       "cost_per_rank_raw": "2/4/6",
       "level_requirement": 1,
       "requirements_raw": "Requirements: level 1.",
-      "effect_text": "This passive ability increases the effectiveness of your instant-duration healing spells by 2/5/???%. Requirements: level 1."
+      "effect_text": "This passive ability increases the effectiveness of your instant-duration healing spells by 2/5/10%. Requirements: level 1."
     },
     {
       "name": "Healing Boon",
@@ -670,10 +670,10 @@
       "class": null,
       "max_rank": 3,
       "ranks_raw": "3",
-      "cost_per_rank_raw": "2",
+      "cost_per_rank_raw": "2/4/6",
       "level_requirement": 1,
       "requirements_raw": "Requirements: level 1. Requirements: level 1.",
-      "effect_text": "This passive ability reduces the cast time of beneficial spells that have a duration and an initial cast time of at least 3 seconds by 10%. Requirements: level 1. Requirements: level 1."
+      "effect_text": "This passive ability reduces the cast time of beneficial spells that have a duration and an initial cast time of at least 3 seconds by 10/25/50%. Requirements: level 1. Requirements: level 1."
     },
     {
       "name": "Spell Casting Mastery",

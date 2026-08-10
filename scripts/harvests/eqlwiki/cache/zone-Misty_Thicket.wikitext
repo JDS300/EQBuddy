@@ -28,7 +28,7 @@
 |misty
 |-
 ! ''' [[Zone Spawn Timer]]: '''
-|6:40
+|4:50
 |-
 ! '''Succor/Evacuate:'''
 | 0,0 (Just outside the wall)

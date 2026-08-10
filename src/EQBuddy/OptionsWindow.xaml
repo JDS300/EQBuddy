@@ -106,6 +106,22 @@
                            Foreground="{DynamicResource TextBrush}"/>
             </CheckBox>
 
+            <CheckBox x:Name="GridOverlayCheck" Margin="0,10,0,0"
+                      Checked="OnGridOverlayToggled" Unchecked="OnGridOverlayToggled">
+                <TextBlock Text="▦ Grid overlay for aligning your game UI" FontSize="12"
+                           Foreground="{DynamicResource TextBrush}"/>
+            </CheckBox>
+            <TextBlock Text="A faint click-through grid over the whole desk — line up your game windows, then toggle it off here or in the right-click menu. Stronger lines every fourth square."
+                       Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="20,2,0,0"/>
+            <Grid Margin="20,4,0,0">
+                <TextBlock Text="Grid spacing" FontSize="12"/>
+                <TextBlock x:Name="GridSpacingLabel" Text="32 px" FontSize="12" HorizontalAlignment="Right"
+                           Foreground="{DynamicResource AccentBrush}"/>
+            </Grid>
+            <Slider x:Name="GridSpacingSlider" Minimum="16" Maximum="128" TickFrequency="8"
+                    IsSnapToTickEnabled="True" Margin="20,4,0,4"
+                    ValueChanged="OnGridSpacingChanged"/>
+
             <CheckBox x:Name="TargetDropsCheck" Margin="0,10,0,0"
                       Checked="OnTargetDropsToggled" Unchecked="OnTargetDropsToggled">
                 <TextBlock Text="🎯 Show target drops in the Loot card" FontSize="12"
@@ -171,6 +187,22 @@
             <StackPanel x:Name="RulesPanel" Margin="0,4,0,0" Grid.IsSharedSizeScope="True"/>
             <Button x:Name="AddRuleBtn" Content="+ Add watch rule" Style="{StaticResource ActionButton}"
                     HorizontalAlignment="Left" FontSize="12" Click="OnAddRule"/>
+            <Grid Margin="0,6,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="ImportBox" Style="{StaticResource InputBox}"
+                         ToolTip="Paste a shared watch rule (EQB1.…) from guild chat or Discord — the ⤴ on any rule row makes one"/>
+                <Button x:Name="ImportBtn" Grid.Column="1" Content="Import…" Style="{StaticResource ActionButton}"
+                        Margin="6,0,0,0" Padding="8,3" Click="OnImportShare"
+                        ToolTip="Preview what the pasted share string would add — nothing is added until you confirm"/>
+            </Grid>
+            <TextBlock x:Name="ImportPreview" Style="{StaticResource Dim}" TextWrapping="Wrap"
+                       Margin="0,4,0,0" Visibility="Collapsed"/>
+            <Button x:Name="ImportConfirmBtn" Style="{StaticResource ActionButton}"
+                    HorizontalAlignment="Left" FontSize="12" Margin="0,4,0,0"
+                    Visibility="Collapsed" Click="OnImportConfirm"/>
             <CheckBox x:Name="PinChipsCheck" Margin="0,6,0,0"
                       Checked="OnPinChipsChanged" Unchecked="OnPinChipsChanged">
                 <TextBlock Text="📌 Show watch chips in the mini dashboard" FontSize="12"

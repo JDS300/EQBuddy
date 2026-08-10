@@ -107,6 +107,54 @@ public class EqConfigTests : IDisposable
     }
 
     [Fact]
+    public void SplitLogArchivesContentAndStartsFresh()
+    {
+        var live = Path.Combine(LogsDir, "eqlog_Dranak_legends.txt");
+        File.WriteAllText(live, "the session so far");
+        var clicked = new DateTime(2026, 6, 7, 14, 32, 19);
+        File.SetLastWriteTime(live, clicked);
+
+        var dest = EqConfig.SplitLog(live);
+
+        Assert.Equal(Path.Combine(LogsDir, "archive", "eqlog_Dranak_legends_20260607143219.txt"), dest);
+        Assert.Equal("the session so far", File.ReadAllText(dest!));
+        // The base file is back, empty, and fresher than any alt's log — so
+        // most-recently-active character detection stays on this character.
+        Assert.True(File.Exists(live));
+        Assert.Equal(0, new FileInfo(live).Length);
+        Assert.True(File.GetLastWriteTime(live) > clicked);
+    }
+
+    [Fact]
+    public void SplitLogSameSecondKeepsBothCopies()
+    {
+        var live = Path.Combine(LogsDir, "eqlog_Dranak_legends.txt");
+        var clicked = new DateTime(2026, 6, 7, 14, 32, 19);
+        foreach (var content in new[] { "first", "second" })
+        {
+            File.WriteAllText(live, content);
+            File.SetLastWriteTime(live, clicked);
+            EqConfig.SplitLog(live);
+        }
+        Assert.Equal("first", File.ReadAllText(
+            Path.Combine(LogsDir, "archive", "eqlog_Dranak_legends_20260607143219.txt")));
+        Assert.Equal("second", File.ReadAllText(
+            Path.Combine(LogsDir, "archive", "eqlog_Dranak_legends_20260607143219-2.txt")));
+    }
+
+    [Fact]
+    public void SplitLogNothingToSplitIsANoOp()
+    {
+        // Missing file: no archive folder appears.
+        Assert.Null(EqConfig.SplitLog(Path.Combine(LogsDir, "eqlog_Nobody_legends.txt")));
+        // Empty file: already fresh — splitting would archive nothing.
+        var empty = Path.Combine(LogsDir, "eqlog_Dranak_legends.txt");
+        File.WriteAllText(empty, "");
+        Assert.Null(EqConfig.SplitLog(empty));
+        Assert.False(Directory.Exists(Path.Combine(LogsDir, "archive")));
+    }
+
+    [Fact]
     public void ArchiveOffLeavesNoCopies()
     {
         var stale = Path.Combine(LogsDir, "eqlog_Dranak_legends.txt");

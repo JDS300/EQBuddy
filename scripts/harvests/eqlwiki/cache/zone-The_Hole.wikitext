@@ -130,7 +130,7 @@ Right portal - Erudin
 
 {{Special:DynamicZoneList/The Hole}}
 
-== Raid Instance ==
+= Raid Instance =
 '''The Hole (Raid)''' is a Raid Encounter in EverQuest Legends that includes the Raid Boss, [[Master Yael]].  Entrance to the raid is by hailing a [[voidling]] in the [[The Hole]] zone.
 
 {|
@@ -141,7 +141,7 @@ Right portal - Erudin
 |40-56
 |-
 ! ''' Types of Monsters: '''
-|Elemental Warrior, Elemental Channeler, Flighty Fiend
+|[[an elemental warrior]], [[an elemental channeler]], [[a flighty fiend]]
 |-
 ! ''' Raid Boss NPCs: '''
 |[[Master Yael]]
@@ -158,16 +158,15 @@ Right portal - Erudin
 |style="padding:10px;"|
 [[Image:The_Hole_Raid.png|right|border]]
 '''The Hole
-<ul><li> 1. Zone Start
-</li><li> 2. [[Voidling]]
-</li><li> 3. [[Master Yael]]
+<ul><li> 1. Zone Start & [[Voidling]]
+</li><li> 2. [[Master Yael]]
 |}
 
 == Solo vs. Multiplayer ==
 
 When creating the raid instance, players can choose between solo and multiplayer instances.  These instances share lockouts, so players cannot do both in the same week and receive full loot.
 
-The raid instance has two elementals and a fiery fiend in the room with Master Yael.  These trash mobs path around the room, 
+There are no differences in trash mobs between solo and multiplayer instances.  The raid instance has two elementals and a fiery fiend in the room with Master Yael.  These trash mobs path around the room, and will often pull Master Yael when engaged.
 
 [[Category:Zones]]
 [[Category:Loc Mapped]]

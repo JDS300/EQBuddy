@@ -41,6 +41,14 @@ public class WikiContributionTests
         Assert.Equal(WikiDropStatus.Known,
             WikiContribution.Classify(PageWith("Bracelet of Lrodd"), "Bracelet of L`rodd"));
 
+    /// <summary>Frankthetankk's live test (#65): the wiki lists {{:Packmasters Lash}}
+    /// (no apostrophe) while the log says "Packmaster's Lash" — a false ✦ invites a
+    /// duplicate wiki entry, the exact failure the flag exists to prevent.</summary>
+    [Fact]
+    public void ApostrophesDropBeforeComparing() =>
+        Assert.Equal(WikiDropStatus.Known,
+            WikiContribution.Classify(PageWith("Packmasters Lash"), "Packmaster's Lash"));
+
     [Fact]
     public void NewWhenPageDoesNotListIt() =>
         Assert.Equal(WikiDropStatus.NewToPage,
@@ -93,13 +101,20 @@ public class WikiContributionTests
     [Fact]
     public void NewDropOnExistingPageEmitsListItems()
     {
-        var mob = Mob("Ambassador Dvinn", 12, new MobLoot("Black Heart", 5, 41.7));
+        var mob = Mob("Ambassador Dvinn", 12,
+            new MobLoot("Black Heart", 5, 41.7) { LastAt = new DateTime(2026, 8, 8, 13, 3, 12) });
         var text = WikiContribution.BuildExport(
             [new(mob, PageWith("Dragoon Dirk"))], "Dranak", "Legends", "Crushbone",
             new DateTime(2026, 8, 8, 14, 0, 0));
         Assert.Contains("https://eqlwiki.com/index.php?title=Ambassador_Dvinn&action=edit", text);
         Assert.Contains("<li> {{:Black Heart}} <span class='drare'>(Uncommon)</span></li>", text);
         Assert.Contains("Black Heart ×5 in 12 kills (41.7%)", text);
+        // The log timestamp is for the contributor's own records (#65)…
+        Assert.Contains("Black Heart last at 13:03:12", text);
+        // …and the item page's dropsfrom list gets its own edit link and paste line.
+        Assert.Contains("https://eqlwiki.com/index.php?title=Black_Heart&action=edit", text);
+        Assert.Contains("* [[Ambassador Dvinn]]", text);
+        Assert.Contains("[[Crushbone]]", text);
     }
 
     [Fact]
@@ -161,6 +176,44 @@ public class WikiContributionTests
             [new(mob, lookup)], "Dranak", "Legends", "Crushbone",
             new DateTime(2026, 8, 8, 14, 0, 0));
         Assert.Contains("title=Orc_Legionnaire_(Crushbone)&action=edit", text);
+    }
+
+    /// <summary>The observed stat block (#65 round two): zone at kill time, money as
+    /// the wiki's low–high range, factions with hit counts — and the reconciliation
+    /// framing plus the 10+ kill gate baked into the wording.</summary>
+    [Fact]
+    public void StatBlockCarriesZoneMoneyRangeAndFactions()
+    {
+        var mob = Mob("Packmaster Dledsh", 12, new MobLoot("Packmaster's Whip", 3, 25.0)) with
+        {
+            Zone = "The Warrens",
+            CoinMin = 22,
+            CoinMax = 100,
+            Factions = [new MobFactionHit("Kobolds of Fireclaw", -5, 12)],
+        };
+        var text = WikiContribution.BuildExport(
+            [new(mob, Missing)], "Dranak", "Legends", "The Greater Faydark",
+            new DateTime(2026, 8, 9, 14, 0, 0));
+        Assert.Contains("compare, don't overwrite", text);
+        // The KILL zone wins over wherever the player is standing at export time.
+        Assert.Contains("zone (at kill time): The Warrens", text);
+        Assert.Contains("money per kill: 2s 2c – 1g", text);
+        Assert.Contains("faction: Kobolds of Fireclaw -5 (12 of 12 kills)", text);
+    }
+
+    [Fact]
+    public void StatBlockReportsConfirmedFactionAbsenceAndThinSamples()
+    {
+        var mob = Mob("Gnoll Reaver", 3, new MobLoot("Gnoll Fang", 1, 33.3)) with
+        {
+            Zone = "Blackburrow",
+        };
+        var text = WikiContribution.BuildExport(
+            [new(mob, Missing)], "Dranak", "Legends", "Blackburrow",
+            new DateTime(2026, 8, 9, 14, 0, 0));
+        Assert.Contains("thin sample", text);
+        Assert.Contains("no hits observed across 3 kills", text);
+        Assert.DoesNotContain("money per kill", text);   // no coin seen ≠ drops nothing
     }
 
     [Fact]

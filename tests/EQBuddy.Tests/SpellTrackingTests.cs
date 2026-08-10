@@ -728,6 +728,30 @@ public class SpellTrackingTests
         Assert.DoesNotContain(tracked.Items, i => i.Name.StartsWith("Chords"));
     }
 
+    /// <summary>rahvynn (#69): "You are no longer stunned." is YOU recovering from an
+    /// NPC's stun. The fade catalog maps that flavor line to stun spells, but every CC
+    /// filter means "MY control of a MOB ended" — a self-recovery must stay quiet, or
+    /// the default CC-broke rule pings every time a mob stuns the player. ByName rules
+    /// still hear self-fades: watching a specific spell is exactly their job.</summary>
+    [Fact]
+    public void SelfFadeLinesNeverFireCcFilters()
+    {
+        var ccRule = new TrackedRule
+        {
+            Name = "CC broke", Kind = WatchKind.SpellFade, SpellFilter = SpellFilter.AnyCrowdControl,
+        };
+        var byName = new TrackedRule
+        {
+            Name = "stun over", Kind = WatchKind.SpellFade, Pattern = "Force", SpellFilter = SpellFilter.ByName,
+        };
+        var snapshot = Replay([At(0, 0, "You are no longer stunned.")])
+            .Snapshot(recentWindow: null, rules: [ccRule, byName]);
+
+        Assert.DoesNotContain(snapshot.Tracked, t => t.Id == ccRule.Id && t.TotalQuantity > 0);
+        var named = snapshot.Tracked.Single(t => t.Id == byName.Id);
+        Assert.Equal(1, named.TotalQuantity);
+    }
+
     [Fact]
     public void ASingleClassFilterMatchesOnlyThatClass()
     {
@@ -907,6 +931,23 @@ public class SpellTrackingTests
 
         Assert.Equal(2, s.Tracked.First(t => t.Name == "Anything dropped").TotalQuantity);
         Assert.Equal(0, s.Tracked.First(t => t.Name == "CC broke").TotalQuantity);
+    }
+
+    [Fact]
+    public void BuffFilterCatchesPumaButNotADebuffFade()
+    {
+        var buff = new TrackedRule
+        {
+            Name = "Buff dropped", Kind = WatchKind.SpellFade, SpellFilter = SpellFilter.Buff,
+        };
+        var s = Replay(
+            At(0, 0, "The spirit of the puma departs."),
+            At(0, 3, "The darkness fades.")
+        ).Snapshot(recentWindow: null, rules: [buff]);
+
+        var tracked = Assert.Single(s.Tracked);
+        Assert.Equal(1, tracked.TotalQuantity);
+        Assert.Contains(tracked.Items, i => i.Name == "Spirit of the Puma");
     }
 
     [Fact]

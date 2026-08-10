@@ -31,6 +31,10 @@ public partial class MainWindow : Window
     private readonly SpawnTimers _spawnTimers;
     private readonly EQBuddy.UI.Shared.SpawnsViewModel _spawnsVm;
     private SpawnsWindow? _spawnsWindow;
+    private readonly Dictionary<string, int> _skyQuestLootSeen = new(StringComparer.OrdinalIgnoreCase);
+    // Rebuilding 200+ checkboxes every UI tick is the one thing this overlay never
+    // does elsewhere — the checklist re-renders only when a box actually changed.
+    private bool _skyQuestDirty = true;
 
     private static readonly string[] MiniStatOrder = ["kills", "dps", "hps", "pet", "loot", "motes", "money", "xp", "deaths"];
 
@@ -134,6 +138,10 @@ public partial class MainWindow : Window
         if (_settings.ShowTutorial)
             Loaded += (_, _) => new TutorialWindow(this).Show();
 
+        // A grid left on comes back — turning it off is the same menu click (#34).
+        if (_settings.ShowGridOverlay)
+            Loaded += (_, _) => SetGridOverlay(true);
+
         // Log hygiene at startup: force Log=1 and wipe finished-session logs
         // (both no-ops while the game is running). Truncation waits while the tour
         // is enabled — its first page is the consent question; the 10-minute
@@ -151,8 +159,8 @@ public partial class MainWindow : Window
 
         if (Environment.GetEnvironmentVariable("EQBUDDY_EXPAND") == "1")
             foreach (var ex in new[] { CombatSection, HealingSection, KillsSection, LootSection,
-                         MotesSection, TrackedSection, MoneySection, ProgressSection, FactionSection,
-                         MiscSection })
+                         MotesSection, SkyQuestSection, TrackedSection, MoneySection,
+                         ProgressSection, FactionSection, MiscSection })
                 ex.IsExpanded = true;
 
         if (Environment.GetEnvironmentVariable("EQBUDDY_CCLOG") == "1")
@@ -235,6 +243,8 @@ public partial class MainWindow : Window
             _settings.Save();
         }
 
+        SkyQuestTabs.SelectionChanged += OnSkyQuestTabChanged;
+
         _uiTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _uiTimer.Tick += (_, _) => RefreshUi();
         _uiTimer.Start();
@@ -273,7 +283,8 @@ public partial class MainWindow : Window
     private Dictionary<string, UIElement> SectionMap() => new()
     {
         ["combat"] = CombatSection, ["healing"] = HealingSection, ["kills"] = KillsSection,
-        ["loot"] = LootSection, ["motes"] = MotesSection, ["tracked"] = TrackedSection,
+        ["loot"] = LootSection, ["motes"] = MotesSection, ["sky"] = SkyQuestSection,
+        ["tracked"] = TrackedSection,
         ["money"] = MoneySection,
         ["progress"] = ProgressSection, ["faction"] = FactionSection, ["misc"] = MiscSection,
     };
@@ -1004,6 +1015,7 @@ public partial class MainWindow : Window
             : $"{s.LootTotal} item{(s.LootTotal == 1 ? "" : "s")}";
         var motes = Motes.Summarize(s.Loot, s.Elapsed);
         MotesHeader.Text = motes.Total > 0 ? $"{motes.Total} · {motes.PerHour:0.#}/hr" : "0";
+        UpdateSkyQuestChecklist(s);
         MoneyHeader.Text = StatsSnapshot.FormatCoin(s.Copper);
         ProgressHeader.Text = $"{s.XpPercent:0.0}% xp"
             + (s.Levels.Count > 0 ? $", +{s.Levels.Count} lvl" : "")
@@ -1155,6 +1167,12 @@ public partial class MainWindow : Window
                   "(or store as currency) lands here.";
             FillList(MotesList, motes.Tiers.Select(t => (t.Item, $"×{t.Count}")),
                 onNameClick: ShowItemInfo, tooltip: ItemHoverStats);
+        }
+
+        if (SkyQuestSection.IsExpanded && _skyQuestDirty)
+        {
+            RenderSkyQuestChecklist();
+            _skyQuestDirty = false;
         }
 
         if (MoneySection.IsExpanded)
@@ -1327,6 +1345,236 @@ public partial class MainWindow : Window
         ? $"{Math.Max(0, (int)age.TotalSeconds)}s"
         : age.TotalHours < 1 ? $"{(int)age.TotalMinutes}m" : $"{(int)age.TotalHours}h {age.Minutes}m";
 
+    private void UpdateSkyQuestChecklist(StatsSnapshot s)
+    {
+        var changed = AutoCheckSkyQuestLoot(s);
+        UpdateSkyQuestHeaderOnly();
+        if (changed)
+        {
+            _skyQuestDirty = true;
+            _settings.Save();
+        }
+    }
+
+    private bool AutoCheckSkyQuestLoot(StatsSnapshot s)
+    {
+        var changed = false;
+        // Quest item names repeat across classes (five classes need a Wind Rune
+        // Azia); only tick boxes for the class whose tab the player works in.
+        var cls = _settings.SkyQuestClass;
+        var lootByName = s.Loot
+            .GroupBy(l => l.Item, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Sum(l => l.Count), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var key in _skyQuestLootSeen.Keys.ToList())
+            if (!lootByName.ContainsKey(key))
+                _skyQuestLootSeen[key] = 0;
+
+        foreach (var (name, count) in lootByName)
+        {
+            _skyQuestLootSeen.TryGetValue(name, out var seen);
+            if (count <= seen)
+            {
+                _skyQuestLootSeen[name] = count;
+                continue;
+            }
+
+            var newlyLooted = count - seen;
+            _skyQuestLootSeen[name] = count;
+            foreach (var item in _settings.SkyQuestChecklist
+                         .Where(i => !i.Acquired
+                             && (cls.Length == 0 || string.Equals(i.ClassName, cls, StringComparison.Ordinal))
+                             && string.Equals(i.QuestItem, name, StringComparison.OrdinalIgnoreCase))
+                         .Take(newlyLooted))
+            {
+                item.Acquired = true;
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    private void RenderSkyQuestChecklist()
+    {
+        // Live selection wins; the persisted class restores the tab across restarts.
+        var selectedClass = (SkyQuestTabs.SelectedItem as TabItem)?.Tag as string
+            ?? (_settings.SkyQuestClass.Length > 0 ? _settings.SkyQuestClass : null);
+        SkyQuestTabs.Items.Clear();
+
+        foreach (var classGroup in _settings.SkyQuestChecklist.GroupBy(i => i.ClassName).OrderBy(g => g.Key))
+        {
+            var classTotal = classGroup.Count();
+            var classDone = classGroup.Count(i => i.Acquired);
+            var panel = new StackPanel { Margin = new Thickness(0, 4, 0, 0) };
+
+            foreach (var rewardGroup in classGroup.GroupBy(i => i.Reward).OrderBy(g => g.Key))
+            {
+                // The reward line is itself a checkbox: "I turned this in" (#73).
+                // Manual only — the log shows nothing reliable at the NPC hand-over.
+                var completed = IsSkyRewardCompleted(classGroup.Key, rewardGroup.Key);
+                var rewardItems = rewardGroup.ToList();
+                var rewardCheck = new CheckBox
+                {
+                    IsChecked = completed,
+                    Margin = new Thickness(0, panel.Children.Count == 0 ? 0 : 6, 0, 1),
+                    ToolTip = $"{rewardGroup.Key} - {rewardGroup.First().Npc}\n" +
+                              "Check when you've turned everything in — quest complete.",
+                    Content = new TextBlock
+                    {
+                        Text = completed ? $"✔ {rewardGroup.Key}" : rewardGroup.Key,
+                        FontSize = 11,
+                        FontWeight = FontWeights.SemiBold,
+                        Foreground = (Brush)FindResource("AccentBrush"),
+                        TextTrimming = TextTrimming.CharacterEllipsis,
+                    },
+                };
+                rewardCheck.Checked += (_, _) =>
+                    OnSkyRewardToggled(classGroup.Key, rewardGroup.Key, rewardItems, true);
+                rewardCheck.Unchecked += (_, _) =>
+                    OnSkyRewardToggled(classGroup.Key, rewardGroup.Key, rewardItems, false);
+                panel.Children.Add(rewardCheck);
+
+                foreach (var item in rewardGroup.OrderBy(i => i.QuestItem))
+                {
+                    var text = new StackPanel();
+                    text.Children.Add(new TextBlock
+                    {
+                        Text = item.QuestItem,
+                        FontSize = 12,
+                        Foreground = (Brush)FindResource("TextBrush"),
+                        TextTrimming = TextTrimming.CharacterEllipsis,
+                    });
+                    text.Children.Add(new TextBlock
+                    {
+                        Text = item.Source,
+                        FontSize = 10,
+                        Foreground = (Brush)FindResource("DimBrush"),
+                        TextTrimming = TextTrimming.CharacterEllipsis,
+                    });
+
+                    var check = new CheckBox
+                    {
+                        IsChecked = item.Acquired,
+                        Content = text,
+                        Margin = new Thickness(0, 1, 0, 1),
+                        ToolTip = $"{item.Reward}: {item.QuestItem} ({item.Source})",
+                        // A completed quest's items are history, not a to-do list.
+                        IsEnabled = !completed,
+                        Opacity = completed ? 0.55 : 1.0,
+                    };
+                    check.Checked += (_, _) => OnSkyQuestToggled(item, true);
+                    check.Unchecked += (_, _) => OnSkyQuestToggled(item, false);
+                    panel.Children.Add(check);
+                }
+            }
+
+            var tab = new TabItem
+            {
+                Header = $"{ClassAbbrev(classGroup.Key)} {classDone}/{classTotal}",
+                Tag = classGroup.Key,
+                Content = panel,
+                ToolTip = classGroup.Key,
+            };
+            SkyQuestTabs.Items.Add(tab);
+            if (string.Equals(selectedClass, classGroup.Key, StringComparison.Ordinal))
+                SkyQuestTabs.SelectedItem = tab;
+        }
+
+        if (SkyQuestTabs.SelectedIndex < 0 && SkyQuestTabs.Items.Count > 0)
+            SkyQuestTabs.SelectedIndex = 0;
+    }
+
+    private static string SkyRewardKey(string className, string reward) => className + "|" + reward;
+
+    private bool IsSkyRewardCompleted(string className, string reward) =>
+        _settings.SkyQuestCompleted.Contains(SkyRewardKey(className, reward));
+
+    /// <summary>Reward turned in (#73): completing checks the reward's items too —
+    /// they were acquired and then handed over. Unchecking reopens the quest but
+    /// leaves the item boxes as they were; the player knows what they still hold.</summary>
+    private void OnSkyRewardToggled(string className, string reward,
+        List<SkyQuestChecklistItem> items, bool done)
+    {
+        var key = SkyRewardKey(className, reward);
+        if (done)
+        {
+            if (!_settings.SkyQuestCompleted.Contains(key)) _settings.SkyQuestCompleted.Add(key);
+            foreach (var i in items) i.Acquired = true;
+        }
+        else
+        {
+            _settings.SkyQuestCompleted.Remove(key);
+        }
+        _settings.Save();
+        UpdateSkyQuestHeaderOnly();
+        _skyQuestDirty = true;   // rebuild next tick: ✔ label, dimmed items, counts
+    }
+
+    /// <summary>Manual toggle: the box itself is already right, so only the counts
+    /// need refreshing — no rebuild, the control under the cursor stays put.</summary>
+    private void OnSkyQuestToggled(SkyQuestChecklistItem item, bool acquired)
+    {
+        item.Acquired = acquired;
+        _settings.Save();
+        UpdateSkyQuestHeaderOnly();
+        UpdateSkyQuestTabHeader(item.ClassName);
+    }
+
+    /// <summary>Persist the class tab the player works in — it scopes loot auto-check
+    /// and picks the tab shown after a restart.</summary>
+    private void OnSkyQuestTabChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // Items.Clear() during a rebuild fires this with no selection — ignore.
+        if ((SkyQuestTabs.SelectedItem as TabItem)?.Tag is string cls &&
+            !string.Equals(_settings.SkyQuestClass, cls, StringComparison.Ordinal))
+        {
+            _settings.SkyQuestClass = cls;
+            _settings.Save();
+        }
+    }
+
+    private void UpdateSkyQuestTabHeader(string className)
+    {
+        foreach (var tab in SkyQuestTabs.Items.OfType<TabItem>())
+            if (string.Equals(tab.Tag as string, className, StringComparison.Ordinal))
+            {
+                var done = _settings.SkyQuestChecklist.Count(i =>
+                    string.Equals(i.ClassName, className, StringComparison.Ordinal) && i.Acquired);
+                var total = _settings.SkyQuestChecklist.Count(i =>
+                    string.Equals(i.ClassName, className, StringComparison.Ordinal));
+                tab.Header = $"{ClassAbbrev(className)} {done}/{total}";
+            }
+    }
+
+    private void UpdateSkyQuestHeaderOnly()
+    {
+        var total = _settings.SkyQuestChecklist.Count;
+        var acquired = _settings.SkyQuestChecklist.Count(i => i.Acquired);
+        SkyQuestHeader.Text = $"{acquired}/{total}";
+    }
+
+    private static string ClassAbbrev(string className) => className switch
+    {
+        "Bard" => "BRD",
+        "Beastlord" => "BST",
+        "Berserker" => "BER",
+        "Cleric" => "CLR",
+        "Druid" => "DRU",
+        "Enchanter" => "ENC",
+        "Magician" => "MAG",
+        "Monk" => "MNK",
+        "Necromancer" => "NEC",
+        "Paladin" => "PAL",
+        "Ranger" => "RNG",
+        "Rogue" => "ROG",
+        "Shadow Knight" => "SHD",
+        "Shaman" => "SHM",
+        "Warrior" => "WAR",
+        "Wizard" => "WIZ",
+        _ => className,
+    };
+
     /// <summary>
     /// Fire banner/sound alerts when a tracked rule's total grows. Baselines are reset
     /// (without alerting) whenever the watched log changes, so startup ingest and
@@ -1415,6 +1663,8 @@ public partial class MainWindow : Window
                 EQBuddy.UI.Shared.AlertColors.Hex(rule.AlertColor));
         if (EQBuddy.UI.Shared.AlertSoundCatalog.Resolve(rule, _settings.AlertSound) is { } sound)
             PlayAlertSound(sound, coalesce: true);
+        if (rule.AlertSpeech)
+            EQBuddy.UI.Shared.SpokenAlerts.Speak(label);
     }
 
     /// <summary>
@@ -1533,8 +1783,7 @@ public partial class MainWindow : Window
             // doesn't look like a fresh burst later.
             if (rule.Kind == WatchKind.Text) continue;
 
-            AlertOrCue(rule, r.Name,
-                $"{r.LastItem ?? "match"}{(delta > 1 ? $" ×{delta}" : "")}",
+            AlertOrCue(rule, r.Name, EQBuddy.UI.Shared.WatchAlertText.MatchLabel(rule, r, delta),
                 TimeSpan.FromSeconds(5));   // ALERT-008 cooldown
         }
     }
@@ -1722,6 +1971,13 @@ public partial class MainWindow : Window
                         if (!_settings.DisabledBreakouts.Contains(k.ToString()))
                             _settings.DisabledBreakouts.Add(k.ToString());
                         _settings.Save();
+                        // The ✕ is a small target floating over a game screen, and until
+                        // now the only trace of hitting it was a window that quietly never
+                        // came back — David lost his DPS breakout to exactly that
+                        // (2026-08-08) with no way to reconstruct when or how. A permanent
+                        // state change must announce itself, and leave a timestamp behind.
+                        AlertTile.ShowAlert($"{k} breakout hidden — re-enable in ⚙ Options → Breakout windows");
+                        CoreLog.Error($"{k} breakout hidden via its ✕ (re-enable: Options → Breakout windows)");
                     };
                 }
                 if (!w.IsVisible) w.Show();
@@ -2129,6 +2385,38 @@ public partial class MainWindow : Window
 
     private ClickThroughChip? _unlockChip;
 
+    // ---- the alignment grid (discussion #34) ----
+
+    private GridOverlayWindow? _gridOverlay;
+
+    private void OnGridOverlay(object sender, RoutedEventArgs e) =>
+        SetGridOverlay(!_settings.ShowGridOverlay);
+
+    /// <summary>Menu toggle and Options checkbox both land here, so they stay in
+    /// lockstep (the SetTrackSpawns pattern). The overlay window exists only while
+    /// the grid is on — nothing invisible lingers.</summary>
+    internal void SetGridOverlay(bool on)
+    {
+        _settings.ShowGridOverlay = on;
+        _settings.Save();
+        GridOverlayItem.IsChecked = on;
+        if (on)
+        {
+            if (_gridOverlay is not { IsLoaded: true })
+                _gridOverlay = new GridOverlayWindow(_settings);
+            _gridOverlay.Show();
+            _gridOverlay.ApplySpacing();
+        }
+        else
+        {
+            _gridOverlay?.Close();
+            _gridOverlay = null;
+        }
+    }
+
+    /// <summary>Live spacing updates from the Options slider.</summary>
+    internal void RefreshGridSpacing() => _gridOverlay?.ApplySpacing();
+
     private void OnClickThrough(object sender, RoutedEventArgs e) =>
         SetClickThrough(!_clickThrough);
 
@@ -2168,7 +2456,14 @@ public partial class MainWindow : Window
         if (e.ButtonState == MouseButtonState.Pressed) DragMove();
     }
 
-    private void OnReset(object sender, RoutedEventArgs e) => _stats.Reset();
+    private void OnReset(object sender, RoutedEventArgs e)
+    {
+        // With archiving on, reset also splits the log: what's parsed so far moves to
+        // Logs\archive and a fresh file begins — the second half of #52's ask.
+        if (_settings.ArchiveLogs && _watcher.CurrentPath is { } path)
+            Task.Run(() => EqConfig.SplitLog(path));
+        _stats.Reset();
+    }
 
     private void OnClose(object sender, RoutedEventArgs e) => Close();
 

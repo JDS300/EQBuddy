@@ -21,8 +21,11 @@ public sealed class OptionsWindow : Window
     private readonly Slider _scaleSlider = Slider(0.8, 1.6, 0.05);
     private readonly Slider _bgOpacitySlider = Slider(0.15, 1.0, 0.05);
     private readonly Slider _opacitySlider = Slider(0.5, 1.0, 0.02);
+    private readonly Slider _alertVolumeSlider = Slider(0.1, 1.0, 0.05);
+    private readonly TextBlock _alertVolumeLabel = LabelValue();
     private readonly CheckBox _truncateCheck = new() { Margin = new Thickness(0, 12, 0, 0) };
     private readonly CheckBox _tutorialCheck = new() { Margin = new Thickness(0, 10, 0, 0) };
+    private readonly CheckBox _targetDropsCheck = new() { Margin = new Thickness(0, 6, 0, 0) };
     private readonly CheckBox _pinChipsCheck = new() { Margin = new Thickness(0, 6, 0, 0) };
     private readonly CheckBox _trackSpawnsCheck = new() { Margin = new Thickness(0, 10, 0, 0) };
     private readonly CheckBox _selfHotCheck = new() { Margin = new Thickness(0, 10, 0, 0) };
@@ -67,8 +70,13 @@ public sealed class OptionsWindow : Window
     /// over them and swallowed every click: the box was visible but impossible to type in.
     /// This leaves the cell ~223px: the combo, plus a match box wide enough to read a real
     /// spell name in ("Clarity", "Color Shift") rather than one that technically accepts
-    /// typing. Anything added to a rule row has to come back through this number.</summary>
-    private const double BodyWidth = 680;
+    /// typing. Anything added to a rule row has to come back through this number.
+    ///
+    /// 1.47.0 is the case in point: upstream's speech toggle added an eighth control to the
+    /// row without touching this, and the match cell fell from ~223px to 167 — 55px for the
+    /// by-name input, which is the "no room in the row" bug all over again, just narrower
+    /// instead of overlapping. 680 -> 736 buys the new toggle its own width back.</summary>
+    private const double BodyWidth = 736;
 
     public OptionsWindow(MainWindow main)
     {
@@ -95,9 +103,17 @@ public sealed class OptionsWindow : Window
         _scaleSlider.Value = main.UiScale;
         _opacitySlider.Value = main.WidgetOpacity;
         _bgOpacitySlider.Value = main.BackgroundOpacityValue;
+        _alertVolumeSlider.Value = Math.Clamp(main.Settings.AlertVolume, 0.1, 1.0);
         Subscribe(_scaleSlider, () => _main.SetUiScale(_scaleSlider.Value));
         Subscribe(_bgOpacitySlider, () => _main.SetBackgroundOpacity(_bgOpacitySlider.Value));
         Subscribe(_opacitySlider, () => _main.SetWindowOpacity(_opacitySlider.Value));
+        Subscribe(_alertVolumeSlider, () =>
+        {
+            _main.Settings.AlertVolume = _alertVolumeSlider.Value;
+            _alertVolumeLabel.Text = $"{_alertVolumeSlider.Value:P0}";
+            _main.PersistSettings();
+        });
+        _alertVolumeLabel.Text = $"{_alertVolumeSlider.Value:P0}";
 
         _truncateCheck.Content = new TextBlock
         {
@@ -153,6 +169,20 @@ public sealed class OptionsWindow : Window
             // a second (and closes the stack outright if yours was the only HoT running).
             if (!_ready) return;
             _main.Settings.ShowSelfHotChips = _selfHotCheck.IsChecked == true;
+            _main.PersistSettings();
+        };
+
+        _targetDropsCheck.Content = new TextBlock
+        {
+            Text = "Show known drops for your current target",
+            FontSize = 12,
+            Foreground = AppTheme.TextBrush,
+        };
+        _targetDropsCheck.IsChecked = main.Settings.ShowTargetDrops;
+        _targetDropsCheck.IsCheckedChanged += (_, _) =>
+        {
+            if (!_ready) return;
+            _main.Settings.ShowTargetDrops = _targetDropsCheck.IsChecked == true;
             _main.PersistSettings();
         };
 
@@ -278,6 +308,10 @@ public sealed class OptionsWindow : Window
         panel.Children.Add(AppTheme.DimText(
             "Cast a heal-over-time and a small countdown chicklet appears (🌿 Daggo 0:18), so you know when it stops ticking and can recast in time. The chips stack, drag anywhere as one, and switch to the warning colour for the last few seconds. Your own buff bar already shows your HoT on yourself, so turn this off if that chip is just in the way - chips on everyone else stay. Either way, the chip on you is tinted with the healing colour, to tell it apart at a glance from the ones on people whose buff bar you cannot see.",
             new Thickness(20, 2, 0, 0)));
+        panel.Children.Add(_targetDropsCheck);
+        panel.Children.Add(AppTheme.DimText(
+            "Looks up the selected mob on the EQ community wiki and lists its known loot in the Loot card.",
+            new Thickness(20, 2, 0, 0)));
 
         panel.Children.Add(Row("Recent-rate window", _windowCombo, new Thickness(0, 12, 0, 0)));
         panel.Children.Add(AppTheme.DimText("The Last Xm figures on Combat, Kills, Money, and Progress."));
@@ -312,6 +346,7 @@ public sealed class OptionsWindow : Window
         test.Click += (_, _) => _main.PlayAlertSound();
         soundRow.Children.Add(test);
         panel.Children.Add(Row("Alert sound", soundRow, new Thickness(0, 8, 0, 0)));
+        AddSlider(panel, "Alert volume", _alertVolumeLabel, _alertVolumeSlider);
         panel.Children.Add(_soundFileNote);
         panel.Children.Add(AppTheme.DimText(
             "While Options is open, the ★ alert banner tile is visible — drag it to where alerts should appear. During play it's click-through and never steals focus.",
@@ -417,7 +452,7 @@ public sealed class OptionsWindow : Window
             row.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(KindColumnWidth)));
             row.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(115)));
             row.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
-            for (var i = 0; i < 5; i++)   // pin, banner, sound, delay, delete
+            for (var i = 0; i < 7; i++)   // pin, banner, color, speech, sound, delay, delete
                 row.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
 
             // Wiring SelectionChanged is deferred past the matchArea block below: the handler
@@ -467,17 +502,58 @@ public sealed class OptionsWindow : Window
             Grid.SetColumn(pattern, 1);
             matchArea.Children.Add(pattern);
 
-            // A class filter needs no match text, so the box goes away rather than sitting
-            // there inviting input that would be ignored.
+            var spellName = new AutoCompleteBox
+            {
+                Text = rule.Pattern,
+                ItemsSource = FadeMessageCatalog.Default.BuffSpellChoices,
+                FilterMode = AutoCompleteFilterMode.ContainsOrdinal,
+                MinimumPrefixLength = 0,
+                IsTextCompletionEnabled = true,
+                PlaceholderText = "Buff/spell name",
+                FontSize = 12,
+                Margin = new Thickness(0, 0, 4, 0),
+                // Stretch, and no MinWidth. Upstream ships MinWidth = 120 and no alignment,
+                // which on this fork's row geometry is wrong in both directions: the minimum
+                // pushed the picker 29px out over the P/B toggles beside it (the same overlap
+                // that once made the match box unclickable), and without Stretch an
+                // AutoCompleteBox sizes to its content instead of filling the star column,
+                // leaving 55px to type a spell name into. The plain match box sharing this
+                // cell stretches and sets no minimum; the picker now matches it.
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                MaxDropDownHeight = 260,
+            };
+            ToolTip.SetTip(spellName,
+                "Start typing a known buff/spell fade, then pick one. Free typing still works.");
+            spellName.TextChanged += (_, _) =>
+            {
+                if (!_ready) return;
+                rule.Pattern = (spellName.Text ?? "").Trim();
+                pattern.Text = rule.Pattern;
+                _main.PersistSettings();
+            };
+            spellName.SelectionChanged += (_, _) =>
+            {
+                if (!_ready || spellName.SelectedItem is not string picked) return;
+                rule.Pattern = picked;
+                spellName.Text = picked;
+                pattern.Text = picked;
+                _main.PersistSettings();
+            };
+            Grid.SetColumn(spellName, 1);
+            matchArea.Children.Add(spellName);
+
             void SyncMatchArea()
             {
                 var isFade = rule.Kind == WatchKind.SpellFade;
                 var byName = rule.SpellFilter == SpellFilter.ByName;
                 spellFilter.IsVisible = isFade;
-                pattern.IsVisible = !(isFade && !byName);
+                pattern.IsVisible = !isFade;
+                spellName.IsVisible = isFade && byName;
                 // With no match box beside it the combo takes the whole cell, so its text
                 // and drop arrow stay inside the row instead of running under the toggles.
                 Grid.SetColumnSpan(spellFilter, isFade && !byName ? 2 : 1);
+                if (isFade && byName) spellName.Text = rule.Pattern;
+                else pattern.Text = rule.Pattern;
             }
             SyncMatchArea();
 
@@ -499,6 +575,34 @@ public sealed class OptionsWindow : Window
             row.Children.Add(RuleToggle("P", "Show this rule as a chip in the mini dashboard", 3,
                 rule.Pinned, v => rule.Pinned = v));
             row.Children.Add(RuleToggle("B", "Banner alert on match", 4, rule.AlertBanner, v => rule.AlertBanner = v));
+
+            var colorDot = AppTheme.IconButton("●", "Banner color");
+            colorDot.Padding = new Thickness(2, 0);
+            colorDot.Margin = new Thickness(2, 0, 2, 0);
+            void PaintDot()
+            {
+                var hex = AlertColors.Hex(rule.AlertColor);
+                colorDot.Foreground = hex.Length > 0
+                    ? new SolidColorBrush(Color.Parse(hex))
+                    : AppTheme.AccentBrush;
+                var choice = AlertColors.Choices[AlertColors.IndexOf(rule.AlertColor)].Name;
+                ToolTip.SetTip(colorDot, $"Banner color: {choice} - click to change");
+            }
+            PaintDot();
+            colorDot.Click += (_, _) =>
+            {
+                var next = (AlertColors.IndexOf(rule.AlertColor) + 1) % AlertColors.Choices.Length;
+                var picked = AlertColors.Choices[next].Name;
+                rule.AlertColor = picked == "Default" ? "" : picked;
+                PaintDot();
+                _main.PersistSettings();
+            };
+            Grid.SetColumn(colorDot, 5);
+            row.Children.Add(colorDot);
+
+            row.Children.Add(RuleToggle("S",
+                "Speak this alert with the Windows voice (Windows only for now — silent on Linux)", 6,
+                rule.AlertSpeech, v => rule.AlertSpeech = v));
 
             // Per-rule sound, replacing the old on/off toggle. Telling rules apart by ear is
             // the entire point — and it matters most for delayed alerts, where the usual
@@ -545,7 +649,7 @@ public sealed class OptionsWindow : Window
                 if (AlertSoundCatalog.Resolve(rule, _main.Settings.AlertSound) is { } preview)
                     _main.PlayAlertSound(preview);
             };
-            Grid.SetColumn(sound, 5);
+            Grid.SetColumn(sound, 7);
             row.Children.Add(sound);
 
             // Seconds to hold the alert back — 0 (or empty) is the immediate behaviour.
@@ -565,7 +669,7 @@ public sealed class OptionsWindow : Window
                 delay.Text = DelayText.Format(rule.AlertDelaySeconds);
                 _main.PersistSettings();
             };
-            Grid.SetColumn(delay, 6);
+            Grid.SetColumn(delay, 8);
             row.Children.Add(delay);
 
             var del = AppTheme.IconButton("x", "Delete rule");
@@ -576,7 +680,7 @@ public sealed class OptionsWindow : Window
                 BuildRulesEditor();
                 ReclampHeight();
             };
-            Grid.SetColumn(del, 7);
+            Grid.SetColumn(del, 9);
             row.Children.Add(del);
             _rulesPanel.Children.Add(row);
         }
@@ -598,7 +702,9 @@ public sealed class OptionsWindow : Window
     private void BuildCardsEditor()
     {
         _cardsPanel.Children.Clear();
-        var order = _main.Settings.SectionOrder.ToList();
+        var order = _main.Settings.SectionOrder
+            .Where(k => MainWindow.SectionCatalog.Any(c => c.Key == k))
+            .ToList();
         foreach (var (key, _) in MainWindow.SectionCatalog)
             if (!order.Contains(key)) order.Add(key);
         _main.Settings.SectionOrder = order;

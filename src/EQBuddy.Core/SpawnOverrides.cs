@@ -33,6 +33,13 @@ public sealed class SpawnOverride
     /// tightening as more kills come in; a manual edit (Learned=false with a value) is
     /// never touched — the player's word outranks the app's inference.</summary>
     public bool Learned { get; set; }
+
+    /// <summary>True when the learned value came from a pre-due SIGHTING (the mob
+    /// provably acting before its clock ran out) rather than a re-kill gap. Sighted
+    /// values survive the trusted-entry self-heal that purges re-kill noise: an
+    /// observation outranks a lock (David's call, 2026-08-09 — "for actual nameds I
+    /// don't want to lock the timers if we actually observe them being lower").</summary>
+    public bool Sighted { get; set; }
 }
 
 /// <summary>

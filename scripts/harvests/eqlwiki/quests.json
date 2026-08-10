@@ -2896,6 +2896,23 @@
   "repeatable": false
  },
  {
+  "name": "Burning Soul of the Pious",
+  "url": "https://eqlwiki.com/Burning_Soul_of_the_Pious",
+  "startZone": "",
+  "questGiver": "",
+  "minLevel": 0,
+  "classes": "",
+  "items": [],
+  "rewards": [],
+  "categories": [
+   "Paladin Quests",
+   "Shadow Knight Quests"
+  ],
+  "relatedZones": [],
+  "era": "",
+  "repeatable": false
+ },
+ {
   "name": "Burnished Wooden Staff Quest",
   "url": "https://eqlwiki.com/Burnished_Wooden_Staff_Quest",
   "startZone": "Warsliks Woods",
@@ -7252,34 +7269,33 @@
    {
     "name": "Efreeti Scimitar",
     "qty": 1
+   },
+   {
+    "name": "Efreeti Statuette",
+    "qty": 1
    }
   ],
   "rewards": [
-   "Acidic Venom",
-   "Azure Tessera",
-   "Black Face Paint",
-   "Copper Disc",
-   "Diaphanous Globe",
    "Divine Honeycomb",
    "Drake-Hide Mask",
    "Efreeti Scimitar",
    "Efreeti Statuette",
    "Espri",
    "Ethereal Ruby",
-   "Fire Sky Ruby",
-   "Hardened Clay",
    "Honeycomb Belt",
-   "Lush Nectar",
    "Mantle of Woven Grass",
    "Nature Walker's Mantle",
-   "Nature Walker's Sky Emerald",
    "Shillelagh",
    "Spiroc Banisher Focus",
    "Spiroc Battle Staff",
    "Spiroc Elder's Totem",
    "Storm Sky Opal",
-   "White-tipped Spiroc Feather",
-   "Wilder's Girdle",
+   "Wind Rune Azia",
+   "Wind Rune Dena",
+   "Wind Rune Ena",
+   "Wind Rune Izah",
+   "Wind Rune Kala",
+   "Wind Rune Meda",
    "Worn Leather Mask"
   ],
   "categories": [
@@ -7929,7 +7945,12 @@
   "questGiver": "",
   "minLevel": 0,
   "classes": "",
-  "items": [],
+  "items": [
+   {
+    "name": "Efreeti Wind Staff",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Adamantium Earring",
    "Earring of Displacement",
@@ -14887,35 +14908,30 @@
    }
   ],
   "rewards": [
-   "Blood Sky Amethyst",
    "Bracelet of Clarification",
-   "Carmine Spiroc Feather",
    "Ceramic Mask",
-   "Crimson Tessera",
    "Crown of Elemental Mastery",
    "Djinni Stave",
    "Drake-Hide Amice",
    "Duennan Shielding Ring",
    "Efreeti Magi Staff",
-   "Ethereal Sapphire",
    "Feathered Cape",
-   "Finely Woven Cloth Amice",
-   "Gem of Empowerment",
    "Gold White Pendant",
    "Golden Coffer",
    "Golden Efreeti Ring",
-   "Harpy Statuette",
    "Hazy Opal",
-   "Hyaline Globe",
-   "Iron Disc",
-   "Ivory Pendant",
    "Large Diamond",
    "Large Opal",
    "Mask of Empowerment",
-   "Sphinx Crown",
    "Staff of Elemental Mastery: Air",
    "Staff of The Magister",
-   "Sweet Nectar"
+   "Wind Rune Azia",
+   "Wind Rune Dena",
+   "Wind Rune Ena",
+   "Wind Rune Heda",
+   "Wind Rune Jaka",
+   "Wind Rune Lena",
+   "Wind Rune Neza"
   ],
   "categories": [
    "Magician Quests",
@@ -16914,7 +16930,13 @@
    "Griffon's Beak",
    "Pulsating Ruby",
    "Ring of Veeshan",
-   "Sphinx Heart Amulet"
+   "Sphinx Heart Amulet",
+   "Wind Rune Azia",
+   "Wind Rune Caza",
+   "Wind Rune Fana",
+   "Wind Rune Lena",
+   "Wind Rune Neza",
+   "Wind Rune Ozah"
   ],
   "categories": [
    "Necromancer Quests",
@@ -18343,19 +18365,18 @@
   "rewards": [
    "Aldryn, Blade of the Ocean",
    "Bixie Sword Blade",
-   "Dark Spiroc Feather",
-   "Diaphanous Globe",
-   "Dulcet Nectar",
    "Efreeti Zweihander",
-   "Ethereal Topaz",
    "Girdle of Faith",
    "Golden Hilt",
    "Ivory Sky Diamond",
    "Large Sky Diamond",
-   "Silvery Girdle",
    "Sphinx Claw",
    "Thelvorn, Blade of Light",
-   "Truvinan"
+   "Truvinan",
+   "Wind Rune Geza",
+   "Wind Rune Izah",
+   "Wind Rune Lena",
+   "Wind Rune Ozah"
   ],
   "categories": [
    "Paladin Quests",
@@ -19514,6 +19535,29 @@
   "repeatable": false
  },
  {
+  "name": "Potential of the Void",
+  "url": "https://eqlwiki.com/Potential_of_the_Void",
+  "startZone": "The Hole, Kedge Keep, Permafrost, Nagafen's Lair, Oasis of Marr, Feerrott",
+  "questGiver": "voidling",
+  "minLevel": 0,
+  "classes": "All",
+  "items": [],
+  "rewards": [
+   "Void-Touched Potential"
+  ],
+  "categories": [],
+  "relatedZones": [
+   "Kedge Keep",
+   "Nagafen's Lair",
+   "Permafrost",
+   "Plane of Fear",
+   "Plane of Hate",
+   "The Hole"
+  ],
+  "era": "Classic",
+  "repeatable": false
+ },
+ {
   "name": "Preserved Meat Delivery",
   "url": "https://eqlwiki.com/Preserved_Meat_Delivery",
   "startZone": "Oggok",
@@ -20315,31 +20359,25 @@
   ],
   "rewards": [
    "Arydryidriyorn",
-   "Auburn Tessera",
-   "Bitter Honey",
    "Circlet of Brambles",
    "Dark Cloak of the Sky",
-   "Djinni Statuette",
-   "Dragon Hide Mantle",
    "Earthshaker's Mantle",
    "Efreeti Long Sword",
    "Efreeti War Bow",
-   "Emerald Spiroc Feather",
    "Fine Velvet Cloak",
-   "Gridelin Globe",
    "Griffon Talon",
    "Griffon Talon Necklace",
-   "Harpy Tongue",
-   "Mithril Disc",
    "Shimmering Pearl",
-   "Sphinx Tallow",
    "Spiroc Earth Totem",
-   "Spiroc Thunder Totem",
-   "Thickened Nectar",
    "Thunderforged Earring",
    "White Gold Earring",
-   "Windstriker",
-   "Ysgaril Root"
+   "Wind Rune Azia",
+   "Wind Rune Ena",
+   "Wind Rune Heda",
+   "Wind Rune Kala",
+   "Wind Rune Meda",
+   "Wind Rune Neza",
+   "Windstriker"
   ],
   "categories": [
    "Plane of Sky",
@@ -21667,30 +21705,24 @@
   "classes": "",
   "items": [],
   "rewards": [
-   "Bixie Stinger (Bixie God's Stinger)",
-   "Black Griffon Feather",
+   "Bixie Stinger",
    "Bloodsky Sapphire",
-   "Bronze Disc",
-   "Cracked Leather Belt",
    "Crystal Mask",
    "Fine Wool Cloak",
-   "Gem of Invigoration",
    "Griffon Wing Spauldors",
-   "Honeyed Nectar",
    "Inlaid Choker",
-   "Ivory Tessera",
    "Jester's Mask",
-   "Lightning Rod",
-   "Mottled Spiroc Feather",
-   "Pearlescent Globe",
-   "Pegasus Statuette",
-   "Prismatic Sphere",
-   "Red Face Paint",
    "Renard's Belt of Quickness",
    "Scintillating Bracer of Protection",
    "Sphinxian Circlet",
    "Spiroc Sky Totem",
    "Thornstinger",
+   "Wind Rune Dena",
+   "Wind Rune Ena",
+   "Wind Rune Geza",
+   "Wind Rune Izah",
+   "Wind Rune Jaka",
+   "Wind Rune Ozah",
    "Wispy Choker of Vigor"
   ],
   "categories": [
@@ -23032,43 +23064,32 @@
    {
     "name": "Efreeti War Shield",
     "qty": 1
-   },
-   {
-    "name": "Large Sky Pearl",
-    "qty": 1
    }
   ],
   "rewards": [
    "Amulet of the Sphinx Eye",
-   "Blood Sky Emerald",
    "Blood Sky Face Plate",
    "Blood Sky Ruby",
-   "Bloodstained Hilt",
-   "Copper Disc",
    "Crimson Ring of the Djinni",
-   "Dark Spiroc Feather",
-   "Diaphanous Globe",
-   "Dried Leather",
-   "Dulcet Nectar",
-   "Ebon Tessera",
    "Efreeti War Axe",
    "Efreeti War Shield",
    "Fae Pauldrons",
    "Finely Crafted Amulet",
    "Finely Woven Cloth Belt",
-   "Griffon Statuette",
-   "Jar of Honey",
    "Khyldorn the Blood Drinker",
-   "Large Sky Pearl",
-   "Obsidian Shard (Sky)",
    "Obtenebrate Mithril Guard",
    "Pearlescent Pauldrons",
    "Pegasus-Hide Belt",
    "Rusted Pauldrons",
    "Silvery Ring",
-   "Small Sapphire",
-   "Sphinx Eye Opal",
-   "Sphinxian Ring"
+   "Sphinxian Ring",
+   "Wind Rune Beza",
+   "Wind Rune Dena",
+   "Wind Rune Fana",
+   "Wind Rune Heda",
+   "Wind Rune Izah",
+   "Wind Rune Kala",
+   "Wind Rune Ozah"
   ],
   "categories": [
    "Plane of Sky",
@@ -24768,7 +24789,16 @@
   "questGiver": "Saemey Wirewhisker",
   "minLevel": 20,
   "classes": "Any",
-  "items": [],
+  "items": [
+   {
+    "name": "Jungle Spiritling Stone",
+    "qty": 1
+   },
+   {
+    "name": "Mountain Spiritling Stone",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Kejek Spirit Powder"
   ],
@@ -30510,35 +30540,32 @@
    }
   ],
   "rewards": [
-   "Aerated Pauldrons",
    "Azure Ring",
    "Azure Ruby Ring",
    "Belt of the Four Winds",
-   "Bottled Djinni",
-   "Bronze Disc",
    "Dagas",
    "Djinni War Blade",
    "Efreeti Battle Axe",
    "Efreeti Belt",
    "Ethereal Emerald",
    "Fangol",
-   "Honeyed Nectar",
-   "Ivory Tessera",
-   "Mottled Spiroc Feather",
+   "Gem of Invigoration",
    "Pauldrons of the Blue Sky",
-   "Pearlescent Globe",
-   "Pegasus Statuette",
    "Runed Wind Amulet",
-   "Silver Mesh",
-   "Small Pick",
-   "Small Ruby",
    "Spiroc Air Totem",
-   "Spiroc Wind Totem",
    "Stone Amulet",
-   "Virulent Poison",
+   "Wind Rune Azia",
+   "Wind Rune Beza",
+   "Wind Rune Dena",
+   "Wind Rune Fana",
+   "Wind Rune Jaka",
+   "Wind Rune Neza",
    "Wind Tablet"
   ],
-  "categories": [],
+  "categories": [
+   "Plane of Sky",
+   "Warrior Quests"
+  ],
   "relatedZones": [],
   "era": "",
   "repeatable": false
@@ -30841,7 +30868,7 @@
   "relatedZones": [
    "North Karana"
   ],
-  "era": "Velious",
+  "era": "Classic",
   "repeatable": false
  },
  {
@@ -31165,6 +31192,10 @@
   "classes": "",
   "items": [
    {
+    "name": "Efreeti Statuette",
+    "qty": 1
+   },
+   {
     "name": "Efreeti War Staff",
     "qty": 1
    }
@@ -31173,27 +31204,22 @@
    "Al`Kabor's Cap of Binding",
    "Amethyst Amulet",
    "Amulet of the Void",
-   "Augmentor's Gem",
    "Augmentor's Mask",
-   "Azure Tessera",
    "Box of Winds",
-   "Copper Air Band",
    "Efreeti Statuette",
    "Efreeti War Staff",
-   "Ethereal Opal",
    "Grey Damask Cloak",
    "High Quality Raiment",
-   "Hyaline Globe",
-   "Iron Disc",
-   "Large Sky Sapphire",
-   "Lush Nectar",
-   "Mithril Air Ring",
+   "Large Sky Lapis",
    "Nargon's Staff",
-   "Pulsating Sapphire",
    "Raiment of Thunder",
-   "Sky Topaz",
    "Solidate Mithril Ring",
-   "White-tipped Spiroc Feather",
+   "Wind Rune Caza",
+   "Wind Rune Dena",
+   "Wind Rune Fana",
+   "Wind Rune Geza",
+   "Wind Rune Izah",
+   "Wind Rune Jaka",
    "Woven Skull Cap"
   ],
   "categories": [
@@ -31666,7 +31692,7 @@
   "items": [
    {
     "name": "Asp Poison Sac",
-    "qty": 1
+    "qty": 2
    },
    {
     "name": "Bamboo Shoot",
@@ -31803,7 +31829,8 @@
   ],
   "categories": [
    "North Freeport",
-   "Paladin Quests"
+   "Paladin Quests",
+   "Shadow Knight Quests"
   ],
   "relatedZones": [],
   "era": "Classic",

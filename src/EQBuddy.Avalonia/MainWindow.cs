@@ -23,6 +23,15 @@ public sealed class MainWindow : Window
     private void AttachSpellStore() =>
         _stats.Spells.AttachStore(System.IO.Path.Combine(Core.AppPaths.Dir, "spell-categories.json"));
     private readonly LogWatcher _watcher;
+    private readonly EqlWikiItemService _wikiItems =
+        new(System.IO.Path.Combine(AppPaths.Dir, "wiki-cache", "items"));
+    private ItemInfoWindow? _itemInfoWindow;
+    private readonly EqlWikiMobService _wikiMobs =
+        new(System.IO.Path.Combine(AppPaths.Dir, "wiki-cache", "mobs"));
+    private readonly Dictionary<string, MobLookupResult?> _targetResults =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<BreakoutKind, BreakoutWindow> _breakouts = new();
+    private readonly HashSet<BreakoutKind> _dismissedBreakouts = [];
     private readonly SessionRepository _repo = new(SessionRepository.DefaultDbPath);
     private readonly SessionArchiver _archiver;
     private DateTime _lastCheckpoint = DateTime.MinValue;
@@ -82,10 +91,15 @@ public sealed class MainWindow : Window
     private readonly ItemsControl _killList = new();
     private readonly ItemsControl _partyKillList = new();
     private readonly ItemsControl _lootList = new();
+    private readonly StackPanel _targetDropsBlock = new() { IsVisible = false, Margin = new Thickness(0, 6, 0, 0) };
+    private readonly TextBlock _targetDropsHeader = AppTheme.Heading("", AppTheme.WarnBrush);
+    private readonly ItemsControl _targetDropsList = new();
     private readonly StackPanel _trackedPanel = new();
     private readonly ItemsControl _craftedList = new();
     private readonly ItemsControl _soldList = new();
     private readonly ItemsControl _skillList = new();
+    private readonly TextBlock _aaAbilitiesLabel = AppTheme.Heading("AA abilities");
+    private readonly ItemsControl _aaAbilityList = new();
     private readonly ItemsControl _factionList = new();
     private readonly ItemsControl _deathList = new();
     private readonly ItemsControl _zoneList = new();
@@ -152,7 +166,7 @@ public sealed class MainWindow : Window
     private StatSort _healSort = StatSort.Total;
     private readonly bool _expandForTesting = Environment.GetEnvironmentVariable("EQBUDDY_EXPAND") == "1";
 
-    private static readonly string[] MiniStatOrder = ["kills", "dps", "hps", "loot", "money", "xp", "deaths"];
+    private static readonly string[] MiniStatOrder = ["kills", "dps", "hps", "pet", "loot", "money", "xp", "deaths"];
 
     private enum StatSort { Total, Hits, Avg, Rate }
 
@@ -162,6 +176,7 @@ public sealed class MainWindow : Window
         // everything learned in earlier sessions (issue #29).
         AttachSpellStore();
         _stats.AaStore = new AaLedgerStore(AppPaths.File("aa-ledger.json"));
+        _mezTracker.AttachStore(AppPaths.File("mez-durations.json"));
         _watcher = new LogWatcher(_stats);
         // All three trackers are hung off the watcher for the same reason AttachSpellStore
         // runs above: Select() replays the whole log, and everything any tracker derives keys
@@ -170,7 +185,6 @@ public sealed class MainWindow : Window
         // today's log. It matters most for HoTs: a HoT has a 24-second life and announces
         // neither its landing nor its fade (HotTracker's doc comment), so a tracker wired
         // late doesn't recover — it simply misses every cast until the next one ticks.
-        _mezTracker.AttachStore(System.IO.Path.Combine(Core.AppPaths.Dir, "mez-durations.json"));
         _watcher.Mez = _mezTracker;
         _hotTracker.AttachStore(System.IO.Path.Combine(Core.AppPaths.Dir, "hot-durations.json"));
         _watcher.Hot = _hotTracker;
@@ -245,10 +259,11 @@ public sealed class MainWindow : Window
             // Page one of the launch tour is the log-truncation consent question.
             // Leave existing logs untouched until the user has answered it.
             var prune = _settings.TruncateLogs && !_settings.ShowTutorial;
+            var archive = _settings.ArchiveLogs;
             Task.Run(() =>
             {
                 EqConfig.EnsureLoggingEnabled(lf);
-                if (prune) EqConfig.TruncateStaleLogs(lf, SessionStats.SessionGap);
+                if (prune) EqConfig.TruncateStaleLogs(lf, SessionStats.SessionGap, archive: archive);
             });
         }
 
@@ -292,6 +307,9 @@ public sealed class MainWindow : Window
             if (Environment.GetEnvironmentVariable("EQBUDDY_OPTIONS") == "1")
                 OnOptions(this, EventArgs.Empty);
         };
+        // A portrait secondary can be much taller than the primary. Recalculate after
+        // every move so crossing a monitor boundary updates the available card height.
+        PositionChanged += (_, _) => UpdateWindowHeightLimit();
     }
 
     /// <summary>Records the running version before displaying release notes, so an
@@ -486,7 +504,13 @@ public sealed class MainWindow : Window
         Grid.SetColumn(_gearBtn, 2);
         grid.Children.Add(_gearBtn);
         var reset = AppTheme.IconButton(AppIcon.Refresh, "Reset session stats");
-        reset.Click += (_, _) => _stats.Reset();
+        reset.Click += (_, _) =>
+        {
+            // With archiving on, reset also splits the log (#52) — same as WPF.
+            if (_settings.ArchiveLogs && _watcher.CurrentPath is { } path)
+                Task.Run(() => EqConfig.SplitLog(path));
+            _stats.Reset();
+        };
         Grid.SetColumn(reset, 3);
         grid.Children.Add(reset);
         var mini = AppTheme.IconButton(AppIcon.Minimize, "Minimize to dashboard");
@@ -576,11 +600,18 @@ public sealed class MainWindow : Window
         body.Children.Add(SortHeader("Damage by attack", out _dmgOutSortTotal, out _dmgOutSortHits,
             out _dmgOutSortAvg, out _dmgOutSortDps, OnSortDmgOut, rateText: "dps"));
         body.Children.Add(_damageSourceList);
+        var petHeader = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         _petAbilityLabel.Cursor = new Cursor(StandardCursorType.Hand);
         ToolTip.SetTip(_petAbilityLabel,
             "What your pet is using, split out of its Pet row above — click to expand");
         _petAbilityLabel.PointerPressed += OnPetAbilitiesToggled;
-        body.Children.Add(_petAbilityLabel);
+        petHeader.Children.Add(_petAbilityLabel);
+        var petStar = AppTheme.StarButton("pet", "Show pet damage breakout when minimized");
+        petStar.Click += OnStarChanged;
+        _stars["pet"] = petStar;
+        Grid.SetColumn(petStar, 1);
+        petHeader.Children.Add(petStar);
+        body.Children.Add(petHeader);
         body.Children.Add(_petAbilityList);
         body.Children.Add(SortHeader("Damage taken from", out _dmgInSortTotal, out _dmgInSortHits,
             out _dmgInSortAvg, out _, OnSortDmgIn));
@@ -677,6 +708,9 @@ public sealed class MainWindow : Window
         _craftedLabel.Margin = new Thickness(0, 6, 0, 0);
         panel.Children.Add(_craftedLabel);
         panel.Children.Add(_craftedList);
+        _targetDropsBlock.Children.Add(_targetDropsHeader);
+        _targetDropsBlock.Children.Add(_targetDropsList);
+        panel.Children.Add(_targetDropsBlock);
         return panel;
     }
 
@@ -697,6 +731,9 @@ public sealed class MainWindow : Window
         panel.Children.Add(_progressSummary);
         panel.Children.Add(AppTheme.Heading("Skill-ups"));
         panel.Children.Add(_skillList);
+        _aaAbilitiesLabel.Margin = new Thickness(0, 4, 0, 0);
+        panel.Children.Add(_aaAbilitiesLabel);
+        panel.Children.Add(_aaAbilityList);
         return panel;
     }
 
@@ -785,6 +822,8 @@ public sealed class MainWindow : Window
         // ToggleClickThrough bails without changing anything when X11ClickThrough.Set fails,
         // and a tick left standing over an unchanged window would be a lie.
         _clickThroughItem.Click += (_, _) => { ToggleClickThrough(); _clickThroughItem.IsChecked = _clickThrough; };
+        var feedback = new MenuItem { Header = "Send feedback..." };
+        feedback.Click += (_, _) => new FeedbackWindow().Show(this);
         var choose = new MenuItem { Header = "Choose log folder..." };
         choose.Click += OnChooseLogFolder;
         var detect = new MenuItem { Header = "Auto-detect log folder" };
@@ -804,6 +843,7 @@ public sealed class MainWindow : Window
         menu.Items.Add(spawns);
         menu.Items.Add(_trackSpawnsItem);
         menu.Items.Add(_clickThroughItem);
+        menu.Items.Add(feedback);
         menu.Items.Add(new Separator());
         menu.Items.Add(choose);
         menu.Items.Add(detect);
@@ -1072,10 +1112,11 @@ public sealed class MainWindow : Window
         {
             _lastJanitorRun = DateTime.Now;
             var prune = _settings.TruncateLogs && !_settings.ShowTutorial;
+            var archive = _settings.ArchiveLogs;
             Task.Run(() =>
             {
                 EqConfig.EnsureLoggingEnabled(folder);
-                if (prune) EqConfig.TruncateStaleLogs(folder, SessionStats.SessionGap);
+                if (prune) EqConfig.TruncateStaleLogs(folder, SessionStats.SessionGap, archive: archive);
             });
         }
 
@@ -1095,6 +1136,7 @@ public sealed class MainWindow : Window
             _archiver.Checkpoint(s);
         }
         if (_miniRoot.IsVisible) UpdateMiniChips(s);
+        UpdateBreakouts(s);
         _zoneText.Text = s.CurrentZone.Length > 0 ? s.CurrentZone : "-";
         var active = TimeSpan.FromSeconds(s.ActiveSeconds);
         _sessionText.Text = s.SessionStart is { } start
@@ -1228,9 +1270,11 @@ public sealed class MainWindow : Window
         }
         if (_sections["loot"].IsExpanded)
         {
-            FillList(_lootList, s.Loot.Select(l => (l.Item, $"x{l.Count}")));
+            FillList(_lootList, s.Loot.Select(l => (l.Item, $"x{l.Count}")),
+                onNameClick: ShowItemInfo);
             _craftedLabel.IsVisible = s.Crafted.Count > 0;
             FillList(_craftedList, s.Crafted.Select(c => (c.Name, $"x{c.Count}")));
+            RenderTargetDrops(s);
         }
         RenderTracked(s);
         if (_sections["money"].IsExpanded)
@@ -1257,6 +1301,10 @@ public sealed class MainWindow : Window
                     }))
                     : "");
             FillList(_skillList, s.SkillUps.Select(k => (k.Skill, $"{k.Value} (+{k.Ups})")));
+            _aaAbilitiesLabel.IsVisible = s.AaAbilities.Count > 0;
+            FillList(_aaAbilityList, s.AaAbilities.Select(ability =>
+                    (ability.Name, $"rank {ability.Rank}")),
+                tooltip: name => AaCatalog.Find(name)?.Effect);
         }
         if (_sections["faction"].IsExpanded)
             FillList(_factionList, s.Faction.Select(f => (f.Faction, EQBuddy.UI.Shared.FactionFormat.Net(f))),
@@ -1463,6 +1511,8 @@ public sealed class MainWindow : Window
                 EQBuddy.UI.Shared.AlertColors.Hex(rule.AlertColor));
         if (EQBuddy.UI.Shared.AlertSoundCatalog.Resolve(rule, _settings.AlertSound) is { } sound)
             PlayAlertSound(sound, coalesce: true);
+        if (rule.AlertSpeech)
+            EQBuddy.UI.Shared.SpokenAlerts.Speak(label);
     }
 
     /// <summary>Deaths seen last refresh, so a new one can cancel pending cues — a reminder
@@ -1542,8 +1592,7 @@ public sealed class MainWindow : Window
             // arrived (OnTextMatched). The baseline above still had to move so this rule
             // doesn't look like a fresh burst later.
             if (rule.Kind == WatchKind.Text) continue;
-            AlertOrCue(rule, r.Name,
-                $"{r.LastItem ?? "match"}{(delta > 1 ? $" ×{delta}" : "")}",
+            AlertOrCue(rule, r.Name, EQBuddy.UI.Shared.WatchAlertText.MatchLabel(rule, r, delta),
                 TimeSpan.FromSeconds(5));
         }
     }
@@ -1570,7 +1619,35 @@ public sealed class MainWindow : Window
         _normalRoot.IsVisible = !mini;
         Topmost = true;
         _settings.Save();
-        if (mini) UpdateMiniChips(CurrentSnapshot());
+        if (!mini) _dismissedBreakouts.Clear();
+        var snapshot = CurrentSnapshot();
+        if (mini) UpdateMiniChips(snapshot);
+        UpdateBreakouts(snapshot);
+    }
+
+    private static readonly (BreakoutKind Kind, string Star)[] BreakoutStars =
+        [(BreakoutKind.Damage, "dps"), (BreakoutKind.Healing, "hps"), (BreakoutKind.Pet, "pet")];
+
+    private void UpdateBreakouts(StatsSnapshot snapshot)
+    {
+        foreach (var (kind, star) in BreakoutStars)
+        {
+            var wanted = _settings.Minimized && _settings.MiniStats.Contains(star)
+                && !_dismissedBreakouts.Contains(kind);
+            _breakouts.TryGetValue(kind, out var window);
+            if (wanted)
+            {
+                if (window is null)
+                {
+                    window = new BreakoutWindow(_settings, kind);
+                    window.Dismissed += dismissed => _dismissedBreakouts.Add(dismissed);
+                    _breakouts[kind] = window;
+                }
+                if (!window.IsVisible) window.Show(this);
+                window.Update(snapshot);
+            }
+            else if (window is { IsVisible: true }) window.HideAndSave();
+        }
     }
 
     private void UpdateMiniChips(StatsSnapshot s)
@@ -1584,6 +1661,7 @@ public sealed class MainWindow : Window
                 "kills" => $"Kills {s.YourKillCount}",
                 "dps" => s.CurrentDps > 0 ? $"{s.CurrentDps:0} dps" : $"{s.SessionDps:0} dps",
                 "hps" => $"{s.Hps:0.#} hps",
+                "pet" => $"Pet {s.PetAbilities.Sum(row => row.Total) / Math.Max(1, s.CombatSeconds):0.#} dps",
                 "loot" => $"Loot {s.LootTotal}",
                 "money" => StatsSnapshot.FormatCoin(s.Copper),
                 "xp" => $"{s.XpPercent:0.0}%" + (s.HoursToLevel is { } eta ? $" - lvl {FormatEta(eta)}" : ""),
@@ -1834,7 +1912,8 @@ public sealed class MainWindow : Window
                 file = FindDesktopSound("bell.oga");
             if (file.Length > 0 && File.Exists(file))
             {
-                _ = Task.Run(() => PlaySoundFile(file));
+                var volume = Math.Clamp(_settings.AlertVolume, 0.0, 1.0);
+                _ = Task.Run(() => PlaySoundFile(file, volume));
                 return;
             }
             App.LogError($"Alert sound file was not found: {choiceOrPath}");
@@ -1884,13 +1963,17 @@ public sealed class MainWindow : Window
     /// <summary>Try Linux audio backends in order and verify their exit status. Merely
     /// starting pw-play is not success: it can launch and immediately fail to connect or
     /// decode an .oga file, which used to swallow the alert without trying paplay.</summary>
-    private static void PlaySoundFile(string file)
+    private static void PlaySoundFile(string file, double volume)
     {
+        // Each Linux backend expresses volume differently. Canberra uses decibels,
+        // PipeWire uses a 0..1 scalar, and PulseAudio uses 0..65536. ALSA's aplay has
+        // no per-stream volume, so it remains the last-resort fallback.
+        var decibels = volume <= 0 ? -100 : 20 * Math.Log10(volume);
         var players = new (string Command, string[] Args)[]
         {
-            ("canberra-gtk-play", ["--file", file]),
-            ("pw-play", [file]),
-            ("paplay", [file]),
+            ("canberra-gtk-play", ["--volume", $"{decibels:0.##}", "--file", file]),
+            ("pw-play", ["--volume", $"{volume:0.###}", file]),
+            ("paplay", ["--volume", $"{(int)Math.Round(volume * 65536)}", file]),
             ("aplay", [file]),
         };
         foreach (var (command, args) in players)
@@ -2118,21 +2201,44 @@ public sealed class MainWindow : Window
         RefreshUi();
     }
 
-    private static void FillList(ItemsControl list, IEnumerable<(string Name, string Value)> rows, Func<string, IBrush>? valueBrush = null)
+    private static void FillList(ItemsControl list, IEnumerable<(string Name, string Value)> rows,
+        Func<string, IBrush>? valueBrush = null, Action<string>? onNameClick = null,
+        Func<string, string?>? tooltip = null)
     {
         list.ItemsSource = rows.Select(row =>
         {
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
             grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-            grid.Children.Add(new TextBlock
+            var left = new TextBlock
             {
                 Text = row.Name,
                 FontSize = 12,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 Foreground = AppTheme.TextBrush,
                 Margin = new Thickness(0, 1, 8, 1),
-            });
+            };
+            if (tooltip?.Invoke(row.Name) is { Length: > 0 } tip)
+                ToolTip.SetTip(left, new TextBlock
+                {
+                    Text = tip,
+                    TextWrapping = TextWrapping.Wrap,
+                    MaxWidth = 340,
+                    Foreground = AppTheme.TextBrush,
+                });
+            if (onNameClick is not null)
+            {
+                var itemName = row.Name;
+                left.Cursor = new Cursor(StandardCursorType.Hand);
+                ToolTip.SetTip(left, "Click for item info (eqlwiki)");
+                left.PointerPressed += (_, e) =>
+                {
+                    if (!e.GetCurrentPoint(left).Properties.IsLeftButtonPressed) return;
+                    onNameClick(itemName);
+                    e.Handled = true;
+                };
+            }
+            grid.Children.Add(left);
             var right = new TextBlock
             {
                 Text = row.Value,
@@ -2143,6 +2249,97 @@ public sealed class MainWindow : Window
             grid.Children.Add(right);
             return grid;
         }).ToList();
+    }
+
+    internal void ShowItemInfo(string itemName)
+    {
+        if (_itemInfoWindow is not { IsVisible: true })
+        {
+            _itemInfoWindow = new ItemInfoWindow(_wikiItems);
+            _itemInfoWindow.Closed += (_, _) => _itemInfoWindow = null;
+            _itemInfoWindow.Show(this);
+        }
+        _itemInfoWindow.Activate();
+        _itemInfoWindow.Lookup(itemName);
+    }
+
+    private void RenderTargetDrops(StatsSnapshot snapshot)
+    {
+        var targets = _settings.ShowTargetDrops ? snapshot.CurrentTargets : [];
+        if (targets.Count == 0)
+        {
+            _targetDropsBlock.IsVisible = false;
+            return;
+        }
+        _targetDropsBlock.IsVisible = true;
+        foreach (var target in targets)
+        {
+            if (_targetResults.ContainsKey(target)) continue;
+            _targetResults[target] = null;
+            _ = LookupTargetAsync(target, snapshot.CurrentZone);
+        }
+
+        var observed = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var kills = 0;
+        foreach (var target in targets)
+        {
+            var mob = snapshot.Mobs.FirstOrDefault(m =>
+                m.Name.Equals(target, StringComparison.OrdinalIgnoreCase));
+            if (mob is null) continue;
+            kills += mob.Kills;
+            foreach (var loot in mob.Loot)
+            {
+                var name = EqlWikiItemService.NormalizeTitle(loot.Item);
+                observed[name] = observed.GetValueOrDefault(name) + loot.Count;
+            }
+        }
+
+        var rows = new List<(string Name, string Value)>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (item, count) in observed.OrderByDescending(pair => pair.Value))
+        {
+            var rate = targets.Count == 1 && kills > 0 ? $" · {100.0 * count / kills:0}%" : "";
+            rows.Add((item, $"{count} this session{rate}"));
+            seen.Add(item);
+        }
+        foreach (var target in targets)
+        {
+            if (_targetResults.GetValueOrDefault(target)?.Mob is not { } mob) continue;
+            foreach (var (item, rarity) in mob.Drops)
+                if (seen.Add(EqlWikiItemService.NormalizeTitle(item)))
+                    rows.Add((item, rarity.Length > 0 ? rarity : "listed"));
+        }
+
+        var extra = Math.Max(0, rows.Count - 14);
+        var names = string.Join(" + ", targets.Take(3)) +
+            (targets.Count > 3 ? $" +{targets.Count - 3}" : "");
+        var state = targets.Count == 1
+            ? _targetResults.GetValueOrDefault(targets[0]) switch
+            {
+                null => "looking up…",
+                { State: ItemLookupState.Live } => "LIVE",
+                { State: ItemLookupState.Cached, FetchedAt: { } at } => $"CACHED {at:M/d}",
+                { State: ItemLookupState.StaleCache, FetchedAt: { } at } => $"STALE {at:M/d}",
+                { State: ItemLookupState.Offline } => "OFFLINE",
+                _ => "NOT ON WIKI",
+            }
+            : targets.Any(target => _targetResults.GetValueOrDefault(target) is null)
+                ? "looking up…" : "merged pull";
+        _targetDropsHeader.Text = $"🎯 Fighting: {names}" +
+            (kills > 0 ? $" — {kills} kill{(kills == 1 ? "" : "s")} this session" : "") +
+            $" · drops (eqlwiki · {state}{(extra > 0 ? $" · +{extra} more" : "")})";
+        FillList(_targetDropsList, rows.Take(14), onNameClick: ShowItemInfo);
+    }
+
+    private async Task LookupTargetAsync(string target, string zone)
+    {
+        try
+        {
+            var result = await _wikiMobs.LookupAsync(target, zone);
+            _targetResults[target] = result;
+            Dispatcher.UIThread.Post(() => RenderTargetDrops(CurrentSnapshot()));
+        }
+        catch (Exception ex) { App.LogError(ex); }
     }
 
     private void OnDrag(object? sender, PointerPressedEventArgs e)
@@ -2181,6 +2378,7 @@ public sealed class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _uiTimer.Stop();
+        foreach (var breakout in _breakouts.Values) breakout.Close();
         if (_clickThrough)
             X11ClickThrough.Set(this, enabled: false);
         _hotkeys?.Dispose();

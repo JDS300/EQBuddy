@@ -115,6 +115,7 @@ public static class OverlaySections
     [
         ("combat", "Combat"), ("healing", "Healing"), ("kills", "Kills"), ("loot", "Loot"),
         ("motes", "Motes"),
+        ("sky", "Sky Quest"),
         // Key stays "tracked" — it's persisted in SectionOrder/HiddenSections. Only the
         // label follows the feature's rename from tracked loot to watch rules (#5).
         ("tracked", "Watch"), ("money", "Money"), ("progress", "Progress"),
@@ -303,6 +304,7 @@ public sealed class OptionsViewModel : INotifyPropertyChanged
         "Lull",
         "Stun",
         "HoT",
+        "Buff",
     ];
     public IReadOnlyList<TrackedRule> Rules => _settings.TrackedRules;
 
@@ -317,6 +319,14 @@ public sealed class OptionsViewModel : INotifyPropertyChanged
     public void RemoveRule(TrackedRule rule)
     {
         _settings.TrackedRules.Remove(rule);
+        PersistAnd(nameof(Rules));
+    }
+
+    /// <summary>Append rules decoded from a share string — WatchRuleShare already
+    /// rebuilt them with fresh ids and sanitized fields; this just lands them.</summary>
+    public void ImportRules(IEnumerable<TrackedRule> rules)
+    {
+        _settings.TrackedRules.AddRange(rules);
         PersistAnd(nameof(Rules));
     }
 

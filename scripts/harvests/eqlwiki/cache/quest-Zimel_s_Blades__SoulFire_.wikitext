@@ -51,7 +51,7 @@ __NOTOC__
 
 * The Sword of Faith
 ** Kill [[Sir Lucan D'Lere]] (both GM and undead spawn) in West Freeport (to loot [[Testimony of Truth]])
-** Obtain high '''warmly''' faction with [[Knights of Truth]] (ally to be safe, doesn't need to be max ally)(tested with warmly on paladin - worked on 20191216) (see [[Fabian's Strings]])
+** Obtain '''warmly''' faction with [[Knights of Truth]] (soon as you hit Warmly you can safely turn in the Testimony of Truth in the next step - Verified on EQL 8/8/2026) (see [[Fabian's Strings]])
 ** Turn in [[Testimony of Truth]] to [[Valeron Dushire]] in the North Freeport Hall of Truth (to receive [[Brilliant Sword of Faith]])
 * Note
 ** Obtain '''warmly''' faction with [[Priests of Life]] (see [[Bone Chips Qeynos]])
@@ -184,8 +184,10 @@ Eventually, SoulFire is given to Inte Akera for the Fiery Avenger. How it goes f
 == Related Quests ==
 
 * [[The Fiery Avenger]]
+* [[The Torrid Corruptor]]
 * [[Paladin Epic Quest]]
 
 [[Category:Quests]]
 [[Category:Paladin Quests]]
+[[Category:Shadow Knight Quests]]
 [[Category:North Freeport]]

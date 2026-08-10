@@ -105,6 +105,10 @@ public class SpawnTimerTests
     [InlineData("Red V", "Red X", false)]               // short names: exact only
     [InlineData("Emperor Crush", "Ambassador D`Vinn", false)]
     [InlineData("Gynok Moltor", "Gynok Molto", true)]   // truncated log capture
+    // Rank-ladder siblings inflect the word's END — one substitution apart, but a
+    // different creature. Trainee kills were restarting the Trainer clock (David,
+    // live in Crushbone 2026-08-09).
+    [InlineData("Orc Trainer", "orc trainee", false)]
     public void FuzzyMatchingToleratesTyposWithoutInventingThem(string a, string b, bool expected) =>
         Assert.Equal(expected, SpawnCatalog.NameMatchesFuzzy(a, b));
 
@@ -189,6 +193,84 @@ public class SpawnTimerTests
         // A genuinely newer kill restarts the clock.
         t.Apply(new KillEvent(T0.AddMinutes(30), "froglok ghoul lord", "You"));
         Assert.Equal(T0.AddMinutes(30), Assert.Single(t.Snapshot(T0.AddMinutes(31))).KilledAt);
+    }
+
+    // ---- sighting-based completion and learning (David camping Baron Telyx,
+    // 2026-08-08: a timer 25s too long can never tighten from re-kill gaps, because
+    // kill-to-kill includes the time it takes to notice and kill the spawn — but the
+    // mob ACTING in the log before its chip says DUE is proof the respawn happened) ----
+
+    [Fact]
+    public void APreDueSightingCompletesTheCountdownAndLearns()
+    {
+        var overrides = new SpawnOverrides();
+        var t = Tracker(overrides);
+        t.Apply(new ZoneEvent(T0, "Lower Guk"));
+        t.Apply(new KillEvent(T0, "froglok ghoul lord", "You"));
+
+        // 1500s into a 1620s countdown, the lord is already swinging at someone.
+        t.Apply(new DamageDealtEvent(T0.AddSeconds(1500), "froglok ghoul lord", 30,
+            DamageKind.Melee, "Slash", false));
+
+        var timer = Assert.Single(t.Snapshot(T0.AddSeconds(1501)));
+        Assert.True(timer.IsDue(T0.AddSeconds(1501)));
+        Assert.Equal(1500, timer.DurationSeconds);
+        // The observed cycle becomes the learned respawn for next time.
+        var o = overrides.Find("Lower Guk", "a froglok ghoul lord");
+        Assert.NotNull(o);
+        Assert.True(o!.Learned);
+        Assert.Equal(1500, o.RespawnSeconds);
+    }
+
+    [Fact]
+    public void AConsiderLineCountsAsASighting()
+    {
+        var t = Tracker();
+        t.Apply(new ZoneEvent(T0, "Lower Guk"));
+        t.Apply(new KillEvent(T0, "froglok ghoul lord", "You"));
+        t.Apply(new ConsiderEvent(T0.AddSeconds(1400), "Froglok ghoul lord", 30));
+
+        Assert.True(Assert.Single(t.Snapshot(T0.AddSeconds(1401))).IsDue(T0.AddSeconds(1401)));
+    }
+
+    /// <summary>Several mobs can share a catalog name (Crushbone taskmasters): a
+    /// same-named stranger acting mid-window is a twin, not this camp's respawn.
+    /// Only the final fifth of a countdown accepts sightings.</summary>
+    [Fact]
+    public void AMidWindowSightingIsATwinAndChangesNothing()
+    {
+        var overrides = new SpawnOverrides();
+        var t = Tracker(overrides);
+        t.Apply(new ZoneEvent(T0, "Lower Guk"));
+        t.Apply(new KillEvent(T0, "froglok ghoul lord", "You"));
+        t.Apply(new DamageDealtEvent(T0.AddSeconds(600), "froglok ghoul lord", 30,
+            DamageKind.Melee, "Slash", false));
+
+        var timer = Assert.Single(t.Snapshot(T0.AddSeconds(601)));
+        Assert.False(timer.IsDue(T0.AddSeconds(601)));
+        Assert.Equal(1620, timer.DurationSeconds);
+        Assert.Null(overrides.Find("Lower Guk", "a froglok ghoul lord"));
+    }
+
+    /// <summary>David's Baron case: a manual 295s edit over a ~270s reality. The
+    /// sighting still completes THIS countdown (the mob is provably up — the chip
+    /// must say so), but the player's typed value is never overwritten.</summary>
+    [Fact]
+    public void ASightingCompletesTheChipButNeverTouchesAManualEdit()
+    {
+        var overrides = new SpawnOverrides();
+        overrides.GetOrAdd("Lower Guk", "a froglok ghoul lord").RespawnSeconds = 2000;
+        var t = Tracker(overrides);
+        t.Apply(new ZoneEvent(T0, "Lower Guk"));
+        t.Apply(new KillEvent(T0, "froglok ghoul lord", "You"));
+        t.Apply(new DamageDealtEvent(T0.AddSeconds(1900), "froglok ghoul lord", 30,
+            DamageKind.Melee, "Slash", false));
+
+        var timer = Assert.Single(t.Snapshot(T0.AddSeconds(1901)));
+        Assert.True(timer.IsDue(T0.AddSeconds(1901)));
+        var o = overrides.Find("Lower Guk", "a froglok ghoul lord")!;
+        Assert.Equal(2000, o.RespawnSeconds);
+        Assert.False(o.Learned);
     }
 
     [Fact]
@@ -326,6 +408,127 @@ public class SpawnTimerTests
         manual.Learned = false;
         t.Apply(LogParser.Parse("[Tue Aug 4 19:20:00 2026] You have slain Orc Taskmaster!")!);
         Assert.Equal(300, Assert.Single(t.Snapshot(DateTime.Parse("2026-08-04T19:20:01"))).DurationSeconds);
+    }
+
+    /// <summary>David's call (2026-08-09, fighting a trainer his chip said was five
+    /// minutes away): "for actual nameds I don't want to lock the timers if we
+    /// actually observe them being lower." A final-window sighting now out-measures
+    /// even a TRUSTED clock — and the value it learns is marked Sighted, so the
+    /// self-heal (which exists to purge re-kill noise) leaves it standing.</summary>
+    [Fact]
+    public void AFinalWindowSightingOutranksATrustedClockAndSurvivesTheHeal()
+    {
+        var catalog = new SpawnCatalog
+        {
+            Zones =
+            [
+                new SpawnZone
+                {
+                    Zone = "Crushbone", NamedDefaultSeconds = 738, NamedDefaultTrusted = true,
+                    Named = [new SpawnEntry { Name = "Orc Trainer" }],
+                },
+            ],
+        };
+        var overrides = new SpawnOverrides();
+        var t = new SpawnTimers(catalog, overrides) { Server = "qeynos" };
+        t.Apply(new ZoneEvent(T0, "Clan Crushbone"));
+        t.Apply(new KillEvent(T0, "Orc Trainer", "You"));
+
+        // 620s into the trusted 738s clock (inside the final fifth), the trainer
+        // is already swinging: the chip completes and the observation is learned.
+        t.Apply(new DamageDealtEvent(T0.AddSeconds(620), "Orc Trainer", 12,
+            DamageKind.Melee, "Slash", false));
+        Assert.True(Assert.Single(t.Snapshot(T0.AddSeconds(621))).IsDue(T0.AddSeconds(621)));
+        var o = overrides.Find("Crushbone", "Orc Trainer")!;
+        Assert.Equal(620, o.RespawnSeconds);
+        Assert.True(o.Sighted);
+
+        // The next kill would have self-healed a re-kill-learned 620 under a trusted
+        // 738 — the sighted value stays, and the new countdown runs on it.
+        t.Apply(new KillEvent(T0.AddSeconds(700), "Orc Trainer", "You"));
+        Assert.Equal(620, overrides.Find("Crushbone", "Orc Trainer")!.RespawnSeconds);
+        Assert.Equal(620, Assert.Single(t.Snapshot(T0.AddSeconds(701))).DurationSeconds);
+    }
+
+    /// <summary>The refinement, minutes later: "it should just be for the actual
+    /// named/boss mobs. Not mobs that spawn in multiple locations — Royal Guard, for
+    /// example, spawns in a number of places." Multi-spawn entries get NO sighting
+    /// treatment: any same-named activity may be a sibling, so their clocks are
+    /// kill-driven only, even inside the final window.</summary>
+    [Fact]
+    public void MultiSpawnNamesIgnoreSightingsEntirely()
+    {
+        var catalog = new SpawnCatalog
+        {
+            Zones =
+            [
+                new SpawnZone
+                {
+                    Zone = "Crushbone",
+                    Named = [new SpawnEntry { Name = "Royal Guard", RespawnSeconds = 480, MultiSpawn = true }],
+                },
+            ],
+        };
+        var overrides = new SpawnOverrides();
+        var t = new SpawnTimers(catalog, overrides) { Server = "qeynos" };
+        t.Apply(new ZoneEvent(T0, "Clan Crushbone"));
+        t.Apply(new KillEvent(T0, "Royal Guard", "You"));
+
+        // Another guard piercing you at 460s — deep in the final window — is one of
+        // its siblings elsewhere, not this camp's respawn. Nothing moves.
+        t.Apply(new DamageDealtEvent(T0.AddSeconds(460), "Royal Guard", 8,
+            DamageKind.Melee, "Pierce", false));
+        var timer = Assert.Single(t.Snapshot(T0.AddSeconds(461)));
+        Assert.False(timer.IsDue(T0.AddSeconds(461)));
+        Assert.Equal(480, timer.DurationSeconds);
+        Assert.Null(overrides.Find("Crushbone", "Royal Guard"));
+
+        // Re-kill gaps teach nothing either: killing a SIBLING 120s after this camp's
+        // kill must not become the learned respawn (the 111s Trainer poison, David's
+        // log 2026-08-09 — a trainee-restarted clock "measured" a two-minute cycle).
+        t.Apply(new KillEvent(T0.AddSeconds(120), "Royal Guard", "You"));
+        Assert.Null(overrides.Find("Crushbone", "Royal Guard"));
+        Assert.Equal(480, Assert.Single(t.Snapshot(T0.AddSeconds(121))).DurationSeconds);
+    }
+
+    /// <summary>Poison already in the file from before multiSpawn existed (David's
+    /// Trainer at 111s) heals on the next kill — including the startup replay, so an
+    /// update alone fixes the chip without anyone editing overrides by hand.</summary>
+    [Fact]
+    public void StaleLearnedValuesOnMultiSpawnEntriesHealOnKill()
+    {
+        var catalog = new SpawnCatalog
+        {
+            Zones =
+            [
+                new SpawnZone
+                {
+                    Zone = "Crushbone",
+                    Named = [new SpawnEntry { Name = "Orc Trainer", RespawnSeconds = 480, MultiSpawn = true }],
+                },
+            ],
+        };
+        var overrides = new SpawnOverrides();
+        var poisoned = overrides.GetOrAdd("Crushbone", "Orc Trainer");
+        poisoned.RespawnSeconds = 111;
+        poisoned.Learned = true;
+
+        var t = new SpawnTimers(catalog, overrides) { Server = "qeynos" };
+        t.Apply(new ZoneEvent(T0, "Clan Crushbone"));
+        t.Apply(new KillEvent(T0, "orc trainer", "You"));
+
+        Assert.Equal(480, Assert.Single(t.Snapshot(T0.AddSeconds(1))).DurationSeconds);
+        var healed = overrides.Find("Crushbone", "Orc Trainer")!;
+        Assert.Null(healed.RespawnSeconds);
+        Assert.False(healed.Learned);
+
+        // A manual value on a multiSpawn entry is still sovereign.
+        var manual = overrides.GetOrAdd("Crushbone", "Orc Trainer");
+        manual.RespawnSeconds = 300;
+        manual.Learned = false;
+        t.Apply(new KillEvent(T0.AddSeconds(600), "orc trainer", "You"));
+        Assert.Equal(300, Assert.Single(t.Snapshot(T0.AddSeconds(601))).DurationSeconds);
+        Assert.Equal(300, overrides.Find("Crushbone", "Orc Trainer")!.RespawnSeconds);
     }
 
     /// <summary>Issue #36 regression net: article-bearing catalog names ("the froglok

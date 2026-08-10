@@ -1,5 +1,6 @@
-{{Velious Era}}
-[[File:npc_fixxin_followig.png|frame|Fixxin Followig]]
+{{Classic Era}}
+
+[[File:npc_fixxin_followig.png|thumb|Fixxin Followig]]
 {| class="questTopTable"
 ! ''' Start Zone: '''
 | [[North Karana]]

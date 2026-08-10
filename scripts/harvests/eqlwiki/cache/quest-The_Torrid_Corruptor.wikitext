@@ -35,14 +35,50 @@ If you click your burning soul, and it still gives you text, you have not comple
 * Slay [[Brother Hayle]]
 ** Loot and click on soul
 * Find [[Lord Grimrot]] - MUST BE LIVING VERSION!
-** Give Lord Grimrot Dark Reaver and clicked [[Burning Soul of the Pious]] - requires [[Bloodsabers]] Kindly Faction
+** Give Lord Grimrot [[Dark Reaver]] and clicked [[Burning Soul of the Pious]] - requires [[Bloodsabers]] Kindly Faction
 ** Kill Lord Grimrot
 * Find [[Jotayi Ibupran]] in [[Paineel]]
 ** Give Jotayi Ibupran [[Pestilence Scythe]] (with charges, not uncharged) and [[Burning Soul of the Pestilent]] - requires [[Heretics]] Warmly Faction
 * Find [[Inte Akera]]
 ** Give [[Dason Goldblade]] 500pp to spawn Inte Akera -- '''Doing so will spawn Inte Akera in the Windmill on Island 4. Inte is a Deepwater Knight of Prexus and will unleash the Oceanlord's fury upon those deemed 'evil' in their eyes. Inte Akera only stays up for a few minutes, so hustle.'''
-**  Kill [[Inte Akera]] and loot the [[Burning Soul of the Virtuous]].
+**  Kill [[Inte Akera]] and loot the [[Burning Soul of the Virtuous]]. ''Note: If you are in a group, the the soul is linked to who turns in the 500 platinum to spawn Inte.''
 *  Give [[Luxio Nulsis]] in East Freeport the three souls and [[Soulfire]]. Requires [[Dismal Rage]] kindly faction!
+{{End}}
+
+== Walkthrough ==
+
+;Burning Soul of the Pious
+
+;Burning Soul of the Pestilent
+*Next part requires [[Bloodsabers]] Kindly Faction.
+**You can gain [[Bloodsabers]] faction by doing the [[Guard Shilster's Stout]] quest. Give 5 gold at a time to [[Guard Shilster]] (1380, -2764) in [[Northern Plains of Karana|North Karana]]. Takes about ~3000 gold to max out.
+*Find [[Lord Grimrot]] (1377, 1172) by the skeletons in [[South Karana]]. There's a living and undead version with the same name. '''The turn in requires the living version.''' It's rumored to be a 3.2 hour spawn. One of the fastest ways to spawn Lord Grimrot is to make an instance right at 6am. Use <code><nowiki>/time</nowiki></code> to see the in-game time.
+*Turn in the clicked version of [[Burning Soul of the Pious]] and [[Dark Reaver]] to the living version of Lord Grimrot.
+**:Lord Grimrot says, 'You have served me well. You may yet prove useful to my master.'
+<div class='facblock'>
+:* Your faction standing with [[Bloodsabers]] has been adjusted by (+?).
+:* Your faction standing with [[Guards of Qeynos]] has been adjusted by (-15).
+:* Your faction standing with [[Opal Darkbriar]] has been adjusted by (+10).
+:* Your faction standing with [[Priests of Life]] has been adjusted by (-25).
+:* Your faction standing with [[Corrupt Qeynos Guards]] has been adjusted by (+?).
+</div>
+:{{exp}}
+*Kill the living version Lord Grimrot.
+<div class='facblock'>
+:* Your faction standing with [[Bloodsabers]] has been adjusted by (-915).
+:* Your faction standing with [[Guards of Qeynos]] has been adjusted by (+137).
+:* Your faction standing with [[Opal Darkbriar]] has been adjusted by (-91).
+:* Your faction standing with [[Priests of Life]] has been adjusted by (+70).
+:* Your faction standing with [[Corrupt Qeynos Guards]] has been adjusted by (-45).
+</div>
+:{{exp}}
+*Loot the [[Burning Soul of the Pestilent]] and the [[Pestilence Scythe]] with 1 charge of [[Vampiric Curse]]. There is another [[Pestilence Scythe]] of the same name with no charges that isn't required for this quest.
+
+;Burning Soul of the Virtuous
+*Next part requires [[Heretics]] Warmly Faction.
+**You can gain [[Heretics]] faction by killing Kobolds in [[The Warrens]]. Take about ~2 rounds of killing the entire zone.
+
+;Torrid Corruptor
 
 [[Category:Quests]]
 [[Category:Plane of Sky]]

@@ -150,7 +150,7 @@ Turn the following items in to [[Velan Torresk]] in [[West Freeport]]:
 Turn the following items in to [[Reyia Beslin]] in [[West Freeport]]:
 
 * 1 - [[Blackened Sapphire]] ("the Sapphire of Souls") - This can be found on [[Ekeros]] in the [[Najena]] dungeon. Ekeros is a somewhat rare spawn, you can find him in the room just outside Rathyl's room. Note: a key is needed to get to Ekeros' spawn point. You can either get the key from another player, or you'll have to go after them yourself. Najena has a sequence of keys that open up deeper and deeper parts of the dungeon to you. The Ogre guards drop [[Guard's Keyring]], the first one you'll need. [[BoneCracker]] drops another key, [[The Guard Captain]] drops a third. These are the only keys you need to get into Rathyl's area ([[Rathyl]] himself drops another key that leads you further in toward Najena's room). 
-* 1 - [[Blackened Wand]] - This drops from [[Priest Amiaz]] on the bottom level of [[Befallen]]. (Spawnpoint is in same room with [[The Thaumaturgist]] which is required for [[Monk Headband Quests]]) 
+* 1 - [[Blackened Wand]] - This drops from [[Priest Amiaz]] on the bottom level of [[Befallen]]. (Found at -474, 90, -78. Doesn't have a placeholder anymore, since [[The Thaumaturgist]] has its own spawn point elsewhere in the zone.) 
 * 1 - [[Orange Sash of Order]]
 
 '''Reyia Beslin may be found at -154, -1502, -137.  '''

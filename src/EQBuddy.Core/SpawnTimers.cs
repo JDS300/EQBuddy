@@ -60,7 +60,90 @@ public sealed class SpawnTimers
             case KillEvent k:
                 OnKill(k);
                 break;
+            // Lines that prove a creature EXISTS right now — the signal re-kill
+            // learning can never see (David camping Baron Telyx, 2026-08-08: a
+            // kill-to-kill gap includes the time it takes to notice and kill the
+            // spawn, so a timer 25s too long never meets a gap shorter than itself;
+            // the mob swinging at you before its chip says DUE is the proof).
+            case DamageDealtEvent d:
+                OnSighting(d.Target, d.Time);
+                break;
+            case DamageTakenEvent { Self: false, OverTime: false } dt:
+                OnSighting(dt.Attacker, dt.Time);
+                break;
+            case ThirdMeleeEvent tm:
+                OnSighting(tm.Attacker, tm.Time);
+                OnSighting(tm.Target, tm.Time);
+                break;
+            case ConsiderEvent c:
+                OnSighting(c.Name, c.Time);
+                break;
         }
+    }
+
+    /// <summary>Only the last stretch of a countdown counts for sightings: several
+    /// mobs can share a catalog name (Crushbone taskmasters), and a same-named
+    /// stranger acting mid-window must not finish a camp's clock. A sighting inside
+    /// the final fifth means the countdown had nearly run anyway — that's this
+    /// spawn cycle completing, not a twin.</summary>
+    public const double SightingFinalFraction = 0.8;
+
+    /// <summary>A creature with a RUNNING timer was seen acting before its due time:
+    /// the respawn provably already happened, so the countdown completes now (the
+    /// chip flips DUE and the alert fires through the normal path), and the observed
+    /// cycle length becomes a learned override where the precedence rules allow —
+    /// manual edits and measured catalog clocks stay untouched, same as re-kill
+    /// learning. Exact name matches only: fuzzy is for typo'd kill lines, and a
+    /// near-miss name is exactly the false evidence this must never accept.</summary>
+    private void OnSighting(string seen, DateTime time)
+    {
+        lock (_lock)
+        {
+            if (_currentZone is not { } zone) return;
+            foreach (var t in _timers.Values)
+            {
+                if (!string.Equals(t.Zone, zone.Zone, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(t.Server, Server, StringComparison.OrdinalIgnoreCase)) continue;
+                if (t.DurationSeconds is not { } d || t.IsDue(time)) continue;
+                var elapsed = (time - t.KilledAt).TotalSeconds;
+                if (elapsed < Math.Max(MinLearnSeconds, d * SightingFinalFraction)) continue;
+                if (!SpawnCatalog.NameMatches(t.Name, seen)) continue;
+                // Multi-spawn names (Royal Guard pops in a number of places — David,
+                // 2026-08-09) get NO sighting treatment at all: the acting creature
+                // may be any of its siblings, so only kills drive their clocks.
+                if (zone.Named.FirstOrDefault(e =>
+                        e.Name.Equals(t.Name, StringComparison.OrdinalIgnoreCase))
+                    is { MultiSpawn: true }) return;
+
+                Upsert(t with { DurationSeconds = Math.Floor(elapsed) });
+                LearnFromSighting(zone, t.Name, elapsed);
+                return;
+            }
+        }
+    }
+
+    /// <summary>Sighting evidence outranks every lock except the player's own: a
+    /// manual edit is never touched, but a TRUSTED measured clock yields — the mob
+    /// provably acting inside the final stretch is a fresher measurement than the
+    /// one in the catalog (David's call, 2026-08-09: "for actual nameds I don't want
+    /// to lock the timers if we actually observe them being lower"). The Sighted
+    /// flag marks the value so the trusted self-heal, which exists to purge re-kill
+    /// noise, knows to leave it alone.</summary>
+    private void LearnFromSighting(SpawnZone zone, string name, double elapsed)
+    {
+        var entry = zone.Named.FirstOrDefault(e =>
+            e.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        var o = _overrides.Find(zone.Zone, name);
+        if (o?.RespawnSeconds is not null && !o.Learned) return;   // manual edit wins
+        var current = o?.RespawnSeconds
+            ?? (entry is not null ? SpawnCatalog.EffectiveSeconds(zone, entry) : null);
+        if (current is { } cur && elapsed >= cur) return;          // never loosens
+
+        var ov = _overrides.GetOrAdd(zone.Zone, name);
+        ov.RespawnSeconds = Math.Floor(elapsed);
+        ov.Learned = true;
+        ov.Sighted = true;
+        _overrides.Save();
     }
 
     private void OnKill(KillEvent k)
@@ -78,15 +161,22 @@ public sealed class SpawnTimers
                     var o = _overrides.Find(zone.Zone, entry.Name);
                     var placeholder = o?.Placeholder ?? entry.Placeholder;
                     if (!Matches(entry.Name, k.Target, fuzzy)
-                        && !Matches(placeholder, k.Target, fuzzy)
+                        && !MatchesAnyPlaceholder(placeholder, k.Target, fuzzy)
                         && !entry.Aliases.Any(a => Matches(a, k.Target, fuzzy))) continue;
 
                     var trusted = IsTrusted(zone, entry);
                     // Self-heal: a LEARNED override sitting under a measured clock came
                     // from multi-spawn re-kill noise (two taskmasters at different camps
                     // look like one fast respawn) — drop it, the measurement wins.
-                    if (trusted && o is { Learned: true, RespawnSeconds: { } bad }
-                        && bad < SpawnCatalog.EffectiveSeconds(zone, entry))
+                    // Sighting-learned values are exempt: those were the mob itself
+                    // acting before the measured clock ran out, and an observation
+                    // outranks a lock (David, 2026-08-09). On a multiSpawn entry ANY
+                    // learned value is noise by definition (siblings poison every
+                    // automatic signal — a trainee-restarted clock "measured" the
+                    // Trainer at 111s), so those heal unconditionally.
+                    if (o is { Learned: true, Sighted: false, RespawnSeconds: { } bad }
+                        && (entry.MultiSpawn
+                            || (trusted && bad < SpawnCatalog.EffectiveSeconds(zone, entry))))
                     {
                         o.RespawnSeconds = null;
                         o.Learned = false;
@@ -94,7 +184,9 @@ public sealed class SpawnTimers
                         o = _overrides.Find(zone.Zone, entry.Name);
                     }
                     var duration = o?.RespawnSeconds ?? SpawnCatalog.EffectiveSeconds(zone, entry);
-                    if (!trusted)
+                    // Re-kill gaps teach nothing about multi-spawn names either: the
+                    // "re"-kill may be a sibling across the zone, not this camp again.
+                    if (!trusted && !entry.MultiSpawn)
                         duration = LearnFromRekill(zone.Zone, entry.Name, k.Time, duration);
                     Upsert(new SpawnTimerState(Server, zone.Zone, entry.Name, k.Time, duration));
                     return;
@@ -113,6 +205,13 @@ public sealed class SpawnTimers
         static bool Matches(string catalogName, string killed, bool fuzzy) =>
             fuzzy ? SpawnCatalog.NameMatchesFuzzy(catalogName, killed)
                   : SpawnCatalog.NameMatches(catalogName, killed);
+
+        // Some spawn cycles run several placeholders (Queen Dracnia's webmaster /
+        // lurker / purifier rotation) — the field holds them '/'-separated, and any
+        // one of them dying restarts the named's clock.
+        static bool MatchesAnyPlaceholder(string placeholders, string killed, bool fuzzy) =>
+            placeholders.Length > 0 && placeholders.Split('/')
+                .Any(p => p.Trim() is { Length: > 0 } ph && Matches(ph, killed, fuzzy));
     }
 
     /// <summary>A MEASURED timer (entry or zone clock) outranks re-kill learning:

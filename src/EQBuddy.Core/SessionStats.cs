@@ -200,6 +200,15 @@ public sealed class SessionStats
         public double Xp;
         public long Copper;
         public readonly Dictionary<string, int> Loot = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Last time each item dropped — rides into MobLoot.LastAt (#65).</summary>
+        public readonly Dictionary<string, DateTime> LootLast = new(StringComparer.OrdinalIgnoreCase);
+        // Stat-block trio (#65, Frankthetankk): zone AT KILL TIME (not wherever the
+        // tool saw the player last), per-kill coin-drop bounds for the wiki's
+        // low–high-per-coin format, and faction hits with their per-kill deltas —
+        // a confirmed absence being data too.
+        public string Zone = "";
+        public long CoinMin = -1, CoinMax;
+        public readonly Dictionary<string, (int Hits, int Delta)> Factions = new(StringComparer.OrdinalIgnoreCase);
     }
     private static readonly TimeSpan EncounterTimeout = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan RewardWindow = TimeSpan.FromSeconds(3);
@@ -379,7 +388,12 @@ public sealed class SessionStats
                     Bump(_yourKills, k.Target);
                     TrackCombat(k.Time);
                     FinalizeFight(k.Target, k.Time, "Killed");
-                    Mob(k.Target).Kills++;
+                    var killedMob = Mob(k.Target);
+                    killedMob.Kills++;
+                    // Zone at time of THIS kill — a creature farmed in two zones keeps
+                    // the earliest, and the export can say so honestly.
+                    if (killedMob.Zone.Length == 0 && _zones.Count > 0)
+                        killedMob.Zone = _zones[^1].Zone;
                     _lastKill = (k.Target, k.Time);
                     ClaimPendingRewards(k.Target, k.Time);
                     break;
@@ -638,13 +652,25 @@ public sealed class SessionStats
                     break;
                 case HealEvent { Outgoing: true } h:
                     _healingDone += h.Amount; _healCount++;
-                    Ability(_healsBySpell, h.Spell).Add(h.Time, h.Amount);
+                    // The divine invocation heals the party's lowest-health member for
+                    // the mana of whatever you cast — a proc, not a cast, so its heal
+                    // line carries no "by <spell>" clause and used to land in the
+                    // "Unknown" bucket (David, 2026-08-09). While that invocation is
+                    // being recited, an unattributed outgoing heal IS the invocation.
+                    // ("Divine", not "Divine Invocation": the log says "You begin
+                    // reciting the divine invocation." and the parser keeps the word.)
+                    var healSpell = h.Spell == "Unknown" && _currentInvocation == "Divine"
+                        ? "Divine Invocation" : h.Spell;
+                    Ability(_healsBySpell, healSpell).Add(h.Time, h.Amount);
                     // Credited to the fight you were in, if any — see _healingFight.
                     if (_healingFight is { } hf && _activeFights.TryGetValue(hf, out var hFight))
                     {
                         hFight.Healed += h.Amount;
-                        Ability(hFight.HealsBySpell, h.Spell).Add(h.Time, h.Amount);
+                        Ability(hFight.HealsBySpell, healSpell).Add(h.Time, h.Amount);
                     }
+                    // Learning keys off what the LOG named (h.Spell, not the relabel):
+                    // "Divine Invocation" isn't a castable spell and must not enter
+                    // the learned spell catalog.
                     if (h.Spell != "Unknown")
                         _spells.Learn(h.Spell, h.OverTime ? SpellCategory.HealOverTime : SpellCategory.Heal);
                     // Self-heals appear as "You healed <own name>" — count as received too.
@@ -699,6 +725,7 @@ public sealed class SessionStats
                     _lootCount += l.Count;
                     // Loot lines name the corpse — explicit creature correlation (CORRELATE-005).
                     Bump(Mob(l.Source).Loot, l.Item);
+                    Mob(l.Source).LootLast[l.Item] = l.Time;
                     // Quest ledger rides the same event; the store's own filter and
                     // time high-water mark decide whether anything actually lands.
                     // Loot-MERGE lines ("looted a Belt +2 ... to create a Belt +4") are
@@ -739,7 +766,7 @@ public sealed class SessionStats
                     // Coin right after a kill belongs to that creature; coin before the
                     // kill line (EQL's usual order) waits for the kill to claim it.
                     if (_lastKill is { } lk1 && m.Time - lk1.Time <= RewardWindow)
-                        Mob(lk1.Name).Copper += m.Copper;
+                        TrackMobCoin(Mob(lk1.Name), m.Copper);
                     else
                         _pendingCoin.Add((m.Time, m.Copper));
                     break;
@@ -784,6 +811,7 @@ public sealed class SessionStats
                     _lootCount += asell.Count;
                     var mobLoot = Mob(asell.Source).Loot;
                     mobLoot[asell.Item] = mobLoot.TryGetValue(asell.Item, out var mlc) ? mlc + asell.Count : asell.Count;
+                    Mob(asell.Source).LootLast[asell.Item] = asell.Time;
                     _vendorCopper += asell.Copper; _salesCount++;
                     var scur = _soldItems.TryGetValue(asell.Item, out var sval) ? sval : (0, 0L);
                     _soldItems[asell.Item] = (scur.Item1 + asell.Count, scur.Item2 + asell.Copper);
@@ -798,6 +826,14 @@ public sealed class SessionStats
                     _skillAliases[sub.Replaced] = sub.Ability;
                     break;
                 case FactionEvent f:
+                    // Faction lines follow their kill within the reward window — the
+                    // per-creature ledger feeds the wiki pack's stat block (#65).
+                    if (_lastKill is { } lkf && f.Time - lkf.Time <= RewardWindow)
+                    {
+                        var factions = Mob(lkf.Name).Factions;
+                        var prevHit = factions.TryGetValue(f.Faction, out var ph) ? ph : (0, 0);
+                        factions[f.Faction] = (prevHit.Item1 + 1, f.Delta);
+                    }
                     var fv = _faction.TryGetValue(f.Faction, out var fcur) ? fcur : (0, 0, false);
                     // Capped is sticky for the session: standing pinned at the cap is why
                     // the number stopped moving, and that's worth saying even if earlier
@@ -823,6 +859,12 @@ public sealed class SessionStats
         }
     }
 
+    /// <summary>The filters that mean "my crowd control of a MOB ended" — the ones a
+    /// first-person self-fade line must never satisfy (see the BuffFadeEvent match).</summary>
+    private static bool IsCcFilter(SpellFilter f) => f is SpellFilter.AnyCrowdControl
+        or SpellFilter.Charm or SpellFilter.Mesmerize or SpellFilter.Root
+        or SpellFilter.Lull or SpellFilter.Stun;
+
     /// <summary>A SpellFade rule matches either one named spell or a whole class of them.
     /// Class filters are evaluated against the catalog, so they keep working as a
     /// character levels into new spells and higher ranks.</summary>
@@ -830,8 +872,22 @@ public sealed class SessionStats
     {
         SpellFilter.ByName => rule.Matches(spell),
         SpellFilter.AnySpell => true,
+        SpellFilter.Buff => FadeMessageCatalog.Default.FindBySpell(spell) is { } fade
+            && FadeMessageCatalog.IsBeneficialCategory(fade.Category),
         SpellFilter.AnyCrowdControl => _spells.IsCrowdControl(spell),
         _ => rule.FilterCategory is { } wanted && _spells.Classify(spell) == wanted,
+    };
+
+    private bool BuffFadeMatches(TrackedRule rule, BuffFadeEvent fade) => rule.SpellFilter switch
+    {
+        SpellFilter.ByName => rule.Matches(fade.Label)
+            || fade.Spells.Any(sp => rule.Matches(sp)),
+        SpellFilter.AnySpell => true,
+        SpellFilter.Buff => FadeMessageCatalog.IsBeneficialCategory(fade.Category),
+        SpellFilter.AnyCrowdControl => false,
+        _ => rule.FilterCategory is { } wanted
+            && (string.Equals(fade.Category, wanted.ToString(), StringComparison.OrdinalIgnoreCase)
+                || fade.Spells.Any(sp => _spells.Classify(sp) == wanted)),
     };
 
     /// <summary>
@@ -995,9 +1051,19 @@ public sealed class SessionStats
         foreach (var p in _pendingXp)
             if (killTime - p.Time <= RewardWindow) mob.Xp += p.Percent;
         foreach (var p in _pendingCoin)
-            if (killTime - p.Time <= RewardWindow) mob.Copper += p.Copper;
+            if (killTime - p.Time <= RewardWindow) TrackMobCoin(mob, p.Copper);
         _pendingXp.Clear();
         _pendingCoin.Clear();
+    }
+
+    /// <summary>One coin line ≈ one corpse's purse: besides the running total, keep the
+    /// smallest and largest single drop, which is exactly the wiki's money format
+    /// ("0 - 7 Golds") and the range-not-point reporting Frankthetankk asked for (#65).</summary>
+    private static void TrackMobCoin(MobAgg mob, long copper)
+    {
+        mob.Copper += copper;
+        if (mob.CoinMin < 0 || copper < mob.CoinMin) mob.CoinMin = copper;
+        if (copper > mob.CoinMax) mob.CoinMax = copper;
     }
 
     private void TouchFight(string target, DateTime t, long dmgOut = 0, long dmgIn = 0)
@@ -1361,9 +1427,15 @@ public sealed class SessionStats
                             // Buff/HoT fades carry candidate spells (the log named
                             // none); the rule fires if ANY candidate satisfies it, and
                             // the row shows the catalog label ("Haste") since we can't
-                            // know which haste it was.
+                            // know which haste it was. CC filters are excluded: these
+                            // flavor lines are first-person — something wore off YOU —
+                            // while the CC filters mean "my control of a MOB ended".
+                            // rahvynn (#69): once the fade catalog learned "You are no
+                            // longer stunned.", the default CC-broke rule fired every
+                            // time an NPC's stun on HIM wore off. ByName/AnySpell/HoT
+                            // still hear self-fades — watching your own buffs is their job.
                             (WatchKind.SpellFade, BuffFadeEvent bf)
-                                when bf.Spells.Any(sp => SpellFadeMatches(rule, sp))
+                                when !IsCcFilter(rule.SpellFilter) && BuffFadeMatches(rule, bf)
                                 => (bf.Label, 1),
                             // Re-matched here rather than trusted from ingest: the journal
                             // holds lines kept for ANY text rule, so each rule still has to
@@ -1509,8 +1581,20 @@ public sealed class SessionStats
                         kv.Value.Xp, kv.Value.Copper,
                         kv.Value.Loot.OrderByDescending(l => l.Value)
                             .Select(l => new MobLoot(l.Key, l.Value,
-                                kv.Value.Kills > 0 ? 100.0 * l.Value / kv.Value.Kills : null))
-                            .ToList()))
+                                kv.Value.Kills > 0 ? 100.0 * l.Value / kv.Value.Kills : null)
+                            {
+                                LastAt = kv.Value.LootLast.TryGetValue(l.Key, out var at) ? at : null,
+                            })
+                            .ToList())
+                    {
+                        Zone = kv.Value.Zone,
+                        CoinMin = kv.Value.CoinMin,
+                        CoinMax = kv.Value.CoinMax,
+                        Factions = kv.Value.Factions
+                            .Select(f => new MobFactionHit(f.Key, f.Value.Delta, f.Value.Hits))
+                            .OrderBy(f => f.Faction)
+                            .ToList(),
+                    })
                     .ToList(),
                 AreaSpells = BuildAreaSpells(),
                 CurrentStance = _currentStance ?? "",

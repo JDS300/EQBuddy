@@ -19,6 +19,10 @@
 |-
 ! ''' Related NPCs: '''
 | [[a jungle spiritling]], [[A mountain spiritling]], [[A valley spiritling]]
+|-
+! ''' Related Quests: '''
+| [[Spirit Aid]]
+|-
 |}
 
 == Reward ==
@@ -51,7 +55,18 @@ You say, 'What is kejek spirit powder?'
 
 : Saemey Wirewhisker says 'The spirit power of which I speak is composed of ground spiritling stones. I will grind some powder for you if you would bring me a Valley Spiritling Stone, a Jungle Spiritling Stone, and a Mountain Spiritling Stone. Collecting the stones does not truly harm the spiritlings for when slain in this realm their essence simply disperses until it eventually reforms into a new spiritling. 
 
-Hunt down the three types of 'spiritlings' [[A jungle spiritling]], [[A mountain spiritling]], [[A valley spiritling]] ( they are willow wisp models but a bit larger and in colors Green, Yellow and Pink) collect one of each Valley, Jungle, and Mountain Spiritling Stones and give them to Saemey Wirewhisker.
+Hunt down the three types of 'spiritlings' and collect a stone from each one:
+
+* [[A jungle spiritling]] (green)
+** [[Jungle Spiritling Stone]]
+* [[A mountain spiritling]] (pink)
+** [[Mountain Spiritling Stone]]
+* [[A valley spiritling]] (yellow)
+** [[Mountain Spiritling Stone]]
+
+The jungle spiritlings mostly spawn in the southern third of the zone, the mountain spiritlings mostly spawn in the northern third of the zone, and the valley spiritlings mostly spawn in the middle third of the zone, though there is some overlap. Tracking helps here a lot.
+
+Turn the three Spiritling Stones in to Saemey:
 
 : Saemey Wirewhisker grinds the spiritling stones in a mortar and pestle with foreign runes scratched into the ceramic. 'This powder will assist in matters concerning the contacting or freeing of spirits.'
 
@@ -59,8 +74,11 @@ Hunt down the three types of 'spiritlings' [[A jungle spiritling]], [[A mountain
 <div class="facblock">
 * Your faction standing with [[Kejek Village]] has been adjusted by 5.
 * Your faction standing with [[Peace Keepers]] has been adjusted by 5.
-{{exp}}
 </div> 
+{{exp}}
+
+The [[Kejek Spirit Powder]] is required for [[Spirit Aid]].
+
 ----
 [[Category:Quests]]
 [[Category:Stonebrunt Mountains]]

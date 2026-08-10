@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.Shapes;
 using Avalonia.Controls;
+using Avalonia.Layout;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Media;
@@ -53,7 +54,7 @@ public sealed partial class HistoryWindow : Window
             _viewModel.SelectSession(removed.Row.Id, additive: true);
         foreach (var added in e.AddedItems.OfType<HistorySessionItem>())
             _viewModel.SelectSession(added.Row.Id, additive: true);
-        RenderDpsGraph(_viewModel.SelectedDetail?.Timeline);
+        RenderDetail();
     }
 
     private void RefreshSessions()
@@ -63,7 +64,7 @@ public sealed partial class HistoryWindow : Window
         {
             _viewModel.RefreshSessions();
             SessionList.SelectedItems?.Clear();
-            RenderDpsGraph(null);
+            RenderDetail();
         }
         finally
         {
@@ -126,7 +127,132 @@ public sealed partial class HistoryWindow : Window
     private void OnDelete(object? sender, RoutedEventArgs e)
     {
         _viewModel.DeleteSelected();
-        RenderDpsGraph(null);
+        RenderDetail();
+    }
+
+    /// <summary>Single-session detail uses native breakdown rows. Comparison, import,
+    /// and empty states continue to use the shared plain-text report.</summary>
+    private void RenderDetail()
+    {
+        if (_viewModel.SelectedDetail is not { } detail)
+        {
+            DetailText.Text = _viewModel.DetailText;
+            RenderDpsGraph(null);
+            DamageVisualList.Children.Clear();
+            HealVisualList.Children.Clear();
+            DamageVisualLabel.IsVisible = HealVisualLabel.IsVisible = false;
+            DetailRest.IsVisible = false;
+            RenderFights([]);
+            return;
+        }
+
+        DetailText.Text = detail.HeaderText;
+        RenderDpsGraph(detail.Timeline);
+        FillBreakdownRows(DamageVisualList, detail.DamageRows);
+        DamageVisualLabel.IsVisible = detail.DamageRows.Count > 0;
+        FillBreakdownRows(HealVisualList, detail.HealRows);
+        HealVisualLabel.IsVisible = detail.HealRows.Count > 0;
+        RenderFights(detail.Fights);
+        DetailRest.Text = detail.RestText;
+        DetailRest.IsVisible = detail.RestText.Length > 0;
+    }
+
+    /// <summary>Renders one collapsed row per pull. Expanding it reveals the complete
+    /// fight story: per-creature split, outgoing abilities (pets included), incoming
+    /// attacks/spells, and healing during the pull.</summary>
+    internal void RenderFights(IReadOnlyList<PullInfo> fights)
+    {
+        FightsPanel.Children.Clear();
+        FightsLabel.IsVisible = fights.Count > 0;
+        if (fights.Count == 0) return;
+
+        FightsLabel.Text = $"Encounters ({fights.Count})";
+        foreach (var fight in fights)
+        {
+            var header = AppTheme.IconButton("▸ " + HistoryPresentation.BuildFightHeader(fight),
+                "Show or hide this encounter's breakdown");
+            header.FontSize = 11;
+            header.HorizontalAlignment = HorizontalAlignment.Left;
+            var body = new StackPanel
+            {
+                Margin = new Thickness(14, 0, 0, 4),
+                IsVisible = false,
+            };
+            var built = false;
+            header.Click += (_, _) =>
+            {
+                body.IsVisible = !body.IsVisible;
+                header.Content = (body.IsVisible ? "▾ " : "▸ ") +
+                    HistoryPresentation.BuildFightHeader(fight);
+                if (!body.IsVisible || built) return;
+                built = true;
+                BuildFightDetail(body, fight);
+            };
+            FightsPanel.Children.Add(header);
+            FightsPanel.Children.Add(body);
+        }
+    }
+
+    internal static void BuildFightDetail(StackPanel body, PullInfo pull)
+    {
+        if (pull.Fights.Count > 1)
+            body.Children.Add(AppTheme.DimText(string.Join(" · ",
+                pull.Fights.Select(fight => $"{fight.Name} {fight.DamageOut:N0}")),
+                new Thickness(0, 1, 0, 1)));
+
+        AddSection("Your damage", pull.ByAbility, "dps");
+        AddSection("Damage you took", pull.ByIncoming, "dps");
+        AddSection("Heals during the fight", pull.HealsBySpell, "hps");
+        if (body.Children.Count == 0)
+            body.Children.Add(AppTheme.DimText(
+                "No per-fight detail — session recorded before EQBuddy 1.28."));
+
+        void AddSection(string title, IReadOnlyList<SourceDamage> rows, string rateLabel)
+        {
+            if (rows.Count == 0) return;
+            var heading = AppTheme.Heading(title);
+            heading.Margin = new Thickness(0, 2, 0, 1);
+            body.Children.Add(heading);
+            var list = new StackPanel();
+            FillBreakdownRows(list,
+                HistoryPresentation.BuildBreakdownRows(rows, pull.DurationSeconds, rateLabel));
+            body.Children.Add(list);
+        }
+    }
+
+    private static void FillBreakdownRows(StackPanel panel, IReadOnlyList<HistoryBreakdownRow> rows)
+    {
+        panel.Children.Clear();
+        foreach (var row in rows)
+        {
+            var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+            grid.Children.Add(new Border
+            {
+                Background = AppTheme.PanelHoverBrush,
+                Width = Math.Max(1, 150 * row.Fraction),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                CornerRadius = new CornerRadius(2),
+            });
+            grid.Children.Add(new TextBlock
+            {
+                Text = row.Name,
+                FontSize = 11,
+                Foreground = AppTheme.TextBrush,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(3, 1),
+            });
+            var value = new TextBlock
+            {
+                Text = row.Value,
+                FontSize = 11,
+                Foreground = AppTheme.DimBrush,
+                Margin = new Thickness(8, 1, 3, 1),
+            };
+            Grid.SetColumn(value, 1);
+            grid.Children.Add(value);
+            if (row.Tooltip is not null) ToolTip.SetTip(grid, row.Tooltip);
+            panel.Children.Add(grid);
+        }
     }
 
     private IReadOnlyList<TimelinePoint>? _graphTimeline;

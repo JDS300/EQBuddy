@@ -209,6 +209,72 @@ public class SessionStatsTests
         Assert.Equal(0, s.HealingReceived);
     }
 
+    /// <summary>The stat-block trio (#65, Frankthetankk): zone recorded AT KILL TIME,
+    /// coin drops kept as per-kill min/max (the wiki's own low–high format), and
+    /// faction hits per creature — including their count against the kill count, so
+    /// a confirmed absence is visible too.</summary>
+    [Fact]
+    public void MobsCarryZoneCoinRangeAndFactionHits()
+    {
+        var s = Replay("Caybin",
+            At(0, 0, "You have entered The Warrens."),
+            At(0, 10, "You have slain a kobold looter!"),
+            At(0, 11, "You receive 2 silver and 2 copper from the corpse."),
+            At(0, 12, "Your faction standing with Kobolds of Fireclaw has been adjusted by -5."),
+            // Second kill: richer purse, same faction line.
+            At(5, 0, "You have slain a kobold looter!"),
+            At(5, 1, "You receive 1 gold from the corpse."),
+            At(5, 2, "Your faction standing with Kobolds of Fireclaw has been adjusted by -5."),
+            // Zone change after the kills must NOT rewrite where they happened.
+            At(6, 0, "You have entered The Northern Desert of Ro.")).Snapshot();
+
+        var mob = Assert.Single(s.Mobs);
+        Assert.Equal("The Warrens", mob.Zone);
+        Assert.Equal(22, mob.CoinMin);    // 2s 2c in copper
+        Assert.Equal(100, mob.CoinMax);   // 1g in copper
+        var faction = Assert.Single(mob.Factions);
+        Assert.Equal(("Kobolds of Fireclaw", -5, 2), (faction.Faction, faction.Delta, faction.Hits));
+    }
+
+    [Fact]
+    public void MobsWithNoFactionLinesReportEmptyFactionList()
+    {
+        var s = Replay("Caybin",
+            At(0, 0, "You have entered The Warrens."),
+            At(0, 10, "You have slain a kobold looter!")).Snapshot();
+        Assert.Empty(Assert.Single(s.Mobs).Factions);
+        Assert.Equal(-1, s.Mobs[0].CoinMin);   // no coin seen ≠ zero-coin drops
+    }
+
+    /// <summary>The divine invocation heals the party's lowest-health member for the
+    /// mana of whatever you cast — a proc whose heal line names no spell, which used
+    /// to bucket as "Unknown" in the HPS tracker (David, 2026-08-09). While the divine
+    /// invocation is being recited, the unattributed heal belongs to it.</summary>
+    [Fact]
+    public void UnattributedHealDuringDivineInvocationIsTheInvocations()
+    {
+        var s = Replay("Caybin",
+            At(0, 0, "You begin reciting the divine invocation."),
+            At(0, 5, "You healed Douglas for 120 hit points.")).Snapshot();
+        var spell = Assert.Single(s.HealsBySpell);
+        Assert.Equal(("Divine Invocation", 120L), (spell.Name, spell.Total));
+    }
+
+    /// <summary>The same bare heal line without the invocation stays honestly Unknown —
+    /// a clicky or another proc must not borrow the invocation's name.</summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("You begin reciting the empowering invocation.")]
+    public void UnattributedHealWithoutDivineInvocationStaysUnknown(string? invocationLine)
+    {
+        var lines = invocationLine is null
+            ? new[] { At(0, 5, "You healed Douglas for 120 hit points.") }
+            : [At(0, 0, invocationLine), At(0, 5, "You healed Douglas for 120 hit points.")];
+        var s = Replay("Caybin", lines).Snapshot();
+        var spell = Assert.Single(s.HealsBySpell);
+        Assert.Equal("Unknown", spell.Name);
+    }
+
     [Fact]
     public void CombatWindowNotStartedByBystanders()
     {

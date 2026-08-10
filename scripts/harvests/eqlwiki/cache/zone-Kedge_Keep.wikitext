@@ -119,4 +119,45 @@ There is one way to get to Kedge Keep, and that is by swimming down through the 
 
 {{Special:DynamicZoneList/Kedge Keep}}
 
+= Raid Instance =
+'''Kedge Keep (Raid)''' is a Raid Encounter in EverQuest Legends that includes the Raid Boss, [[Phinigel Autropos]].  Entrance to the raid is by hailing a [[voidling]] in the [[Kedge Keep]] zone.
+
+{|
+|rowspan="6" valign="top" width="15%"| <div style='float:left;'>__TOC__</div>
+|valign="top"|
+{| class="zoneTopTable"
+! ''' Level of Monsters: '''
+|TBD
+|-
+! ''' Types of Monsters: '''
+|TBD
+|-
+! ''' Raid Boss NPCs: '''
+|[[Phinigel Autropos]]
+|-
+| ''' Phinigel Autropos Drops '''
+|
+|}
+|}
+
+== Raid Map ==
+
+{|cellspacing="0" cellpadding="0" style="border: 1px solid gray; max-width: 1000px;" width="100%"
+|-
+|style="padding:10px;"|
+[[Image:Kedge_Keep_Raid.png|right|border]]
+'''Permafrost
+<ul><li> 1. 
+</li><li> 2. 
+</li><li> 3. 
+|}
+
+== Solo vs. Multiplayer ==
+
+When creating the raid instance, players can choose between solo and multiplayer instances.  These instances share lockouts, so players cannot do both in the same week and receive full loot.
+
+
+[[Category: Zones]]
+[[Category: Loc Mapped]]
+
 [[Category: Zones]]

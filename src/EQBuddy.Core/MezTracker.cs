@@ -138,6 +138,7 @@ public sealed class MezTracker
     private readonly record struct Engagement(
         DateTime At, DateTime Removed, int Awake, DateTime AwakeAt);
 
+
     // No AA correction on purpose: the full eqlwiki AA sweep (2026-08-06, AaCatalog)
     // found NO EQ Legends AA that extends detrimental mez/charm durations — unlike live
     // EQ's Mesmerization Mastery. Adamant Will only moves resist chance, which never

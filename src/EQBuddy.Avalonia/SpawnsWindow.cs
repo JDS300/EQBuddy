@@ -137,6 +137,11 @@ internal sealed class SpawnsWindow : Window
         _tick.Start();
         RefreshRows();
 
+        // Follow the window between monitors; an open-time cap wastes most of a portrait
+        // secondary's height.
+        PositionChanged += (_, _) =>
+            ApplyHeightLimit(Screens.ScreenFromWindow(this) ?? Screens.Primary);
+
         Closing += (_, _) =>
         {
             _tick.Stop();

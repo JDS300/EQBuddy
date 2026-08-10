@@ -1,201 +1,168 @@
-== Checklist ==
-Bold numbers indicate island bosses, while bold item names indicate No Drop items. {{CheckboxList}}<ul>
+'''Note:''' Most quests in the Plane of Sky require two items. One of those items will be a wind rune and can be found on any mob as a random drop in the Plane of Sky. The second item you need is from an island boss, they are rare drops. Some quests require a third ''Efreeti'' weapon which is also attained from island bosses in the Plane of Sky.
 
-Test of Strength - Falorn 
+'''To reach the quest room find the ('''[[Key Master]]''') near where you zoned in on island 1 and purchase an [[Efreeti's Key]]. It is free and looks like a [[Jade]]. After you have the key left click on the teleportation pad at the North point of the island, around {{Loc|Plane of Sky| 1600, 520}}.''' You only need to buy the key one time and it will be saved to your character.
+
+'''Find Torgon Blademaster and Hail him. He will tell you about the quests he has to offer. Reading his dialogue is optional and you can simply hand him your quest items.'''
+
+== Checklist ==
+Bold items are No Drop, while bold NPC names indicate island bosses.{{CheckboxList}}<ul>
+Test of Strength
 <li>{{:Runed Wind Amulet}}
   <ul>
-  <li>2 - {{:Bronze Disc}} ([[an azarack]])
-  <li>3 - {{:Small Pick}} ([[a gorgalask]], [[a watchful guard]], [[a spirited harpie]], [[a gorgalask]]*, [[Gorgalosk]]*)
-  <li>'''4''' - <span style="font-weight: bold">{{:Stone Amulet}}</span> ('''[[Keeper of Souls]]''')
-   </ul>
+  <li><span style="font-weight: bold">{{:Wind Rune Azia}}</span> (Plane of Sky Trash Mobs)
+  <li>'''Island 4''' - <span style="font-weight: bold">{{:Stone Amulet}}</span> ('''[[Keeper of Souls]]''')
+  </ul>
 </ul>
 <ul>
-Test of Force - Falorn 
+Test of Force
 <li>{{:Pauldrons of the Blue Sky}}
   <ul>
-  <li>3 - {{:Pearlescent Globe}} ([[a crystalline cloud]], [[a shimmering meteor]], [[a gust of wind]])
-  <li>4 - {{:Silver Mesh}} ([[a soul carrier]], [[an essence carrier]], [[a soul tamer]], [[an essence tamer]])
-  <li>'''5''' - <span style="font-weight: bold">{{:Spiroc Air Totem}}</span> ('''[[The Spiroc Lord]]''')
-</ul>
+  <li><span style="font-weight: bold">{{:Wind Rune Beza}}</span> (Plane of Sky Trash Mobs)
+  <li>'''Island 5''' - <span style="font-weight: bold">{{:Spiroc Air Totem}}</span> ('''[[The Spiroc Lord]]''')
+  </ul>
 </ul>
 <ul>
-Test of Skill - Falorn 
+Test of Skill
 <li>{{:Azure Ruby Ring}}
   <ul>
-  <li>1 - {{:Ivory Tessera}} ([[a thunder spirit]])
-  <li>'''2''' - {{:Small Ruby}} ('''[[Protector of Sky]]''')
-  <li> '''3''' - <span style="font-weight: bold">{{:Azure Ring}}</span>  ('''[[Gorgalosk]]''')
+  <li><span style="font-weight: bold">{{:Wind Rune Neza}}</span> (Plane of Sky Trash Mobs)
+  <li>'''Island 3''' - <span style="font-weight: bold">{{:Azure Ring}}</span> ('''[[Gorgalosk]]''')
   </ul>
 </ul>
 <ul>
-Test of Bash - Ogog
+Test of Bash
 <li>{{:Fangol}}
   <ul>
-  <li>6 - {{:Honeyed Nectar}} ([[Bazzzazzt]])
-  <li>'''8''' - <span style="font-weight: bold">{{:Ethereal Emerald}}</span> ('''[[Eye of Veeshan]]''')
-  <li>7 - {{:Bottled Djinni}} ([[a fatestealer drake]]*, [[a windrider drake]]*, [[an undine spirit]]*, [[a greater sphinx]]*)
-<li>1.5, 4, 8 {{:Efreeti Battle Axe}} ([[Noble Dojorn]], [[Overseer of Air]], [[the Hand of Veeshan]]*)
+  <li><span style="font-weight: bold">{{:Wind Rune Dena}}</span> (Plane of Sky Trash Mobs)
+  <li>'''Island 8''' - <span style="font-weight: bold">{{:Ethereal Emerald}}</span> ('''[[Eye of Veeshan]]''')
+  <li>'''Islands 1.5, 4, 8''' - <span style="font-weight: bold">{{:Efreeti Battle Axe}}</span> ('''[[Noble Dojorn]]''', '''[[Overseer of Air]]''', '''[[the Hand of Veeshan]]''')
   </ul>
 </ul>
 <ul>
-Test of Smash - Ogog
+Test of Smash
 <li>{{:Dagas}}
   <ul>
-  <li>'''5''' - {{:Mottled Spiroc Feather}} ([[a spiroc arbiter]], [[a spiroc banisher]], [[a spiroc caller]])
-  <li>6 -  {{:Virulent Poison}} ([[Bizazzzt]], [[Bazzzazzt]]*, [[Bzzzt]])
-  <li>'''1.5, 4, 8''' - <span style="font-weight: bold">{{:Djinni War Blade}} ([[Sister of the Spire]])</span>
+  <li><span style="font-weight: bold">{{:Wind Rune Jaka}}</span> (Plane of Sky Trash Mobs)
+  <li>{{:Gem of Invigoration}}
+  <li>'''Island 7''' - <span style="font-weight: bold">{{:Djinni War Blade}}</span> ('''[[Sister of the Spire]]''')
   </ul>
 </ul>
 <ul>
-Test of Think - Ogog
+Test of Think
 <li>{{:Belt of the Four Winds}}
   <ul>
-  <li>4 - {{:Pegasus Statuette}} ([[A Soul Carrier]], [[A Soul Harvester]], [[An essence harvester]])
-  <li>'''5+''' - <span style="font-weight: bold">{{:Wind Tablet}}</span> ('''[[Bazzt Zzzt]]''', '''[[Spiroc Lord]]'''*)
-  <li>5 - {{:Spiroc Wind Totem}} (normal spirocs)
-  <li>'''1.5, 4, 8''' {{:Efreeti Belt}} ('''[[Noble Dojorn]]''', '''[[Overseer of Air]]'''*, '''[[the Hand of Veeshan]]''')
+  <li><span style="font-weight: bold">{{:Wind Rune Fana}}</span> (Plane of Sky Trash Mobs)
+  <li>'''Islands 5+''' - <span style="font-weight: bold">{{:Wind Tablet}}</span> ('''[[Bazzt Zzzt]]''', '''[[Spiroc Lord]]''')
+  <li>'''Islands 1.5, 4, 8''' - <span style="font-weight: bold">{{:Efreeti Belt}}</span> ('''[[Noble Dojorn]]''', '''[[Overseer of Air]]''', '''[[the Hand of Veeshan]]''')
   </ul>
 </ul>
 
-==Quests==
+== Quest Start ==
 Talk to Torgon Blademaster in the [[Plane of Sky]].
 
-You say, 'hail Torgon Blademaster'
-:''Torgon Blademaster says 'Greetings. Are you a true warrior? ''
-You say, 'I am a true warrior'
-:''Torgon Blademaster says 'Then you shall be tested as one.  Choose.  Do you wish to be tested by Falorn or Ogog?''
-
-= Falorn =
-
-You say, 'i wish to be tested by falorn'
-:''Torgon Blademaster says 'So be it, warrior.  Take this book and read it.  When you are finished, hand it back to me and I shall summon the mighty warrior Falorn to test you. ''
-:''Torgon Blademaster says 'Falorn, come forth! ''
-:''Falorn says 'I am Falorn. Good day to thee. ''
-:''Torgon Blademaster says 'Farewell. ''
-You say, 'hail Falorn'
-:''Falorn says 'Do not waste my time, Xekl .  Do you wish to take the test of blades or not? Or do you have one of my old trinkets you wish to trade in? ''
-You say, 'I have an old trinket to trade in'
-:''Falorn says 'Ahh, I've given out some lesser trinkets in the past that many have gotten bored with. I'm willing to accept Aerated Pauldrons in trade for Pauldrons of the Blue Sky. ''
-You say, 'I wish to take the test of blades'
-:''Falorn says 'The test of blades is not easy.  I hope you are as powerful as you are brave.  What do you wish to strive for? Strength, force, or skill? ''
+You say, 'Hail, Torgon Blademaster'
+:''Torgon Blademaster says, 'Greetings, Tify. Are you a [true warrior]?' ''
+You say, 'true warrior'
+:''Torgon Blademaster says, 'Then you shall be tested as one.  Of the many tests I have prepared, choose.  If you think yourself ready, dare you take the test of [strength], [force], or perhaps [skill]?  Maybe you're a more simple creature, and would prefer the tests of [bash], [smash], and [think]?' ''
 
 == Warrior Test of Strength ==
 
-Falorn says 'Remember, true strength lies not only in the body, but in the mind as well. Return to me a bronze disc, a small pick, and a stone amulet.  If you manage to do this, my runed wind amulet shall be yours. 
+You say, 'strength'
+:''Torgon Blademaster says, 'Remember, true strength lies not only in the body, but in the mind as well. Return to me a stone amulet and a wind rune azia.  If you manage to do this, my runed wind amulet shall be yours.' ''
 
 '''Reward:''' {{:Runed Wind Amulet}}
 
-{| style="margin-top: 10px;" cellpadding="4" cellspacing="0" border="1"
+{| class="eoTable3"
 ! Item || Who || Where
 |-
-| [[Bronze Disc]] || [[an azarack]] || Island 2
-|-
-| [[Small Pick]] || [[a sprited harpie]], [[a watchful guard]], [[a gorgalask]]*, [[Gorgalosk]]* || Island 3
+| [[Wind Rune Azia]] || Trash Mobs || Any Island
 |-
 | [[Stone Amulet]] || [[Keeper of Souls]] || Island 4 Boss
 |}
 
-<nowiki>*needs confirmation on this list Oct/2023</nowiki>
-
 == Warrior Test of Force ==
 
-Falorn says 'Foolishness or bravery, Xekl ?  We shall see.  Return to me a pearlescent globe, silver mesh and a spiroc air totem.  In return, you will receive both my deepest respect and the aerated pauldrons. 
+You say, 'force'
+:''Torgon Blademaster says, 'Foolishness or bravery, Tify?  We shall see.  Return to me a spiroc air totem and a wind rune beza.  In return, you will receive both my deepest respect and the Pauldrons of the Blue Sky.' ''
 
-'''Reward:''' {{:Aerated Pauldrons}} (upgrades to {{:Pauldrons of the Blue Sky}})
+'''Reward:''' {{:Pauldrons of the Blue Sky}}
 
-{| style="margin-top: 10px;" cellpadding="4" cellspacing="0" border="1"
+{| class="eoTable3"
 ! Item || Who || Where
 |-
-| [[Pearlescent Globe]] || [[a shimmering meteor]], [[a gust of wind]], [[a crystalline cloud]], [[a gorgalask]] || Island 3
+| [[Wind Rune Beza]] || Trash Mobs || Any Island
 |-
-| [[Silver Mesh]] || [[a soul carrier]]*, [[an essence carrier]]*, [[a soul tamer]]*, [[an essence tamer]]* || Island 4
-|-
-| [[Spiroc Air Totem]] || [[Spiroc Lord]] || Island 5 Boss
+| [[Spiroc Air Totem]] || [[The Spiroc Lord]] || Island 5 Boss
 |}
-
-<nowiki>*</nowiki>needs confirmation on this list Oct/2023
 
 == Warrior Test of Skill ==
 
-Falorn says 'The test of skill it is. Go upward and retrieve these three items: an ivory tessera, a small ruby, and an azure  ring.  Return these to me and the azure ruby ring shall be yours. 
+You say, 'skill'
+:''Torgon Blademaster says, 'The test of skill it is. Go upward and retrieve these two items: an azure ring and a wind rune neza.  Return these to me and the azure ruby ring shall be yours.' ''
 
 '''Reward:''' {{:Azure Ruby Ring}}
 
-{| style="margin-top: 10px;" cellpadding="4" cellspacing="0" border="1"
+{| class="eoTable3"
 ! Item || Who || Where
 |-
-| [[Ivory Tessera]] || [[a thunder spirit]] || Island 1
-|-
-| [[Small Ruby]] || [[Protector of Sky]] || Island 2 Boss
+| [[Wind Rune Neza]] || Trash Mobs || Any Island
 |-
 | [[Azure Ring]] || [[Gorgalosk]] || Island 3 Boss
 |}
 
-= Ogog =
-
-You say, 'i wish to be tested by ogog'
-:''Torgon Blademaster says 'Ogog?  You are indeed brave for choosing that brute.  Take this book telling the tale of Ogog and read it.  When you are finished, hand it back to me. ''
-:''Torgon Blademaster says 'Farewell. ''
-:''Ogog says 'I Ogog, har har. ''
-You say, 'hail Ogog'
-:''Ogog says 'Ogog not smart, but Ogog smarter than you.  You ready for Ogog or no? ''
-You say, 'I am ready for ogog'
-:''Ogog says 'Ok.  Ogog got some hard things for you.  You do bash, smash, or think test? ''
-
 == Warrior Test of Bash ==
 
-Ogog says 'This one hard. Ogog like it.  Ogog need efreeti battle axe, some honey nectar, bottled djinni, and ethereal emerald. Then Ogog make you best basher.' 
+You say, 'bash'
+:''Torgon Blademaster says, 'This one may be hard for you.  I need an ethereal emerald, efreeti battle axe, and a wind rune dena. Then you'll be the best basher.' ''
 
 '''Reward:''' {{:Fangol}}
 
-{| style="margin-top: 10px;" cellpadding="4" cellspacing="0" border="1"
+{| class="eoTable3"
 ! Item || Who || Where
 |-
-| [[Honeyed Nectar]] || [[Bazzzazzt]] || Island 6
+| [[Wind Rune Dena]] || Trash Mobs || Any Island
 |-
-| [[Ethereal Emerald]] || [[Eye of Veeshan]] || Island 8
+| [[Ethereal Emerald]] || [[Eye of Veeshan]] || Island 8 Boss
 |-
-| [[Bottled Djinni]] || [[a fatestealer drake]]*, [[a windrider drake]]*, [[an undine spirit]]*, [[a greater sphinx]]* ? || Island 7
-|-
-| [[Efreeti Battle Axe]] || [[Noble Dojorn]], [[Overseer of Air]], [[the Hand of Veeshan]]* || Islands 1.5, 4, 8*
+| [[Efreeti Battle Axe]] || [[Noble Dojorn]], [[Overseer of Air]], [[the Hand of Veeshan]] || Islands 1.5, 4, 8
 |}
-
-<nowiki>*needs confirmation on this list Oct/2023 </nowiki>
 
 == Warrior Test of Smash ==
 
-Ogog says 'Ogog smash good. . . Ogog no think you can smash good.  But Ogog let you try.  You get Ogog Djinni War Blade, some virulent wasp poison, and a mottled spiroc feather.  Ogog say you good warrior if you do this!' 
+You say, 'smash'
+:''Torgon Blademaster says, 'I don't think you can smash good.  But, I'll let you try.  If you bring me a djinni war blade, a gem of invigoration, and a wind rune jaka.  I'll say you good warrior if you do this!' ''
 
 '''Reward:''' {{:Dagas}}
 
-{| style="margin-top: 10px;" cellpadding="4" cellspacing="0" border="1"
+{| class="eoTable3"
 ! Item || Who || Where
 |-
-| [[Mottled Spiroc Feather]] || [[A spiroc arbiter]], [[A spiroc caller]], [[A spiroc expulser]], [[A spiroc revolter]],<br> [[A spiroc vanquisher]], [[A spiroc walker]], [[The Spiroc Guardian]]* || Island 5
+| [[Wind Rune Jaka]] || Trash Mobs || Any Island
 |-
-| [[Virulent Poison]] || [[Bizazzzt]], [[Bzzzt]], [[Bazzzazzt]]* || Island 6
+| [[Gem of Invigoration]] || [[Protector of Sky]] || Island 2 Boss
 |-
-| [[Djinni War Blade]] || [[Sister of the Spire]] || Island 7
+| [[Djinni War Blade]] || [[Sister of the Spire]] || Island 7 Boss
 |}
-
-<nowiki>*needs confirmation on this list Oct/2023 </nowiki>
 
 == Warrior Test of Think ==
 
-Ogog says 'Ogog think you can do this one maybe.  Ogog no know, though.  You bring Ogog efreeti belt, pegasus statue, a spiroc wind totem, and a wind tablet.  Ogog say good luck!'
+You say, 'think'
+:''Torgon Blademaster says, 'I think you can do this one, maybe.  I don't know, though.  Bring me an efreeti belt, wind tablet, and a wind rune fana.  Good luck!' ''
 
 '''Reward:''' {{:Belt of the Four Winds}}
 
-{| style="margin-top: 10px;" cellpadding="4" cellspacing="0" border="1"
+{| class="eoTable3"
 ! Item || Who || Where
 |-
-| [[Pegasus Statuette]] || [[A Soul Carrier]], [[A Soul Harvester]], [[An essence harvester]] || Island 4
+| [[Wind Rune Fana]] || Trash Mobs || Any Island
 |-
-| [[Wind Tablet]] || [[Bazzt Zzzt]], [[Spiroc Lord]]* ? || Island Bosses (5+)
+| [[Wind Tablet]] || [[Bazzt Zzzt]], [[Spiroc Lord]] || Island Bosses (5+)
 |-
-| [[Spiroc Wind Totem]] || normal spirocs || Island 5
-|-
-| [[Efreeti Belt]] || [[Noble Dojorn]], [[Hand of Veeshan]], [[Overseer of Air]]* ? || Islands 1.5, 4, 8
+| [[Efreeti Belt]] || [[Noble Dojorn]], [[Overseer of Air]], [[the Hand of Veeshan]] || Islands 1.5, 4, 8
 |}
-<nowiki>*needs confirmation on this list Oct/2023 </nowiki>
+
+
 [[Category: Quests]]
+
+[[Category:Plane of Sky]]
+[[Category:Warrior Quests]]

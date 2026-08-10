@@ -1,13 +1,14 @@
 # Fade-message catalog report
 
-- spells in harvest: 1927
+- spells in harvest: 1929
 - curated entries kept: 61 (+110 harvested candidate spells unioned in)
 - generated entries: 325
-- total catalog: 386 messages, 903 spell candidates
+- total catalog: 386 messages, 902 spell candidates
 
 ## Excluded
 
-### worn_off_shape (1)
+### worn_off_shape (2)
+- `Your beguile spell has worn off` (Beguile)
 - `Your charm spell has worn off.` (Befriend Animal)
 
 ### cast_collision (8)

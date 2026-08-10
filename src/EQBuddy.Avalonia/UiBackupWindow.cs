@@ -35,6 +35,10 @@ internal sealed class UiBackupWindow : Window
         Title = "EQBuddy UI Backups";
         Width = 520;
         SizeToContent = SizeToContent.Height;
+        // Centred on the widget, like Options and Feedback. Without this it opened at 0,0,
+        // which on a multi-monitor desktop is the far corner of a screen you were not
+        // looking at.
+        WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = AppTheme.BgBrush;
 
         var backup = AppTheme.IconButton("Back up now", "Snapshot the current UI files immediately");

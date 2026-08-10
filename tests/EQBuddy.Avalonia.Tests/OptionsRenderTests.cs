@@ -70,6 +70,28 @@ public class OptionsRenderTests : IDisposable
         return (main, options);
     }
 
+    /// <summary>The DoT panel is opt-in and its lead time is the whole point of the feature,
+    /// so both controls have to exist and actually drive the settings.</summary>
+    [AvaloniaFact]
+    public void DotChipsCanBeSwitchedOnAndTheirWarningTimeSet()
+    {
+        var (main, options) = Open();
+
+        var toggle = options.GetVisualDescendants().OfType<CheckBox>()
+            .Single(c => (c.Content as TextBlock)?.Text?.Contains("DoT chips") == true);
+        Assert.False(toggle.IsChecked);
+        toggle.IsChecked = true;
+        Assert.True(main.ShowDebuffChips);
+
+        var warn = options.GetVisualDescendants().OfType<Slider>()
+            .Single(s => Math.Abs(s.Minimum - 0) < 0.001 && Math.Abs(s.Maximum - 30) < 0.001);
+        warn.Value = 15;
+        Assert.Equal(15, main.DebuffWarnSeconds, 3);
+
+        options.Close();
+        main.Close();
+    }
+
     [AvaloniaFact]
     public void OptionsRendersAFrame()
     {

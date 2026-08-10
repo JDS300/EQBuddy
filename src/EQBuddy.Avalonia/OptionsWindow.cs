@@ -33,6 +33,9 @@ public sealed class OptionsWindow : Window
     private readonly CheckBox _tutorialCheck = new() { Margin = new Thickness(0, 10, 0, 0) };
     private readonly CheckBox _targetDropsCheck = new() { Margin = new Thickness(0, 6, 0, 0) };
     private readonly CheckBox _pinChipsCheck = new() { Margin = new Thickness(0, 6, 0, 0) };
+    private readonly CheckBox _debuffChipsCheck = new() { Margin = new Thickness(0, 6, 0, 0) };
+    private readonly TextBlock _debuffWarnLabel = LabelValue();
+    private readonly Slider _debuffWarnSlider = Slider(0, 30, 1);
     private readonly CheckBox _trackSpawnsCheck = new() { Margin = new Thickness(0, 10, 0, 0) };
     private readonly CheckBox _selfHotCheck = new() { Margin = new Thickness(0, 10, 0, 0) };
     private readonly ComboBox _themeCombo = new() { Width = 130, FontSize = 12 };
@@ -196,6 +199,19 @@ public sealed class OptionsWindow : Window
             _main.PersistSettings();
         };
 
+        _debuffChipsCheck.Content = new TextBlock
+        {
+            Text = "\u2620 Show DoT chips (your damage-over-time spells)",
+            FontSize = 12,
+            Foreground = AppTheme.TextBrush,
+            TextWrapping = TextWrapping.Wrap,
+        };
+        _debuffChipsCheck.IsChecked = main.ShowDebuffChips;
+        _debuffChipsCheck.IsCheckedChanged += (_, _) =>
+            _main.SetShowDebuffChips(_debuffChipsCheck.IsChecked == true);
+        _debuffWarnSlider.Value = main.DebuffWarnSeconds;
+        Subscribe(_debuffWarnSlider, () => _main.SetDebuffWarnSeconds(_debuffWarnSlider.Value));
+
         _pinChipsCheck.Content = new TextBlock
         {
             Text = "📌 Show watch chips in the mini dashboard",
@@ -352,6 +368,9 @@ public sealed class OptionsWindow : Window
         };
         panel.Children.Add(add);
         panel.Children.Add(_pinChipsCheck);
+        panel.Children.Add(_debuffChipsCheck);
+        AddSlider(panel, "Warn before a DoT drops", _debuffWarnLabel, _debuffWarnSlider,
+            "How many seconds early the chip turns amber, so you can refresh in time.");
 
         var soundRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
         soundRow.Children.Add(_soundCombo);
@@ -1017,6 +1036,7 @@ public sealed class OptionsWindow : Window
         _scaleLabel.Text = $"{_scaleSlider.Value:P0}";
         _chipScaleLabel.Text = $"{_chipScaleSlider.Value:P0}";
         _alertScaleLabel.Text = $"{_alertScaleSlider.Value:P0}";
+        _debuffWarnLabel.Text = $"{_debuffWarnSlider.Value:0}s";
         _opacityLabel.Text = $"{_opacitySlider.Value:P0}";
         _bgOpacityLabel.Text = $"{_bgOpacitySlider.Value:P0}";
     }

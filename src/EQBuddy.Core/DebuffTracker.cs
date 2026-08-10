@@ -94,7 +94,18 @@ public sealed class DebuffTracker
     private void OnTick(DamageDealtEvent tick)
     {
         var key = (tick.Target, tick.Source);
-        if (_active.TryGetValue(key, out var existing))
+        if (_active.TryGetValue(key, out var existing) && tick.Time - existing.LastTickAt > TickGrace)
+        {
+            // The previous effect ended before this tick, and nobody was watching. Retirement
+            // cannot live only in Active(): that is driven by a once-a-second UI refresh, so a
+            // batch of events - catching up on a log at startup, review mode, any replay -
+            // walks straight past the gap and glues separate casts into one endless effect.
+            _active.Remove(key);
+            Learn(existing);
+            existing = null!;
+        }
+
+        if (existing is not null && _active.ContainsKey(key))
         {
             if (_recastPending.Remove(tick.Source))
             {

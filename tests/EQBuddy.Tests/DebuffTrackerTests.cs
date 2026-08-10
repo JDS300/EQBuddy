@@ -185,4 +185,27 @@ public class DebuffTrackerTests
 
         Assert.Equal(54, tracker.LearnedDurations["Ignite"], 0);
     }
+
+    /// <summary>A gap between ticks ends the effect even if nothing asked for the active list
+    /// in between.
+    ///
+    /// Retirement used to happen only inside Active(), which the UI calls once a second - fine
+    /// while playing, wrong whenever events arrive in a batch: catching up on a log at startup,
+    /// review mode, or any replay. Three separate casts then merge into one long effect that
+    /// never expires and never teaches a duration. Caught by feeding a live app synthetic ticks
+    /// and seeing a countdown of 0:00 on a spell that should have read 0:30.</summary>
+    [Fact]
+    public void AGapBetweenTicksEndsTheEffectEvenWithoutAnActiveCall()
+    {
+        var tracker = new DebuffTracker();
+
+        tracker.Apply(Tick("a sand giant", "Choke", 0));
+        tracker.Apply(Tick("a sand giant", "Choke", 6));
+        // No Active() call here - the gap must still be noticed.
+        tracker.Apply(Tick("a sand giant", "Choke", 120));
+
+        var state = Assert.Single(tracker.Active(T0.AddSeconds(120)));
+        Assert.Equal(T0.AddSeconds(120), state.LandedAt);
+        Assert.Equal(12, tracker.LearnedDurations["Choke"], 0);
+    }
 }

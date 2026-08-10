@@ -26,13 +26,29 @@ internal sealed class MezChipsWindow : Window
     private List<SpawnChip> _chips = [];
     private string _signature = "";
 
-    public MezChipsWindow(MainWindow owner, Func<DateTime, List<SpawnChip>> source)
+    private readonly int _slot;
+    private readonly Func<AppSettings, (double Left, double Top)> _loadPosition;
+    private readonly Action<AppSettings, double, double> _savePosition;
+
+    /// <summary>The same stack serves mez and debuff chips: identical behaviour, differing
+    /// only in title and where the position is remembered. A fourth copy of this window would
+    /// have been the third time the pattern was duplicated wholesale.</summary>
+    public MezChipsWindow(
+        MainWindow owner,
+        Func<DateTime, List<SpawnChip>> source,
+        string title = "EQBuddy Mez Chips",
+        int slot = 0,
+        Func<AppSettings, (double Left, double Top)>? loadPosition = null,
+        Action<AppSettings, double, double>? savePosition = null)
     {
         _owner = owner;
         _settings = owner.Settings;
         _source = source;
+        _slot = slot;
+        _loadPosition = loadPosition ?? (s => (s.MezChipsLeft, s.MezChipsTop));
+        _savePosition = savePosition ?? ((s, left, top) => { s.MezChipsLeft = left; s.MezChipsTop = top; });
 
-        Title = "EQBuddy Mez Chips";
+        Title = title;
         SizeToContent = SizeToContent.WidthAndHeight;
         WindowDecorations = global::Avalonia.Controls.WindowDecorations.None;
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
@@ -145,19 +161,17 @@ internal sealed class MezChipsWindow : Window
 
     public void SavePosition()
     {
-        _settings.MezChipsLeft = Position.X;
-        _settings.MezChipsTop = Position.Y;
+        _savePosition(_settings, Position.X, Position.Y);
         _settings.Save();
     }
 
     private void PositionFromSettings()
     {
-        var left = _settings.MezChipsLeft;
-        var top = _settings.MezChipsTop;
+        var (left, top) = _loadPosition(_settings);
         if (!ScreenGuard.OnScreen(this, left, top, Width, Height))
         {
             // First use, or the saved monitor is gone: beside the widget, slot 0.
-            Position = ScreenGuard.NextToOwner(_owner, slot: 0);
+            Position = ScreenGuard.NextToOwner(_owner, _slot);
             return;
         }
 

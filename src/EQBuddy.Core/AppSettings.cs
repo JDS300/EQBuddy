@@ -173,6 +173,16 @@ public sealed class AppSettings
 
     /// <summary>Position of the mez-chip stack — its own window, deliberately separate
     /// from the spawn chips (mez chips are combat-urgent, spawn chips are ambient).</summary>
+    /// <summary>Lead time in seconds: how far ahead of a DoT dropping the chip warns, so it
+    /// can be refreshed rather than reapplied after the fact.</summary>
+    public double DebuffWarnSeconds { get; set; } = 10;
+
+    /// <summary>Master switch for the DoT/debuff chip stack.</summary>
+    public bool ShowDebuffChips { get; set; }
+
+    public double DebuffChipsLeft { get; set; } = double.NaN;
+    public double DebuffChipsTop { get; set; } = double.NaN;
+
     public double MezChipsLeft { get; set; } = double.NaN;
     public double MezChipsTop { get; set; } = double.NaN;
 

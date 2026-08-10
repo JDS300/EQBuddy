@@ -53,6 +53,9 @@ public sealed class LogWatcher : IDisposable
     /// anchored to the tick's own log timestamp).</summary>
     public HotTracker? Hot { get; set; }
 
+    /// <summary>Your own DoTs, timed so they can be refreshed before they drop.</summary>
+    public DebuffTracker? Debuffs { get; set; }
+
     public LogWatcher(SessionStats stats)
     {
         _stats = stats;
@@ -199,6 +202,7 @@ public sealed class LogWatcher : IDisposable
                             Spawns?.Apply(evt);
                             Mez?.Apply(evt);
                             Hot?.Apply(evt);
+                            Debuffs?.Apply(evt);
                         }
                         // Every line, parsed or not: a Text watch rule matches the line's
                         // words, not whatever event we did or didn't make of it.

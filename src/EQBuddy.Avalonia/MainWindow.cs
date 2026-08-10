@@ -147,6 +147,8 @@ public sealed class MainWindow : Window
     private bool _clickThrough;
     private X11HotkeyService? _hotkeys;
     private HistoryWindow? _historyWindow;
+    private MezChipsWindow? _debuffWindow;
+    private readonly DebuffTracker _debuffTracker = new();
     private UiBackupWindow? _uiBackupWindow;
     private readonly UiBackupService _uiBackups;
     private DateTime _lastUiBackupTick = DateTime.MinValue;
@@ -198,6 +200,7 @@ public sealed class MainWindow : Window
         _watcher.Mez = _mezTracker;
         _hotTracker.AttachStore(System.IO.Path.Combine(Core.AppPaths.Dir, "hot-durations.json"));
         _watcher.Hot = _hotTracker;
+        _watcher.Debuffs = _debuffTracker;
         var spawnCatalog = SpawnCatalog.LoadEmbedded();
         var spawnOverrides = SpawnOverrides.Load(AppPaths.File("spawn-overrides.json"));
         _spawnTimers = new SpawnTimers(spawnCatalog, spawnOverrides, AppPaths.File("spawn-timers.json"));
@@ -264,6 +267,7 @@ public sealed class MainWindow : Window
         RestorePosition();
         ApplyUiScale(_settings.UiScale);
         ApplyChipScale(_settings.ChipScale);
+        _debuffTracker.WarnSeconds = _settings.DebuffWarnSeconds;
         ApplyBackgroundOpacity(_settings.BackgroundOpacity);
         UpdateStarVisuals();
         ApplySectionLayout();
@@ -421,6 +425,26 @@ public sealed class MainWindow : Window
     public double ChipScale => _settings.ChipScale;
 
     public double AlertScale => _settings.AlertScale;
+
+    public double DebuffWarnSeconds => _settings.DebuffWarnSeconds;
+
+    /// <summary>Lead time before a DoT drops. Zero is allowed and means "tell me when it is
+    /// gone" - not useful for refreshing, but it is the user's call.</summary>
+    public void SetDebuffWarnSeconds(double seconds)
+    {
+        _settings.DebuffWarnSeconds = Math.Clamp(seconds, 0, 60);
+        _debuffTracker.WarnSeconds = _settings.DebuffWarnSeconds;
+        PersistSettings();
+    }
+
+    public bool ShowDebuffChips => _settings.ShowDebuffChips;
+
+    public void SetShowDebuffChips(bool show)
+    {
+        _settings.ShowDebuffChips = show;
+        PersistSettings();
+        RefreshUi();
+    }
 
     public void SetAlertScale(double scale)
     {
@@ -1040,6 +1064,12 @@ public sealed class MainWindow : Window
     /// <summary>Mez chips for the chip stack; formatting lives in
     /// <see cref="EQBuddy.UI.Shared.MezChipPresentation"/> (shared with the WPF UI) — see
     /// its doc comment for the display rules (numbering, "?" durations, due tint).</summary>
+    /// <summary>DoT chips; formatting is shared with the WPF UI in
+    /// <see cref="EQBuddy.UI.Shared.DebuffChipPresentation"/>.</summary>
+    private List<SpawnChip> DebuffChips(DateTime now) =>
+        EQBuddy.UI.Shared.DebuffChipPresentation.Chips(
+            _debuffTracker.Active(now), now, _settings.DebuffWarnSeconds);
+
     private List<SpawnChip> MezChips(DateTime now) =>
         EQBuddy.UI.Shared.MezChipPresentation.Chips(_mezTracker.Snapshot(now), now);
 
@@ -1168,6 +1198,31 @@ public sealed class MainWindow : Window
             _mezWindow = null;      // cleared first so Closed handling can't loop
             closing.SavePosition(); // a hide must never lose the spot
             closing.Close();
+        }
+
+        // The DoT stack, same shape as the mez one: it exists exactly while something of
+        // yours is ticking, and only when switched on - unlike mez, this is opt-in, because
+        // a druid with four DoTs up would otherwise get a new window on their first pull
+        // after an update.
+        if (_settings.ShowDebuffChips && _debuffTracker.Active(DateTime.Now).Count > 0)
+        {
+            var dw = _debuffWindow;
+            if (dw is null)
+            {
+                dw = new MezChipsWindow(this, DebuffChips, "EQBuddy DoT Chips", slot: 2,
+                    settings => (settings.DebuffChipsLeft, settings.DebuffChipsTop),
+                    (settings, left, top) => { settings.DebuffChipsLeft = left; settings.DebuffChipsTop = top; });
+                dw.Closed += (_, _) => { if (ReferenceEquals(_debuffWindow, dw)) _debuffWindow = null; };
+                _debuffWindow = dw;
+                ShowStack(dw, dw.ApplyScale, dw.ApplyClickThrough);
+            }
+            dw.RefreshChips(DateTime.Now);
+        }
+        else if (_debuffWindow is { } closingDebuffs)
+        {
+            _debuffWindow = null;
+            closingDebuffs.SavePosition();
+            closingDebuffs.Close();
         }
 
         // The HoT stack, same shape again and just as independent: it exists exactly while

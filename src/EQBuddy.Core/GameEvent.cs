@@ -87,6 +87,17 @@ public record FizzleEvent(DateTime Time, string Spell = "") : GameEvent(Time);
 /// song starts were never parsed, so a bard's _pendingCast never existed and no
 /// landing line could ever correlate) but stays OUT of the cast-completion stats —
 /// twisting would swamp them.</param>
+/// <summary>What kind of non-damaging debuff landed. The landing line names the mob and
+/// nothing else, so the kind is all the line itself can tell us - the spell and caster come
+/// from the cast that preceded it.</summary>
+public enum DebuffKind { Slow, Cripple }
+
+/// <summary>"a sand giant slows down." / "a cracked skeleton is enfeebled." - a debuff
+/// landing. Deliberately NOT "<mob> staggers.", which is the most common landing line in a
+/// real log (5,476 against slow's 503) but is a stun, and pairs with damage spells like
+/// Siphon Life and Combust rather than with anything worth timing.</summary>
+public record DebuffLandedEvent(DateTime Time, string Target, DebuffKind Kind) : GameEvent(Time);
+
 public record SpellCastEvent(DateTime Time, string Spell, bool Song = false) : GameEvent(Time);
 /// <summary>"Your X spell is interrupted." — a started cast that never landed.</summary>
 public record SpellInterruptedEvent(DateTime Time, string Spell) : GameEvent(Time);

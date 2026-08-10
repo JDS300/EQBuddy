@@ -210,6 +210,17 @@ public static partial class LogParser
     [GeneratedRegex(@"^You received (?<coins>.+?) from that item\.$")]
     private static partial Regex LootWindowSaleRx();
 
+    // "a sand giant slows down." - a slow landing. Anchored on a non-"You" subject so it
+    // cannot match "You slow down as your feet are covered in tangling weeds." (a snare on
+    // the player) or "Your thoughts slow." (a slow on the player), both of which appear in
+    // real logs and are about you, not the mob you are timing.
+    [GeneratedRegex(@"^(?!You\b|Your\b)(?<target>.+?) slows down\.$")]
+    private static partial Regex MobSlowedRx();
+
+    // "a cracked skeleton is enfeebled." - a cripple landing.
+    [GeneratedRegex(@"^(?!You\b|Your\b)(?<target>.+?) is enfeebled\.$")]
+    private static partial Regex MobCrippledRx();
+
     // Your Befriend Animal spell has worn off of a puma. / Your Root spell has worn off.
     [GeneratedRegex(@"^Your (?<spell>.+?) spell has worn off(?: of (?<target>.+?))?\.$")]
     private static partial Regex SpellWornOffRx();
@@ -519,6 +530,12 @@ public static partial class LogParser
         // Exact-message dictionary lookup: one hash probe per line, no regex cost.
         if (FadeMessageCatalog.Default.Find(msg) is { } fade)
             return new BuffFadeEvent(ts, fade.Label, fade.Spells, fade.Category);
+
+        if ((r = MobSlowedRx().Match(msg)).Success)
+            return new DebuffLandedEvent(ts, Normalize(r.Groups["target"].Value), DebuffKind.Slow);
+
+        if ((r = MobCrippledRx().Match(msg)).Success)
+            return new DebuffLandedEvent(ts, Normalize(r.Groups["target"].Value), DebuffKind.Cripple);
 
         if ((r = PetSpellWornOffRx().Match(msg)).Success)
             return new SpellWornOffEvent(ts, r.Groups["spell"].Value,

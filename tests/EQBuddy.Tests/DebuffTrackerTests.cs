@@ -208,4 +208,118 @@ public class DebuffTrackerTests
         Assert.Equal(T0.AddSeconds(120), state.LandedAt);
         Assert.Equal(12, tracker.LearnedDurations["Choke"], 0);
     }
+
+    // ---- slice 2: fades, slows and cripples ----
+
+    /// <summary>The fade line names spell AND target, so it ends the effect exactly rather
+    /// than waiting for ticks to stop - and it measures the duration precisely, which the
+    /// tick-gap estimate could only approximate.</summary>
+    [Fact]
+    public void AFadeLineEndsTheEffectAndMeasuresItExactly()
+    {
+        var tracker = new DebuffTracker();
+        tracker.Apply(Tick("a sand giant", "Immolate", 0));
+        tracker.Apply(Tick("a sand giant", "Immolate", 6));
+
+        tracker.Apply(new SpellWornOffEvent(T0.AddSeconds(54), "Immolate", "a sand giant"));
+
+        Assert.Empty(tracker.Active(T0.AddSeconds(54)));
+        Assert.Equal(54, tracker.LearnedDurations["Immolate"], 0);
+    }
+
+    /// <summary>A slow names neither spell nor caster when it lands - only the preceding cast
+    /// line does, which is the same problem MezTracker solves with an 8s window.</summary>
+    [Fact]
+    public void YourSlowIsPairedWithTheCastThatExplainsIt()
+    {
+        var tracker = new DebuffTracker();
+
+        tracker.Apply(new SpellCastEvent(T0, "Tepid Deeds"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(3), "a bok ghoul knight", DebuffKind.Slow));
+
+        var state = Assert.Single(tracker.Active(T0.AddSeconds(3)));
+        Assert.Equal("Tepid Deeds", state.Spell);
+        Assert.True(state.IsMine);
+    }
+
+    [Fact]
+    public void SomeoneElsesSlowIsTrackedButMarkedTheirs()
+    {
+        var tracker = new DebuffTracker();
+
+        tracker.Apply(new OtherCastEvent(T0, "Cognix", "Enfeeblement"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(2), "a cracked skeleton", DebuffKind.Cripple));
+
+        var state = Assert.Single(tracker.Active(T0.AddSeconds(2)));
+        Assert.Equal("Enfeeblement", state.Spell);
+        Assert.False(state.IsMine);
+        Assert.Equal("Cognix", state.Caster);
+    }
+
+    /// <summary>No visible cast means no spell name, and a chip reading "something slowed it"
+    /// with no timer is worse than nothing.</summary>
+    [Fact]
+    public void ALandingWithNoExplainingCastIsIgnored()
+    {
+        var tracker = new DebuffTracker();
+
+        tracker.Apply(new DebuffLandedEvent(T0, "a bok ghoul knight", DebuffKind.Slow));
+
+        Assert.Empty(tracker.Active(T0));
+    }
+
+    /// <summary>A cast too long ago did not cause this landing. MezTracker uses the same 8s
+    /// window for the same reason.</summary>
+    [Fact]
+    public void AStaleCastDoesNotExplainALanding()
+    {
+        var tracker = new DebuffTracker();
+
+        tracker.Apply(new SpellCastEvent(T0, "Tepid Deeds"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(30), "a bok ghoul knight", DebuffKind.Slow));
+
+        Assert.Empty(tracker.Active(T0.AddSeconds(30)));
+    }
+
+    /// <summary>Someone else's slow has no fade line - only yours do - so its timer comes from
+    /// a duration you measured yourself, and is absent until you have.</summary>
+    [Fact]
+    public void ATheirSlowBorrowsADurationYouMeasuredYourself()
+    {
+        var tracker = new DebuffTracker();
+        tracker.Apply(new SpellCastEvent(T0, "Tepid Deeds"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(1), "a bok ghoul knight", DebuffKind.Slow));
+        tracker.Apply(new SpellWornOffEvent(T0.AddSeconds(61), "Tepid Deeds", "a bok ghoul knight"));
+
+        tracker.Apply(new OtherCastEvent(T0.AddSeconds(100), "Cognix", "Tepid Deeds"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(101), "an ire ghast", DebuffKind.Slow));
+
+        var state = Assert.Single(tracker.Active(T0.AddSeconds(101)));
+        Assert.Equal(60, state.RemainingSeconds(T0.AddSeconds(101))!.Value, 0);
+    }
+
+    /// <summary>A slow does not tick, so the tick-gap rule must not apply to it.
+    ///
+    /// It did: every slow was retired twelve seconds after landing, long before its fade line
+    /// arrived, so no slow was ever measured. The unit tests missed it because they only asked
+    /// for the active list at the end; replaying the real log, where the UI asks every second,
+    /// produced 504 parsed landings and zero measured durations.</summary>
+    [Fact]
+    public void ASlowSurvivesLongerThanTheTickGapAndIsEndedByItsFade()
+    {
+        var tracker = new DebuffTracker();
+        tracker.Apply(new SpellCastEvent(T0, "Tepid Deeds"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(1), "a bok ghoul knight", DebuffKind.Slow));
+
+        // The UI asks every second, all the way through - well past TickGrace.
+        for (var second = 2; second <= 60; second++)
+            tracker.Active(T0.AddSeconds(second));
+
+        Assert.Single(tracker.Active(T0.AddSeconds(60)));
+
+        tracker.Apply(new SpellWornOffEvent(T0.AddSeconds(61), "Tepid Deeds", "a bok ghoul knight"));
+
+        Assert.Empty(tracker.Active(T0.AddSeconds(61)));
+        Assert.Equal(60, tracker.LearnedDurations["Tepid Deeds"], 0);
+    }
 }

@@ -8,7 +8,10 @@ public sealed record DebuffState(
     bool IsMine,
     DateTime LandedAt,
     DateTime LastTickAt,
-    DateTime? ExpiresAt)
+    DateTime? ExpiresAt,
+    /// <summary>True for DoTs, which announce themselves every six seconds. A slow announces
+    /// itself once and then says nothing until it fades, so silence means nothing for it.</summary>
+    bool Ticks = false)
 {
     /// <summary>Null when this spell's duration has never been measured. A null countdown is
     /// the honest answer: the alternative is a number invented at the exact moment the user
@@ -41,6 +44,19 @@ public sealed class DebuffTracker
     /// means the effect is gone.</summary>
     public static readonly TimeSpan TickGrace = TimeSpan.FromSeconds(12);
 
+    /// <summary>How long after a cast a landing can still be attributed to it. Same window
+    /// MezTracker uses, for the same reason: the landing line names no spell.</summary>
+    public static readonly TimeSpan CastToLand = TimeSpan.FromSeconds(8);
+
+    /// <summary>How long a non-ticking effect of unmeasured duration is believed before being
+    /// dropped. Nothing in the log will announce a stranger's slow ending, so without a cap a
+    /// mob killed three zones ago keeps a chip forever.</summary>
+    public static readonly TimeSpan UnknownCap = TimeSpan.FromMinutes(10);
+
+    /// <summary>Kept briefly past its expiry so a drop is seen rather than silently vanishing
+    /// between two glances at the panel.</summary>
+    public static readonly TimeSpan ExpiryLinger = TimeSpan.FromSeconds(5);
+
     /// <summary>A DoT ticks on the six-second server heartbeat, and the first tick lands one
     /// heartbeat after the cast, so a cast's length is (last - first) + one tick.</summary>
     public const double ServerTickSeconds = 6;
@@ -54,6 +70,7 @@ public sealed class DebuffTracker
     private readonly Dictionary<string, List<double>> _samples = [];
     private readonly HashSet<string> _died = [];
     private readonly HashSet<string> _recastPending = [];
+    private readonly List<(DateTime Time, string Caster, string Spell, bool Mine)> _recentCasts = [];
 
     /// <summary>Lead time, in seconds, at which an effect counts as about to drop.</summary>
     public double WarnSeconds { get; set; } = 10;
@@ -87,8 +104,56 @@ public sealed class DebuffTracker
             // cast line is the only evidence that the clock restarted.
             case SpellCastEvent cast:
                 _recastPending.Add(cast.Spell);
+                RememberCast(cast.Time, "", cast.Spell, mine: true);
+                break;
+            // Someone else's cast is worth remembering only because a slow landing names
+            // neither spell nor caster; this is the sole line that can explain one.
+            case OtherCastEvent other:
+                RememberCast(other.Time, other.Caster, other.Spell, mine: false);
+                break;
+            case DebuffLandedEvent landed:
+                OnLanding(landed);
+                break;
+            // Names spell AND target, so it ends the right effect exactly and measures it
+            // precisely - better than waiting for ticks to stop, which can only approximate.
+            case SpellWornOffEvent { Pet: false, Target.Length: > 0 } fade:
+                OnFade(fade);
                 break;
         }
+    }
+
+    private void RememberCast(DateTime time, string caster, string spell, bool mine)
+    {
+        _recentCasts.Add((time, caster, spell, mine));
+        _recentCasts.RemoveAll(c => time - c.Time > CastToLand);
+    }
+
+    /// <summary>A slow or cripple landing. The line names the mob and nothing else, so the
+    /// newest cast inside the window is what explains it - the same rule MezTracker uses,
+    /// including not consuming the cast, since one cast can land on several mobs.</summary>
+    private void OnLanding(DebuffLandedEvent landed)
+    {
+        var cast = _recentCasts.LastOrDefault(c => landed.Time - c.Time <= CastToLand);
+        if (cast.Spell is null or "") return;   // nobody we can see cast it: no spell, no chip
+
+        var key = (landed.Target, cast.Spell);
+        _active[key] = new DebuffState(
+            landed.Target, cast.Spell, cast.Caster, cast.Mine,
+            LandedAt: landed.Time, LastTickAt: landed.Time,
+            ExpiresAt: Expiry(cast.Spell, landed.Time));
+    }
+
+    /// <summary>Only YOUR spells announce a fade, so this both ends and measures your own
+    /// effects. Someone else's slow borrows the duration you measured for that same spell,
+    /// and shows no countdown until you have measured one.</summary>
+    private void OnFade(SpellWornOffEvent fade)
+    {
+        var key = (fade.Target, fade.Spell);
+        if (!_active.Remove(key, out var state)) return;
+        if (_died.Contains(fade.Target)) return;
+
+        var measured = (fade.Time - state.LandedAt).TotalSeconds;
+        if (measured > 0) Record(state.Spell, measured);
     }
 
     private void OnTick(DamageDealtEvent tick)
@@ -119,6 +184,7 @@ public sealed class DebuffTracker
                     LandedAt = tick.Time,
                     LastTickAt = tick.Time,
                     ExpiresAt = Expiry(tick.Source, tick.Time),
+                    Ticks = true,
                 };
                 return;
             }
@@ -132,7 +198,7 @@ public sealed class DebuffTracker
         _active[key] = new DebuffState(
             tick.Target, tick.Source, Caster: "", IsMine: true,
             LandedAt: tick.Time, LastTickAt: tick.Time,
-            ExpiresAt: Expiry(tick.Source, tick.Time));
+            ExpiresAt: Expiry(tick.Source, tick.Time), Ticks: true);
     }
 
     /// <summary>What is ticking now. Also the point at which effects whose ticks have stopped
@@ -141,9 +207,22 @@ public sealed class DebuffTracker
     {
         foreach (var (key, state) in _active.ToList())
         {
-            if (now - state.LastTickAt <= TickGrace) continue;
-            _active.Remove(key);
-            Learn(state);
+            if (state.Ticks)
+            {
+                // A DoT that has stopped announcing itself is over.
+                if (now - state.LastTickAt <= TickGrace) continue;
+                _active.Remove(key);
+                Learn(state);
+                continue;
+            }
+
+            // A slow says nothing between landing and fading, so silence is not evidence.
+            // Yours ends at its fade line; a stranger's has no fade line at all, so it ends at
+            // the measured duration, or is eventually dropped rather than believed forever.
+            var over = state.ExpiresAt is { } expiry
+                ? now > expiry + ExpiryLinger
+                : now - state.LandedAt > UnknownCap;
+            if (over) _active.Remove(key);
         }
         return _active.Values
             .OrderBy(s => s.Target, StringComparer.OrdinalIgnoreCase)
@@ -163,12 +242,15 @@ public sealed class DebuffTracker
     private void Record(DebuffState state)
     {
         if (state.LastTickAt <= state.LandedAt) return;   // a single tick measures nothing
+        Record(state.Spell, (state.LastTickAt - state.LandedAt).TotalSeconds + ServerTickSeconds);
+    }
 
-        var measured = (state.LastTickAt - state.LandedAt).TotalSeconds + ServerTickSeconds;
-        var samples = _samples.TryGetValue(state.Spell, out var existing) ? existing : [];
+    private void Record(string spell, double measured)
+    {
+        var samples = _samples.TryGetValue(spell, out var existing) ? existing : [];
         samples.Add(measured);
         if (samples.Count > SampleCap) samples.RemoveAt(0);
-        _samples[state.Spell] = samples;
+        _samples[spell] = samples;
     }
 
     private DateTime? Expiry(string spell, DateTime from) =>

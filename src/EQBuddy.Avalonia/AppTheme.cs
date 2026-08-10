@@ -4,6 +4,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 using EQBuddy.UI.Shared;
 
 namespace EQBuddy.Avalonia;
@@ -57,19 +58,36 @@ internal static class AppTheme
     /// <summary>Repaints every control holding one of the brushes above. An unrecognized
     /// key (e.g. from an older settings.json) falls back to the first theme rather than
     /// throwing — same behavior as the WPF app's ThemeManager.</summary>
-    public static void Apply(string themeKey)
-    {
-        foreach (var (key, hex) in ThemePalettes.For(themeKey))
-            if (ByKey.TryGetValue(key, out var brush)) brush.Color = Color.Parse(hex);
-    }
+    public static void Apply(string themeKey) =>
+        OnUiThread(() =>
+        {
+            foreach (var (key, hex) in ThemePalettes.For(themeKey))
+                if (ByKey.TryGetValue(key, out var brush)) brush.Color = Color.Parse(hex);
+        });
 
     /// <summary>Settings-aware overload: applies the Custom theme's derived palette when
     /// it's selected (colors are edited in the WPF app's Options; this side follows the
     /// stored values), otherwise the selected catalog theme.</summary>
-    public static void Apply(Core.AppSettings settings)
+    public static void Apply(Core.AppSettings settings) =>
+        OnUiThread(() =>
+        {
+            foreach (var (key, hex) in CustomTheme.PaletteFor(settings))
+                if (ByKey.TryGetValue(key, out var brush)) brush.Color = Color.Parse(hex);
+        });
+
+    /// <summary>Brushes are AvaloniaObjects and carry thread affinity, so repainting from a
+    /// background thread throws "the calling thread cannot access this object". App startup
+    /// applies the theme inside a try/catch, so that failure never crashed anything - it just
+    /// left the previous palette in place and wrote a stack trace to error.log, which is
+    /// invisible to anyone whose theme happens to match the built-in default.
+    ///
+    /// The static constructor deliberately does NOT route through here: it would be waiting on
+    /// the UI thread while holding this type\'s initialization lock, and any UI-thread code
+    /// touching AppTheme in that window would deadlock.</summary>
+    private static void OnUiThread(Action apply)
     {
-        foreach (var (key, hex) in CustomTheme.PaletteFor(settings))
-            if (ByKey.TryGetValue(key, out var brush)) brush.Color = Color.Parse(hex);
+        if (Dispatcher.UIThread.CheckAccess()) apply();
+        else Dispatcher.UIThread.Invoke(apply);
     }
 
     // Tint comes from the current theme's BgBrush rather than a fixed color, so this

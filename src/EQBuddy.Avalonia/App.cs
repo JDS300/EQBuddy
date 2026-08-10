@@ -7,7 +7,11 @@ namespace EQBuddy.Avalonia;
 
 public sealed class App : Application
 {
-    private static readonly string ErrorLog = Core.AppPaths.File("error.log");
+    // Resolved per call, not cached in a static field. As a static readonly it was
+    // frozen at type-initialization time, which in the test host happens at app boot -
+    // before any test sets EQBUDDY_APPDATA - so every isolated profile the tests set up
+    // afterwards was ignored and the app logged into the developer's real profile.
+    private static string ErrorLog => Core.AppPaths.File("error.log");
 
     public static void LogError(object? ex)
     {

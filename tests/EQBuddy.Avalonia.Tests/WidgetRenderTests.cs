@@ -45,7 +45,7 @@ public class WidgetRenderTests : IDisposable
 
     public void Dispose()
     {
-        Environment.SetEnvironmentVariable("EQBUDDY_APPDATA", null);
+        Environment.SetEnvironmentVariable("EQBUDDY_APPDATA", TestProfile.Root);
         Environment.SetEnvironmentVariable("EQBUDDY_EXPAND", null);
         try { Directory.Delete(_profile, recursive: true); } catch { /* best effort */ }
     }

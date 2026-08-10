@@ -22,7 +22,7 @@ public class HotkeyServiceTests : IDisposable
 
     public void Dispose()
     {
-        Environment.SetEnvironmentVariable("EQBUDDY_APPDATA", null);
+        Environment.SetEnvironmentVariable("EQBUDDY_APPDATA", TestProfile.Root);
         try { Directory.Delete(_profile, recursive: true); } catch { /* best effort */ }
     }
 

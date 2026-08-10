@@ -373,6 +373,8 @@ public sealed class OptionsWindow : Window
             () => _main.Settings.HotkeyMiniMode, v => _main.Settings.HotkeyMiniMode = v);
         AddHotkeyRow(panel, "Drop camp marker",
             () => _main.Settings.HotkeyCampMarker, v => _main.Settings.HotkeyCampMarker = v);
+        if (WaylandHotkeyNote(DesktopSession.IsWayland()) is { } waylandNote)
+            panel.Children.Add(waylandNote);
         panel.Children.Add(AppTheme.DimText(
             "Unbound by default so EQBuddy never takes a shortcut from another app. Type a combination like Ctrl+Shift+H to bind one - restart to apply. Conflicts are reported in error.log.",
             new Thickness(0, 4, 0, 0)));
@@ -903,6 +905,22 @@ public sealed class OptionsWindow : Window
         var custom = Array.IndexOf(SoundNames, _main.Settings.AlertSound) < 0;
         _soundFileNote.Text = custom ? $"Custom: {_main.Settings.AlertSound}" : "";
         _soundFileNote.IsVisible = custom;
+    }
+
+    /// <summary>The warning shown under the hotkey rows on a Wayland session, or null on X11.
+    ///
+    /// The boxes above it stay editable on purpose: the binding is still saved, and still
+    /// works if the user logs into an X11 session. Only the promise that it does something
+    /// *here* is false, so that is the only thing this retracts.</summary>
+    internal static Control? WaylandHotkeyNote(bool isWayland)
+    {
+        if (!isWayland) return null;
+        var note = AppTheme.DimText(
+            "⚠ This is a Wayland session. Global hotkeys cannot fire here - the compositor " +
+            "never delivers them to EQBuddy. Bindings are still saved and will work in an X11 session.",
+            new Thickness(0, 4, 0, 0));
+        note.Foreground = AppTheme.WarnBrush;
+        return note;
     }
 
     /// <summary>One "label: [combination]" row. Written back on LostFocus like the watch-rule

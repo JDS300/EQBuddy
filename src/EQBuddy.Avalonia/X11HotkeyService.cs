@@ -25,6 +25,21 @@ internal sealed class X11HotkeyService : IDisposable
     /// of their shortcuts is doing nothing rather than being left to guess.</summary>
     public IReadOnlyList<string> FailedHotkeys => _failed;
 
+    /// <summary>Logged once at startup when bindings exist on a Wayland session. The grabs
+    /// below may well SUCCEED there — kwin simply never routes the keys to an X11 client —
+    /// so without this line a working-looking registration produces total silence.</summary>
+    public const string WaylandDeliveryWarning =
+        "Global hotkeys will not fire: this is a Wayland session, and the compositor does not "
+        + "deliver global shortcuts to X11 clients. Bindings are kept for X11 sessions.";
+
+    /// <summary>Why a grab was refused. On X11 a BadAccess really does mean another client
+    /// holds the combination. On Wayland the holder is the compositor itself, and saying
+    /// "another application" sends the user hunting for an app that does not exist.</summary>
+    internal static string ConflictMessage(string spec, bool isWayland) => isWayland
+        ? $"Hotkey '{spec}' could not be registered: on a Wayland session the compositor owns "
+          + "global shortcuts. It will do nothing here."
+        : $"Hotkey '{spec}' is already taken by another application; it will do nothing.";
+
     public X11HotkeyService(IEnumerable<(string Spec, Action Action)> hotkeys)
     {
         if (OperatingSystem.IsWindows() || OperatingSystem.IsMacOS())
@@ -103,7 +118,7 @@ internal sealed class X11HotkeyService : IDisposable
                     XUngrabKey(_display, (int)keycode, variant, _root);
                 XFlush(_display);
                 _failed.Add(spec);
-                App.LogError($"Hotkey '{spec}' is already taken by another application; it will do nothing.");
+                App.LogError(ConflictMessage(spec, DesktopSession.IsWayland()));
                 return;
             }
         }

@@ -1774,6 +1774,10 @@ public sealed class MainWindow : Window
         // starting a poll thread with an empty map, and skip the "hotkeys disabled"
         // error a Wayland session would otherwise log for a feature nobody asked for.
         if (specs.All(h => string.IsNullOrWhiteSpace(h.Spec))) return;
+        // Registration still runs on Wayland: XGrabKey is harmless, and if KDE ever routes
+        // global shortcuts to XWayland clients this starts working with no code change.
+        // What we must not do is stay silent about a binding that cannot arrive.
+        if (DesktopSession.IsWayland()) App.LogError(X11HotkeyService.WaylandDeliveryWarning);
         try
         {
             _hotkeys = new X11HotkeyService(specs);

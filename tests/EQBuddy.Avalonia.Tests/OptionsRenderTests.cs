@@ -141,6 +141,61 @@ public class OptionsRenderTests : IDisposable
         main.Close();
     }
 
+    /// <summary>The Wayland warning has to reach the real Options tree, not just exist as a
+    /// factory method. The hotkey boxes must stay editable next to it: the binding is still
+    /// saved and still works if the user logs into an X11 session, so disabling them would
+    /// throw away a setting that isn't broken.</summary>
+    [AvaloniaFact]
+    public void OnWaylandTheHotkeySectionWarnsButStaysEditable()
+    {
+        var sessionType = Environment.GetEnvironmentVariable("XDG_SESSION_TYPE");
+        Environment.SetEnvironmentVariable("XDG_SESSION_TYPE", "wayland");
+        try
+        {
+            var (main, options) = Open();
+
+            Assert.Contains(options.GetVisualDescendants().OfType<TextBlock>(),
+                text => text.Text?.Contains("Wayland", StringComparison.Ordinal) == true
+                    && text.Text.Contains("cannot fire", StringComparison.Ordinal));
+            var hotkeyBoxes = options.GetVisualDescendants().OfType<TextBox>()
+                .Where(box => box.PlaceholderText == "unbound")
+                .ToList();
+            Assert.Equal(4, hotkeyBoxes.Count);
+            Assert.All(hotkeyBoxes, box => Assert.True(box.IsEnabled, "hotkey box was disabled"));
+
+            options.Close();
+            main.Close();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("XDG_SESSION_TYPE", sessionType);
+        }
+    }
+
+    [AvaloniaFact]
+    public void AnX11SessionGetsNoWaylandHotkeyWarning()
+    {
+        var sessionType = Environment.GetEnvironmentVariable("XDG_SESSION_TYPE");
+        var waylandDisplay = Environment.GetEnvironmentVariable("WAYLAND_DISPLAY");
+        Environment.SetEnvironmentVariable("XDG_SESSION_TYPE", "x11");
+        Environment.SetEnvironmentVariable("WAYLAND_DISPLAY", null);
+        try
+        {
+            var (main, options) = Open();
+
+            Assert.DoesNotContain(options.GetVisualDescendants().OfType<TextBlock>(),
+                text => text.Text?.Contains("Wayland", StringComparison.Ordinal) == true);
+
+            options.Close();
+            main.Close();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("XDG_SESSION_TYPE", sessionType);
+            Environment.SetEnvironmentVariable("WAYLAND_DISPLAY", waylandDisplay);
+        }
+    }
+
     [AvaloniaFact]
     public void LongOptionsContentHasABoundedScrollableViewport()
     {

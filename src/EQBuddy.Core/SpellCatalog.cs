@@ -235,8 +235,17 @@ public sealed partial class SpellCatalog
                 File.ReadAllText(path));
             if (stored is null) return;
             foreach (var (name, category) in stored)
-                if (category != SpellCategory.Unknown && name.Length > 0 && !Seed.ContainsKey(name))
-                    _learned.TryAdd(name, category);
+            {
+                if (category == SpellCategory.Unknown || name.Length == 0 || Seed.ContainsKey(name))
+                    continue;
+                // Quarantine, same doctrine as MezTracker's inflated durations: a store
+                // written before the guard above existed still carries its mistakes, and
+                // "Tashania is a charm" survives every restart until loading drops it.
+                // Skipped rather than rewritten — attaching a store is a read (see
+                // AppSettings.Load); the entry goes for good at the next real Learn.
+                if (IsCrowdControl(category) && !MayLearnCrowdControl(name)) continue;
+                _learned.TryAdd(name, category);
+            }
         }
         catch
         {
@@ -292,6 +301,7 @@ public sealed partial class SpellCatalog
         if (category == SpellCategory.Unknown) return false;
         var name = BaseName(spell);
         if (name.Length == 0 || Seed.ContainsKey(name) || WikiCc.Value.ContainsKey(name)) return false;
+        if (IsCrowdControl(category) && !MayLearnCrowdControl(name)) return false;
         if (_learned.TryGetValue(name, out var existing) && existing == category) return false;
         _learned[name] = category;
         SaveStore();
@@ -303,6 +313,33 @@ public sealed partial class SpellCatalog
             or SpellCategory.Lull or SpellCategory.Stun;
 
     public bool IsCrowdControl(string spell) => IsCrowdControl(Classify(spell));
+
+    /// <summary>
+    /// Whether OBSERVATION is allowed to classify this spell as crowd control.
+    ///
+    /// Daggo's report: a "CC broke" alert fired on every Tashania fade. Tashania is a
+    /// magic-resist debuff in no CC catalog — it had been learned as a charm and the
+    /// learned store made that permanent. The charm learner nominates whatever cast is in
+    /// flight when a "has been charmed." line lands, then confirms it from the caster-only
+    /// "Attacking ... Master." tell. Both halves are sound; the cast they point at need not
+    /// be. When the charm comes from something that logs no cast line, the most recent cast
+    /// is simply whatever the enchanter did last — and Tash-then-charm is the standard
+    /// opening, so the coincidence is not rare.
+    ///
+    /// The candidate path exists for charms "outside the catalog" (see the CharmedEvent
+    /// comment in SessionStats). A spell the FADE catalog already documents is not outside
+    /// it: EQBuddy knows Tashania well enough to name its fade line and file it under
+    /// Debuff. So a documented spell keeps what the data says and observation may not
+    /// overrule it. "Other" is exempt — that category is the fade catalog's own shrug, and
+    /// 32 known CC spells sit in it.
+    ///
+    /// This costs nothing on the case the learner exists for: a genuinely unlisted charm
+    /// has no fade entry, so it still learns from the tell. The residual gap is a real
+    /// charm that is absent from both CC catalogs yet documented in the fade catalog under
+    /// something other than "Other" — it would stay Unknown until the catalogs list it.
+    /// </summary>
+    public static bool MayLearnCrowdControl(string spell) =>
+        FadeMessageCatalog.Default.FindBySpell(spell) is not { } fade || fade.Category == "Other";
 
     /// <summary>Human-readable category name for UI and watch-rule labels.</summary>
     public static string Describe(SpellCategory category) => category switch

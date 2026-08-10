@@ -1,5 +1,14 @@
 [
  {
+  "version": "1.47.1",
+  "date": "2026-08-09",
+  "highlights": [
+   "FIX: a \"CC broke\" alert fired every time the Tashania magic-resist debuff wore off. Tashania is not crowd control and is in no CC catalog — EQBuddy had LEARNED it as a charm, and the learned store made that permanent. The charm learner nominates whatever spell is in flight when a \"has been charmed.\" line arrives, then confirms it from the \"Attacking … Master.\" tell; both halves are sound, but the cast they point at need not be. When the charm comes from something that logs no cast line, the most recent cast is just whatever you did last — and Tash-then-charm is the standard enchanter opening, so the coincidence is not rare.",
+   "A spell the fade catalog already documents can no longer be reclassified as crowd control by observation: EQBuddy knows Tashania well enough to name its fade line and file it under Debuff, so that data wins over one coincidence. Genuinely unlisted charms have no fade entry and still learn from the tell, exactly as before.",
+   "Stores already poisoned heal on load, the same way inflated mez durations do — the fix has to reach the data the bug wrote, not just stop writing more. Two entries cleared on this machine: Tashania and Fixation of Ro, both magic-resist debuffs, both silently firing CC alerts."
+  ]
+ },
+ {
   "version": "1.47.0",
   "date": "2026-08-09",
   "highlights": [

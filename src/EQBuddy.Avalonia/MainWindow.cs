@@ -242,8 +242,16 @@ public sealed class MainWindow : Window
         if (_settings.LogFolder is { } saved && !Directory.Exists(saved))
             _settings.LogFolder = null;
         _settings.LogFolder ??= LogWatcher.FindDefaultLogFolder();
+        // Chips stopped following the widget's scale in this build. Adopt UiScale as the
+        // chip scale once, so the change is invisible until the user moves the new slider
+        // rather than shrinking every chip on a machine that was set up years ago. Runs
+        // here, never in AppSettings.Load(), which stays a pure read.
+        if (_settings.AdoptUiScaleAsChipScale())
+            _settings.Save();
+
         RestorePosition();
         ApplyUiScale(_settings.UiScale);
+        ApplyChipScale(_settings.ChipScale);
         ApplyBackgroundOpacity(_settings.BackgroundOpacity);
         UpdateStarVisuals();
         ApplySectionLayout();
@@ -396,6 +404,15 @@ public sealed class MainWindow : Window
     {
         _settings.TruncateLogs = enabled;
         _settings.Save();
+    }
+
+    public double ChipScale => _settings.ChipScale;
+
+    public void SetChipScale(double scale)
+    {
+        _settings.ChipScale = Math.Clamp(scale, 0.5, 2.0);
+        ApplyChipScale(_settings.ChipScale);
+        PersistSettings();
     }
 
     public void SetUiScale(double scale)
@@ -871,10 +888,17 @@ public sealed class MainWindow : Window
         UpdateWindowHeightLimit();
         _scaleRoot.InvalidateMeasure();
         InvalidateMeasure();
-        // The chicklet stacks are the same widget by another name — they scale with it.
+    }
+
+    /// <summary>Chips carry their own scale. They used to follow UiScale, which meant the
+    /// only way to enlarge an unreadable chip was to enlarge the whole widget - no help to
+    /// anyone whose widget is already the size they want it.</summary>
+    private void ApplyChipScale(double scale)
+    {
         _mezWindow?.ApplyScale(scale);
         _hotWindow?.ApplyScale(scale);
         _chipsWindow?.ApplyScale(scale);
+        _alertWindow?.ApplyScale(scale);
     }
 
     private void UpdateWindowHeightLimit()
@@ -971,7 +995,7 @@ public sealed class MainWindow : Window
     /// base type beyond Window, hence the two delegates rather than an interface.</summary>
     private void ShowStack(Window stack, Action<double> applyScale, Action<bool> applyClickThrough)
     {
-        applyScale(_settings.UiScale);
+        applyScale(_settings.ChipScale);
         stack.Show(this);
         // After Show: the X11 handle these need doesn't exist until the window is up.
         if (_clickThrough) applyClickThrough(true);
@@ -1364,7 +1388,18 @@ public sealed class MainWindow : Window
     private string? _alertBaselinePath;
 
     /// <summary>The floating alert tile, created on first use and owned by the widget.</summary>
-    internal AlertWindow AlertTile => _alertWindow ??= new AlertWindow(_settings, this);
+    internal AlertWindow AlertTile
+    {
+        get
+        {
+            if (_alertWindow is null)
+            {
+                _alertWindow = new AlertWindow(_settings, this);
+                _alertWindow.ApplyScale(_settings.ChipScale);
+            }
+            return _alertWindow;
+        }
+    }
 
     private void RenderTracked(StatsSnapshot s,
         IReadOnlyDictionary<string, DateTime>? dueOverride = null)

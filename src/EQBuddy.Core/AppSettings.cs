@@ -367,6 +367,31 @@ public sealed class AppSettings
         return true;
     }
 
+    /// <summary>Set once <see cref="ChipScale"/> starts governing the chip windows.
+    ///
+    /// Without it, giving chips their own scale would be a silent resize for every existing
+    /// Linux user: the Avalonia app pushed <see cref="UiScale"/> into the chip windows and
+    /// never read ChipScale, so the stored 1.0 was meaningless right up until it wasn't.
+    /// </summary>
+    public bool ChipScaleFromUiScaleMigrated { get; set; }
+
+    /// <summary>Copies the widget scale into the chip scale exactly once, so chips stay the
+    /// size they already are when they stop following the widget.
+    ///
+    /// Clamped to the range the Options slider offers, or the adopted value could not be
+    /// round-tripped through the UI. Always returns true the first time so the flag itself
+    /// gets persisted; otherwise the pass reruns at every launch and overwrites a chip size
+    /// the user has since chosen - the same trap UnbindLegacyHotkeyDefaults documents.
+    ///
+    /// Never call this from Load. Load is a pure read.</summary>
+    public bool AdoptUiScaleAsChipScale()
+    {
+        if (ChipScaleFromUiScaleMigrated) return false;
+        ChipScaleFromUiScaleMigrated = true;
+        ChipScale = Math.Clamp(UiScale, 0.5, 2.0);
+        return true;
+    }
+
     /// <summary>
     /// One-time unbind of the hotkey combinations EQBuddy used to ship bound out of the
     /// box. Changing the property defaults protects new installs only — every existing

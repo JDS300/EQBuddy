@@ -16,9 +16,13 @@ public sealed class OptionsWindow : Window
 {
     private readonly MainWindow _main;
     private readonly TextBlock _scaleLabel = LabelValue();
+    private readonly TextBlock _chipScaleLabel = LabelValue();
     private readonly TextBlock _bgOpacityLabel = LabelValue();
     private readonly TextBlock _opacityLabel = LabelValue();
     private readonly Slider _scaleSlider = Slider(0.8, 1.6, 0.05);
+    // Wider than the widget slider on purpose: the migration adopts UiScale, whose own
+    // clamp is 0.5-2.0, and a value the slider cannot represent could not be edited back.
+    private readonly Slider _chipScaleSlider = Slider(0.5, 2.0, 0.05);
     private readonly Slider _bgOpacitySlider = Slider(0.15, 1.0, 0.05);
     private readonly Slider _opacitySlider = Slider(0.5, 1.0, 0.02);
     private readonly Slider _alertVolumeSlider = Slider(0.1, 1.0, 0.05);
@@ -105,6 +109,8 @@ public sealed class OptionsWindow : Window
         _bgOpacitySlider.Value = main.BackgroundOpacityValue;
         _alertVolumeSlider.Value = Math.Clamp(main.Settings.AlertVolume, 0.1, 1.0);
         Subscribe(_scaleSlider, () => _main.SetUiScale(_scaleSlider.Value));
+        _chipScaleSlider.Value = main.ChipScale;
+        Subscribe(_chipScaleSlider, () => _main.SetChipScale(_chipScaleSlider.Value));
         Subscribe(_bgOpacitySlider, () => _main.SetBackgroundOpacity(_bgOpacitySlider.Value));
         Subscribe(_opacitySlider, () => _main.SetWindowOpacity(_opacitySlider.Value));
         Subscribe(_alertVolumeSlider, () =>
@@ -290,6 +296,8 @@ public sealed class OptionsWindow : Window
         panel.Children.Add(_customColorsPanel);
 
         AddSlider(panel, "Widget size", _scaleLabel, _scaleSlider);
+        AddSlider(panel, "Chip size", _chipScaleLabel, _chipScaleSlider,
+            "Hot, mez, spawn and alert chips. Watch chips follow Widget size.");
         AddSlider(panel, "Background see-through", _bgOpacityLabel, _bgOpacitySlider,
             "Only the dark panel fades; text stays sharp.");
         AddSlider(panel, "Whole-widget opacity", _opacityLabel, _opacitySlider,
@@ -1001,6 +1009,7 @@ public sealed class OptionsWindow : Window
     private void UpdateLabels()
     {
         _scaleLabel.Text = $"{_scaleSlider.Value:P0}";
+        _chipScaleLabel.Text = $"{_chipScaleSlider.Value:P0}";
         _opacityLabel.Text = $"{_opacitySlider.Value:P0}";
         _bgOpacityLabel.Text = $"{_bgOpacitySlider.Value:P0}";
     }

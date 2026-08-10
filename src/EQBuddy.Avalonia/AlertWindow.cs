@@ -16,6 +16,7 @@ public sealed class AlertWindow : Window
     private readonly AppSettings _settings;
     private readonly MainWindow _owner;
     private readonly TextBlock _alertText;
+    private readonly LayoutTransformControl _scaleRoot = new();
     private readonly DispatcherTimer _hide;
     private bool _placement;
 
@@ -40,7 +41,7 @@ public sealed class AlertWindow : Window
             Foreground = AppTheme.AccentBrush,
             TextWrapping = TextWrapping.Wrap,
         };
-        Content = new Border
+        _scaleRoot.Child = new Border
         {
             Background = AppTheme.BgBrush,
             BorderBrush = AppTheme.AccentBrush,
@@ -50,6 +51,7 @@ public sealed class AlertWindow : Window
             MaxWidth = 380,
             Child = _alertText,
         };
+        Content = _scaleRoot;
 
         _hide = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
         _hide.Tick += (_, _) =>
@@ -63,6 +65,19 @@ public sealed class AlertWindow : Window
 
     /// <summary>Optionally tinted per rule (Chaosrah's color-coded alerts, 2026-08-06);
     /// null/empty keeps the theme accent, applied per call so tints never stick.</summary>
+    /// <summary>Matches the chip windows' LayoutTransformControl idiom exactly, so
+    /// SizeToContent re-measures and the tile grows to fit rather than clipping.
+    ///
+    /// The tile is built lazily on first alert, which is often long after the chip-size
+    /// slider last moved - MainWindow therefore applies the current scale at construction,
+    /// not only when the slider changes.</summary>
+    public void ApplyScale(double scale)
+    {
+        _scaleRoot.LayoutTransform = Math.Abs(scale - 1.0) < 0.001 ? null : new ScaleTransform(scale, scale);
+        _scaleRoot.InvalidateMeasure();
+        InvalidateMeasure();
+    }
+
     public void ShowAlert(string text, string? colorHex = null)
     {
         _alertText.Text = text;

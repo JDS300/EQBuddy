@@ -10,6 +10,7 @@ namespace EQBuddy.Tests;
 /// time, so the new setting starts life at whatever the tile is currently rendering: the
 /// chip scale.
 /// </summary>
+[Collection("profile-env")]
 public class AlertScaleMigrationTests
 {
     [Fact]

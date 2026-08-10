@@ -13,6 +13,7 @@ namespace EQBuddy.Tests;
 /// settings.json. This pass clears those, and only those: a combination the user picked
 /// themselves is a decision, not a leftover.
 /// </summary>
+[Collection("profile-env")]
 public class HotkeyUnbindMigrationTests
 {
     [Fact]

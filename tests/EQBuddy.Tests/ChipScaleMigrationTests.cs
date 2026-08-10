@@ -13,6 +13,7 @@ namespace EQBuddy.Tests;
 /// enlarged widget would watch their chips shrink on upgrade. Copying UiScale across once
 /// makes the change invisible until the user moves the new slider.
 /// </summary>
+[Collection("profile-env")]
 public class ChipScaleMigrationTests
 {
     [Fact]

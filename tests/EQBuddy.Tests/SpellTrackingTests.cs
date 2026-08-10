@@ -9,6 +9,7 @@ namespace EQBuddy.Tests;
 /// (eqlog_Douglas_qeynos, 2026-07-20) — both the success path and the interrupted cast
 /// that must NOT produce a pet.
 /// </summary>
+[Collection("profile-env")]
 public class SpellTrackingTests
 {
     private const string Ts = "[Sat Jul 18 15:39:13 2026] ";

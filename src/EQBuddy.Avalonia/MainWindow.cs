@@ -147,6 +147,9 @@ public sealed class MainWindow : Window
     private bool _clickThrough;
     private X11HotkeyService? _hotkeys;
     private HistoryWindow? _historyWindow;
+    private UiBackupWindow? _uiBackupWindow;
+    private readonly UiBackupService _uiBackups;
+    private DateTime _lastUiBackupTick = DateTime.MinValue;
     private OptionsWindow? _optionsWindow;
     private ClickThroughChip? _unlockChip;
     private AlertWindow? _alertWindow;
@@ -179,6 +182,12 @@ public sealed class MainWindow : Window
         _stats.AaStore = new AaLedgerStore(AppPaths.File("aa-ledger.json"));
         _mezTracker.AttachStore(AppPaths.File("mez-durations.json"));
         _watcher = new LogWatcher(_stats);
+        // Quiet period of 15s: EverQuest writes these files in one go on exit, so anything
+        // still moving after that long is a patcher or an editor, not a save worth catching.
+        _uiBackups = new UiBackupService(
+            new UiBackupStore(AppPaths.File("ui-backups")),
+            () => UiBackupSet.RootFromLogFolder(_settings.LogFolder),
+            TimeSpan.FromSeconds(15));
         // All three trackers are hung off the watcher for the same reason AttachSpellStore
         // runs above: Select() replays the whole log, and everything any tracker derives keys
         // off log timestamps, so the replay reconstructs them exactly. Wire them after the
@@ -302,7 +311,7 @@ public sealed class MainWindow : Window
             _settings.Save();
 
         _uiTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        _uiTimer.Tick += (_, _) => RefreshUi();
+        _uiTimer.Tick += (_, _) => { RefreshUi(); TickUiBackups(); };
         _uiTimer.Start();
         Loaded += (_, _) =>
         {
@@ -823,6 +832,47 @@ public sealed class MainWindow : Window
         return link;
     }
 
+    private void ShowUiBackupWindow()
+    {
+        if (_uiBackupWindow is null)
+        {
+            _uiBackupWindow = new UiBackupWindow(
+                _uiBackups,
+                () => UiBackupSet.RootFromLogFolder(_settings.LogFolder),
+                EverQuestIsRunning);
+            _uiBackupWindow.Closed += (_, _) => _uiBackupWindow = null;
+            _uiBackupWindow.Show(this);
+        }
+        else
+        {
+            _uiBackupWindow.Activate();
+        }
+    }
+
+    /// <summary>Whether the game is live, decided from the log we are already tailing.
+    ///
+    /// EverQuest holds the UI in memory and rewrites the ini files when it exits, so a
+    /// restore under a running client is silently undone. A growing log is a far more
+    /// reliable signal than a process name, which under Wine is whatever the launcher felt
+    /// like calling it.</summary>
+    private bool EverQuestIsRunning()
+    {
+        if (_watcher.CurrentPath is not { } path || !File.Exists(path)) return false;
+        return DateTime.UtcNow - File.GetLastWriteTimeUtc(path) < TimeSpan.FromSeconds(30);
+    }
+
+    /// <summary>Called from the one-second UI tick; does real work at most once a minute.
+    /// Hashing four files under 100 KB is nothing, but neither is it worth doing 60 times
+    /// for every one time it could matter.</summary>
+    private void TickUiBackups()
+    {
+        var now = DateTime.UtcNow;
+        if (now - _lastUiBackupTick < TimeSpan.FromMinutes(1)) return;
+        _lastUiBackupTick = now;
+        try { _uiBackups.Tick(now); }
+        catch (Exception ex) { App.LogError($"UI backup failed: {ex.Message}"); }
+    }
+
     private ContextMenu BuildContextMenu()
     {
         var menu = new ContextMenu();
@@ -843,6 +893,8 @@ public sealed class MainWindow : Window
         marker.Click += (_, _) => DropCampMarker();
         var history = new MenuItem { Header = "Session history..." };
         history.Click += OnHistory;
+        var backups = new MenuItem { Header = "UI backups..." };
+        backups.Click += (_, _) => ShowUiBackupWindow();
         var spawns = new MenuItem { Header = "Spawn timers..." };
         spawns.Click += (_, _) => ShowSpawnsWindow();
         _trackSpawnsItem.ToggleType = MenuItemToggleType.CheckBox;
@@ -876,6 +928,7 @@ public sealed class MainWindow : Window
         menu.Items.Add(tutorial);
         menu.Items.Add(marker);
         menu.Items.Add(history);
+        menu.Items.Add(backups);
         menu.Items.Add(spawns);
         menu.Items.Add(_trackSpawnsItem);
         menu.Items.Add(_clickThroughItem);

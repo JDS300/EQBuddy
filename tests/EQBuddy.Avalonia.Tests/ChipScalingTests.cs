@@ -74,45 +74,49 @@ public class ChipScalingTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void TheAlertTileScalesWithTheChips()
+    public void TheAlertTileHasItsOwnSizeSeparateFromTheChips()
     {
         var main = new MainWindow();
         main.Show();
 
-        main.SetChipScale(1.5);
+        main.SetAlertScale(1.75);
+        main.SetChipScale(1.0);          // moving the chips must not move the tile
 
-        Assert.Equal(1.5, ScaleOf(main.AlertTile), 3);
-        main.Close();
-    }
-
-    /// <summary>The tile is built lazily on first alert, which can be long after the slider
-    /// moved. Constructing it at the wrong size is the obvious way to get this wrong.</summary>
-    [AvaloniaFact]
-    public void AnAlertTileBuiltAfterTheSliderMovedStillComesUpScaled()
-    {
-        var main = new MainWindow();
-        main.Show();
-
-        main.SetChipScale(1.75);   // before the tile has ever been touched
-
+        Assert.Equal(1.75, main.AlertScale, 3);
         Assert.Equal(1.75, ScaleOf(main.AlertTile), 3);
         main.Close();
     }
 
     [AvaloniaFact]
-    public void OptionsOffersAChipSizeSliderCoveringTheWidgetsRange()
+    public void AnAlertTileBuiltAfterItsOwnSliderMovedComesUpScaled()
     {
         var main = new MainWindow();
         main.Show();
+
+        main.SetAlertScale(0.75);
+
+        Assert.Equal(0.75, ScaleOf(main.AlertTile), 3);
+        main.Close();
+    }
+
+    [AvaloniaFact]
+    public void OptionsOffersSeparateChipAndAlertSliders()
+    {
+        var main = new MainWindow();
+        main.Show();
+        main.SetChipScale(1.2);
+        main.SetAlertScale(0.9);
         var options = new OptionsWindow(main);
         options.Show();
 
-        var slider = options.GetVisualDescendants().OfType<Slider>()
-            .Single(s => Math.Abs(s.Minimum - 0.5) < 0.001 && Math.Abs(s.Maximum - 2.0) < 0.001);
+        var wide = options.GetVisualDescendants().OfType<Slider>()
+            .Where(s => Math.Abs(s.Minimum - 0.5) < 0.001 && Math.Abs(s.Maximum - 2.0) < 0.001)
+            .ToList();
 
-        slider.Value = 1.6;
+        Assert.Equal(2, wide.Count);
+        Assert.Contains(wide, s => Math.Abs(s.Value - 1.2) < 0.001);
+        Assert.Contains(wide, s => Math.Abs(s.Value - 0.9) < 0.001);
 
-        Assert.Equal(1.6, main.ChipScale, 3);
         options.Close();
         main.Close();
     }

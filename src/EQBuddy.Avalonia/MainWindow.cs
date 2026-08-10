@@ -248,6 +248,9 @@ public sealed class MainWindow : Window
         // here, never in AppSettings.Load(), which stays a pure read.
         if (_settings.AdoptUiScaleAsChipScale())
             _settings.Save();
+        // ...and the tile keeps whatever size the chip scale was just giving it.
+        if (_settings.AdoptChipScaleAsAlertScale())
+            _settings.Save();
 
         RestorePosition();
         ApplyUiScale(_settings.UiScale);
@@ -407,6 +410,15 @@ public sealed class MainWindow : Window
     }
 
     public double ChipScale => _settings.ChipScale;
+
+    public double AlertScale => _settings.AlertScale;
+
+    public void SetAlertScale(double scale)
+    {
+        _settings.AlertScale = Math.Clamp(scale, 0.5, 2.0);
+        _alertWindow?.ApplyScale(_settings.AlertScale);
+        PersistSettings();
+    }
 
     public void SetChipScale(double scale)
     {
@@ -898,7 +910,6 @@ public sealed class MainWindow : Window
         _mezWindow?.ApplyScale(scale);
         _hotWindow?.ApplyScale(scale);
         _chipsWindow?.ApplyScale(scale);
-        _alertWindow?.ApplyScale(scale);
     }
 
     private void UpdateWindowHeightLimit()
@@ -1395,7 +1406,7 @@ public sealed class MainWindow : Window
             if (_alertWindow is null)
             {
                 _alertWindow = new AlertWindow(_settings, this);
-                _alertWindow.ApplyScale(_settings.ChipScale);
+                _alertWindow.ApplyScale(_settings.AlertScale);
             }
             return _alertWindow;
         }

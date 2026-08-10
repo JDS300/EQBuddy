@@ -367,6 +367,28 @@ public sealed class AppSettings
         return true;
     }
 
+    /// <summary>Size of the floating alert tile, independent of the chip stacks.
+    ///
+    /// The tile shows one line at a time and is read from across the screen mid-pull, so it
+    /// wants a different size from a dense chip stack you study up close.</summary>
+    public double AlertScale { get; set; } = 1.0;
+
+    /// <summary>Set once <see cref="AlertScale"/> starts governing the alert tile.</summary>
+    public bool AlertScaleFromChipScaleMigrated { get; set; }
+
+    /// <summary>Copies the chip scale into the alert scale exactly once, so the tile keeps the
+    /// size it is already rendering at when it leaves the chip family.
+    ///
+    /// The tile had just JOINED that family, which resized it once for anyone above 100%.
+    /// Resizing it a second time in consecutive builds would be its own small betrayal.</summary>
+    public bool AdoptChipScaleAsAlertScale()
+    {
+        if (AlertScaleFromChipScaleMigrated) return false;
+        AlertScaleFromChipScaleMigrated = true;
+        AlertScale = Math.Clamp(ChipScale, 0.5, 2.0);
+        return true;
+    }
+
     /// <summary>Set once <see cref="ChipScale"/> starts governing the chip windows.
     ///
     /// Without it, giving chips their own scale would be a silent resize for every existing

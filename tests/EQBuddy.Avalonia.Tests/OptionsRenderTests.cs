@@ -432,6 +432,11 @@ public class OptionsRenderTests : IDisposable
             $"match cell ends at {cellRight}px, past the P toggle at {pinToggle.Bounds.Left}px");
 
         // The symptom itself: a click in the middle of the box has to reach the box.
+        // Scroll it into view first: the Appearance tab keeps growing (chip and alert size
+        // sliders, 2026-08-10), and a control parked below the viewport hit-tests as nothing
+        // for reasons that have nothing to do with the cell geometry under test.
+        matchBox.BringIntoView();
+        options.CaptureRenderedFrame();
         var centre = matchBox.TranslatePoint(
             new Point(matchBox.Bounds.Width / 2, matchBox.Bounds.Height / 2), options)!.Value;
         var hit = options.InputHitTest(centre);

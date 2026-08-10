@@ -209,6 +209,9 @@ public sealed class SessionStats
         public string Zone = "";
         public long CoinMin = -1, CoinMax;
         public readonly Dictionary<string, (int Hits, int Delta)> Factions = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Level bounds from /consider lines (#65: the wiki pack's level
+        /// field). 0 min = never conned; each distinct conned level widens the range.</summary>
+        public int LevelMin, LevelMax;
     }
     private static readonly TimeSpan EncounterTimeout = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan RewardWindow = TimeSpan.FromSeconds(3);
@@ -702,6 +705,15 @@ public sealed class SessionStats
                     // without a swing landed — it competes with recent fights for the
                     // target-drops surfaces (David, 2026-08-06).
                     _lastConsider = (con.Name, con.Time);
+                    // And the con LINE names a level — the one place the log ever does.
+                    // Bounds, not last-seen: same-named spawns roam a range (#65).
+                    if (con.Level > 0)
+                    {
+                        var conAgg = Mob(con.Name);
+                        conAgg.LevelMin = conAgg.LevelMin == 0
+                            ? con.Level : Math.Min(conAgg.LevelMin, con.Level);
+                        conAgg.LevelMax = Math.Max(conAgg.LevelMax, con.Level);
+                    }
                     break;
                 case RegenTickEvent:
                     _regenTicks++;
@@ -1594,6 +1606,8 @@ public sealed class SessionStats
                             .Select(f => new MobFactionHit(f.Key, f.Value.Delta, f.Value.Hits))
                             .OrderBy(f => f.Faction)
                             .ToList(),
+                        LevelMin = kv.Value.LevelMin,
+                        LevelMax = kv.Value.LevelMax,
                     })
                     .ToList(),
                 AreaSpells = BuildAreaSpells(),

@@ -1,5 +1,38 @@
 [
  {
+  "version": "1.50.1",
+  "date": "2026-08-10",
+  "highlights": [
+   "FIXED: stacked corpse loot counted as zero (#80, Snagglefern's bone-chip census — 100 chips, 25 counted). \"--You have looted 2 Bone Chips--\" never matched the loot parser, which only knew \"a/an\"; every multi-pickup vanished entirely rather than counting as one. Stacks now count in the Loot card, Drops by Creature, drop rates, and the ✦ wiki pack. If your favorite farm suddenly looks twice as generous — it always was."
+  ]
+ },
+ {
+  "version": "1.50.0",
+  "date": "2026-08-10",
+  "highlights": [
+   "Archive review grew a SESSION PICKER (Snagglefern's follow-up, #74): reviewing a log that holds several sessions — the pre-splitter giants — now asks which one, newest first, with dates and durations. The chosen session replays alone: its drops, its zone, its wiki pack, nothing bleeding in from the sessions around it. Files made by the log splitter are one session each and skip the question entirely. A 10 MB archive is finally days of reviewable evenings instead of whichever session happened to be last."
+  ]
+ },
+ {
+  "version": "1.49.0",
+  "date": "2026-08-09",
+  "highlights": [
+   "⏪ Review any archived log (Snagglefern's ask, #74 — they kept every log precisely to mine drops for the wiki): right-click → \"Review an archived log…\", pick a file, and EQBuddy replays it read-only. The title bar turns amber while you're in the past; one click on it returns to the live log. Drops by Creature and ✦ Copy for wiki work against the reviewed session, nothing double-writes to Session History, and your live character is re-followed the moment you're back. (A multi-session file shows its LAST session — archives made by the splitter are one session each, which is the point of the splitter.)",
+   "Linux: click-through gets its way BACK. The trigger was never missing in this fork — it has been a checkbox in the right-click menu since 1.42.1 — but the way out was: an empty X11 input shape means the menu can't be reached through the widget either, and this fork ships every global hotkey unbound, so on a default install turning click-through on was a one-way trip until you edited settings.json. Upstream's amber 🔒 unlock chip (issue #7) fixes exactly that and is merged here: it parks beside the widget as an ordinary clickable window, and one click restores interaction. The tooltip now names the chip instead of the unreachable menu, and mentions your hotkey only if you actually bound one. Click-through still engages only when X11 grants it — Wayland gets an honest log line rather than a lying checkbox — and the chip stacks still go click-through with the widget, which is this fork's behaviour, not upstream's."
+  ]
+ },
+ {
+  "version": "1.48.0",
+  "date": "2026-08-09",
+  "highlights": [
+   "↕ Drag the widget's BOTTOM EDGE to make it taller or shorter — text size stays put (that's still the corner grip's job). A Reddit ask from a player who scaled up for readability and got a scrollbar for their trouble: now you choose how much room the widget takes. Double-click the edge to go back to fit-the-screen, and your choice survives restarts and scale changes.",
+   "The Sky Quest card scrolls (dandrews2930's third same-day PR, #78 — fixing hstahl76's report #77 within the hour): each class tab caps its height and scrolls, so 16 quests no longer shove the card past your screen.",
+   "Kobold Molars count now (#79 — Frankthetankk's diagnosis was right): the quest parser only understood \"give/hand/turn in\" grammar, but repeatable turn-in loops say \"each [[Kobold Molar]] that is TURNED IN\" or \"a chance to DROP a\" — both Molars quests now track their molar and flag ready when you hold one. The wider grammar enriched 123 quests' turn-in lists, every addition still vouched for by the wiki's own Quest Items category.",
+   "Your /consider lines now feed the wiki pack (#65): each con names a level — the only place the log ever does — so the observed stat block and page skeleton carry a per-creature level range. Con a spawn once to seed it; con the ones that feel different to widen the honest range.",
+   "Click the version line in the right-click menu to open EQBuddy's page (TropicMike's ask, #76) — the share-with-a-guildmate link is finally one click away."
+  ]
+ },
+ {
   "version": "1.47.1",
   "date": "2026-08-09",
   "highlights": [

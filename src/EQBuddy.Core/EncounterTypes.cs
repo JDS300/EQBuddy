@@ -136,6 +136,10 @@ public sealed record MobSummary(
     public long CoinMin { get; init; } = -1;
     public long CoinMax { get; init; }
     public List<MobFactionHit> Factions { get; init; } = [];
+    /// <summary>Level bounds from /consider lines (#65); 0 min = never conned.
+    /// Sessions archived before this existed deserialize as unknown, same as above.</summary>
+    public int LevelMin { get; init; }
+    public int LevelMax { get; init; }
 }
 
 /// <summary>Combat time and damage while a stance was active (STANCE-*).</summary>

@@ -230,7 +230,12 @@
   "questGiver": "Beur Tenlah",
   "minLevel": 1,
   "classes": "Warrior, Ranger, Bard, Rogue",
-  "items": [],
+  "items": [
+   {
+    "name": "Dwarven Ale",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Used Merchants Gloves"
   ],
@@ -360,6 +365,10 @@
   "minLevel": 30,
   "classes": "Paladin",
   "items": [
+   {
+    "name": "A Bar of Ronium",
+    "qty": 1
+   },
    {
     "name": "A Dark Cauldron",
     "qty": 1
@@ -741,7 +750,12 @@
   "questGiver": "Azzar Habbib",
   "minLevel": 20,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Azzar's Dreadful Hat",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Black Lace Sash"
   ],
@@ -1054,6 +1068,62 @@
   "classes": "Bard",
   "items": [
    {
+    "name": "Ancient Tarnished Breastplate",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Greaves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Plate Boots",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Plate Bracelet",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Plate Gauntlets",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Plate Helmet",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Vambraces",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Black Marble",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Coral",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Sea Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Flawless Diamond",
+    "qty": 1
+   },
+   {
     "name": "Troubadour's Boots",
     "qty": 1
    },
@@ -1277,11 +1347,27 @@
   "classes": "Bard",
   "items": [
    {
+    "name": "Corroded Plate Boots",
+    "qty": 1
+   },
+   {
     "name": "Corroded Plate Bracer",
     "qty": 1
    },
    {
+    "name": "Corroded Plate Gauntlets",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Black Marble",
+    "qty": 1
+   },
+   {
     "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
     "qty": 1
    },
    {
@@ -1334,7 +1420,19 @@
   "classes": "Bard, Cleric, Paladin, Ranger, Shadow Knight, Shaman, Warrior",
   "items": [
    {
+    "name": "Baby Shark Remains",
+    "qty": 1
+   },
+   {
     "name": "Bag of Shark Remains",
+    "qty": 1
+   },
+   {
+    "name": "Empty Shark Bag",
+    "qty": 1
+   },
+   {
+    "name": "Heretic Shark Skin",
     "qty": 1
    }
   ],
@@ -1801,7 +1899,16 @@
   "questGiver": "Shrub Marwood",
   "minLevel": 35,
   "classes": "Druid",
-  "items": [],
+  "items": [
+   {
+    "name": "Pouch of Dust",
+    "qty": 1
+   },
+   {
+    "name": "Tsu Shaman Powder",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Beguile Plants"
   ],
@@ -1825,7 +1932,12 @@
   "questGiver": "Jemoz Lerkarson",
   "minLevel": 0,
   "classes": "Cleric",
-  "items": [],
+  "items": [
+   {
+    "name": "Human Head",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Faction"
   ],
@@ -1926,7 +2038,12 @@
   "questGiver": "Larsk Juton",
   "minLevel": 12,
   "classes": "Druid, Ranger",
-  "items": [],
+  "items": [
+   {
+    "name": "Blackburrow Cask",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Cloak of Jaggedpine"
   ],
@@ -1947,7 +2064,12 @@
   "questGiver": "Commander Kane",
   "minLevel": 0,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Bayle List I",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Bayle List I"
   ],
@@ -1993,7 +2115,12 @@
   "questGiver": "McNeal Jocub",
   "minLevel": 1,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Case of Blackburrow Stout",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Black Burrow Stout"
   ],
@@ -2636,7 +2763,12 @@
   "questGiver": "",
   "minLevel": 0,
   "classes": "",
-  "items": [],
+  "items": [
+   {
+    "name": "Bag of Bread Loaves",
+    "qty": 1
+   }
+  ],
   "rewards": [],
   "categories": [],
   "relatedZones": [],
@@ -2868,7 +3000,12 @@
   "questGiver": "Chief Kalan",
   "minLevel": 50,
   "classes": "Ranger, Shadow Knight, Shaman, Warrior",
-  "items": [],
+  "items": [
+   {
+    "name": "Bulthar Trunk",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Black Sapphire",
    "Blue Diamond",
@@ -3401,7 +3538,12 @@
   "questGiver": "Aderius Rhenar",
   "minLevel": 1,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Rolled Up Strip of Cloth",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Faction"
   ],
@@ -3511,7 +3653,24 @@
   "questGiver": "Chesgard Sydwen",
   "minLevel": 5,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Chrono Cyclone",
+    "qty": 1
+   },
+   {
+    "name": "Diamond Vale",
+    "qty": 1
+   },
+   {
+    "name": "Ebon Lotus (Item)",
+    "qty": 1
+   },
+   {
+    "name": "Library of Erudin",
+    "qty": 1
+   }
+  ],
   "rewards": [],
   "categories": [
    "All Classes Quests",
@@ -4163,6 +4322,10 @@
   "classes": "Cleric",
   "items": [
    {
+    "name": "Black Marble",
+    "qty": 1
+   },
+   {
     "name": "Boots of Forbidden Rites",
     "qty": 1
    },
@@ -4175,7 +4338,51 @@
     "qty": 1
    },
    {
+    "name": "Corroded Breastplate",
+    "qty": 1
+   },
+   {
+    "name": "Corroded Plate Boots",
+    "qty": 1
+   },
+   {
+    "name": "Corroded Plate Bracer",
+    "qty": 1
+   },
+   {
+    "name": "Corroded Plate Gauntlets",
+    "qty": 1
+   },
+   {
+    "name": "Corroded Plate Greaves",
+    "qty": 1
+   },
+   {
+    "name": "Corroded Plate Helmet",
+    "qty": 1
+   },
+   {
+    "name": "Corroded Plate Vambraces",
+    "qty": 1
+   },
+   {
     "name": "Crown of Forbidden Rites",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Lava Ruby",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Onyx Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Opal",
     "qty": 1
    },
    {
@@ -4184,6 +4391,10 @@
    },
    {
     "name": "Greaves of Forbidden Rites",
+    "qty": 1
+   },
+   {
+    "name": "Jaundice Gem",
     "qty": 1
    },
    {
@@ -4428,6 +4639,10 @@
    {
     "name": "Kromrif Military Leggings",
     "qty": 1
+   },
+   {
+    "name": "Velium War Wolf Choker",
+    "qty": 1
    }
   ],
   "rewards": [
@@ -4639,6 +4854,10 @@
    },
    {
     "name": "Royal Kromrif Blood",
+    "qty": 1
+   },
+   {
+    "name": "Royal Kromrif blood",
     "qty": 1
    },
    {
@@ -4903,6 +5122,10 @@
     "qty": 1
    },
    {
+    "name": "Dirk of the Traitor",
+    "qty": 1
+   },
+   {
     "name": "Dull Bladed Axe",
     "qty": 1
    },
@@ -4939,6 +5162,10 @@
     "qty": 1
    },
    {
+    "name": "Letter to Doldigun",
+    "qty": 1
+   },
+   {
     "name": "Letter to Peffin",
     "qty": 1
    },
@@ -4960,6 +5187,10 @@
    },
    {
     "name": "Obsidian Coldain Insignia Ring",
+    "qty": 1
+   },
+   {
+    "name": "Peffin's head",
     "qty": 1
    },
    {
@@ -5115,6 +5346,14 @@
   "classes": "All",
   "items": [
    {
+    "name": "Ancient Snake Fang",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Venom Sack",
+    "qty": 1
+   },
+   {
     "name": "Bloodclaw Battle Axe",
     "qty": 1
    },
@@ -5136,6 +5375,14 @@
    },
    {
     "name": "Bloodclaw Scimitar",
+    "qty": 1
+   },
+   {
+    "name": "Necromancer Blood",
+    "qty": 1
+   },
+   {
+    "name": "Venomous Spikefish Poison Sac",
     "qty": 1
    }
   ],
@@ -5164,7 +5411,12 @@
   "questGiver": "Capt Linarius",
   "minLevel": 15,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Guard Bracelet",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Bronze Bracers",
    "Bronze Long Sword",
@@ -5242,7 +5494,20 @@
   "questGiver": "",
   "minLevel": 0,
   "classes": "",
-  "items": [],
+  "items": [
+   {
+    "name": "Cougarskin Boots",
+    "qty": 1
+   },
+   {
+    "name": "Cutting Shells",
+    "qty": 1
+   },
+   {
+    "name": "Medium Quality Cougarskin",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Cutting Shells",
    "Medium Quality Cougarskin"
@@ -5261,7 +5526,16 @@
   "questGiver": "Ergrez Shortpaw",
   "minLevel": 33,
   "classes": "All except INT casters",
-  "items": [],
+  "items": [
+   {
+    "name": "High Quality Cougarskin",
+    "qty": 1
+   },
+   {
+    "name": "Mammoth Meat",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Cougarskin Mask"
   ],
@@ -5401,7 +5675,16 @@
   "questGiver": "Lord Gossimerwind",
   "minLevel": 50,
   "classes": "Ranger, Druid",
-  "items": [],
+  "items": [
+   {
+    "name": "Crest of the Faerie Dragons",
+    "qty": 1
+   },
+   {
+    "name": "Kromzek Foreman Helm",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Crest of the Faerie Dragons"
   ],
@@ -5421,7 +5704,12 @@
   "questGiver": "Shamus Aghllsews",
   "minLevel": 50,
   "classes": "Ranger, Druid",
-  "items": [],
+  "items": [
+   {
+    "name": "Crystallized Sulfur",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Crest of the Fauns"
   ],
@@ -5570,7 +5858,20 @@
   "questGiver": "Lork",
   "minLevel": 26,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "A Cracked Stein",
+    "qty": 1
+   },
+   {
+    "name": "Ogre Arm",
+    "qty": 1
+   },
+   {
+    "name": "Sealed Letter",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Crude Stein",
    "Gatorsmash Maul"
@@ -5909,6 +6210,10 @@
    },
    {
     "name": "Harness of Control",
+    "qty": 1
+   },
+   {
+    "name": "Kromrif Military Leggings",
     "qty": 1
    },
    {
@@ -6276,7 +6581,12 @@
   "questGiver": "Guard Valon",
   "minLevel": 10,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Cutthroat Insignia Ring",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Faction",
    "Militia Armory Token"
@@ -6296,7 +6606,12 @@
   "questGiver": "King Tormax",
   "minLevel": 50,
   "classes": "ALL Bard, Cleric, Druid, Enchanter, Magician, Monk, Necromancer, Paladin, Ranger, Rogue, Shadow Knight, Shaman, Warrior, Wizard",
-  "items": [],
+  "items": [
+   {
+    "name": "Dain Frostreaver's Head",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Belt of Dwarf Slaying"
   ],
@@ -6666,7 +6981,16 @@
   "questGiver": "Ergrez Shortpaw",
   "minLevel": 30,
   "classes": "Warrior, Paladin, Shadowknight, Ranger, Monk, Rogue",
-  "items": [],
+  "items": [
+   {
+    "name": "Medium Quality Dire Wolf Fur",
+    "qty": 1
+   },
+   {
+    "name": "Skinning Rock",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Direwolf Fur Cloak"
   ],
@@ -6687,7 +7011,16 @@
   "questGiver": "Ergrez Shortpaw",
   "minLevel": 30,
   "classes": "?",
-  "items": [],
+  "items": [
+   {
+    "name": "Bark Bindings",
+    "qty": 1
+   },
+   {
+    "name": "Low Quality Dire Wolf Fur",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Direwolf Fur Hood"
   ],
@@ -7218,6 +7551,58 @@
   "classes": "Druid",
   "items": [
    {
+    "name": "Ancient Leather Boots",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Leather Bracelet",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Leather Cap",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Leather Gloves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Leather Leggings",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Leather Sleeves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Leather Tunic",
+    "qty": 1
+   },
+   {
+    "name": "Black Marble",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Lava Ruby",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Onyx Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Opal",
+    "qty": 1
+   },
+   {
+    "name": "Jaundice Gem",
+    "qty": 1
+   },
+   {
     "name": "Nature Walker's Boots",
     "qty": 1
    },
@@ -7415,6 +7800,58 @@
   "minLevel": 45,
   "classes": "Druid",
   "items": [
+   {
+    "name": "Black Marble",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Lava Ruby",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Onyx Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Opal",
+    "qty": 1
+   },
+   {
+    "name": "Eroded Leather Boots",
+    "qty": 1
+   },
+   {
+    "name": "Eroded Leather Bracelet",
+    "qty": 1
+   },
+   {
+    "name": "Eroded Leather Cap",
+    "qty": 1
+   },
+   {
+    "name": "Eroded Leather Gloves",
+    "qty": 1
+   },
+   {
+    "name": "Eroded Leather Leggings",
+    "qty": 1
+   },
+   {
+    "name": "Eroded Leather Sleeves",
+    "qty": 1
+   },
+   {
+    "name": "Eroded Leather Tunic",
+    "qty": 1
+   },
+   {
+    "name": "Jaundice Gem",
+    "qty": 1
+   },
    {
     "name": "Rowyl's Boots of Nature",
     "qty": 1
@@ -7898,6 +8335,50 @@
   "classes": "Enchanter",
   "items": [
    {
+    "name": "Ancient Silk Boots",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Gloves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Pantaloons",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Robe",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Sleeves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Turban",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Wristband",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Flame Opal",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Jaundice Gem",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Onyx Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
+    "qty": 1
+   },
+   {
     "name": "Dazzling Circlet",
     "qty": 1
    },
@@ -7923,6 +8404,18 @@
    },
    {
     "name": "Dazzling Wristguard",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Nephrite",
+    "qty": 1
+   },
+   {
+    "name": "Pristine Emerald",
     "qty": 1
    }
   ],
@@ -8165,6 +8658,62 @@
    {
     "name": "Beguiler's Wristguard",
     "qty": 1
+   },
+   {
+    "name": "Crushed Flame Opal",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Jaundice Gem",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Onyx Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Nephrite",
+    "qty": 1
+   },
+   {
+    "name": "Pristine Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Boots",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Gloves",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Pantaloons",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Robe",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Sleeves",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Turban",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Wristband",
+    "qty": 1
    }
   ],
   "rewards": [],
@@ -8324,7 +8873,12 @@
   "questGiver": "Melalafen",
   "minLevel": 58,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Prismatic Dragon Scale",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Essence Blade",
    "Essence Lens",
@@ -8636,7 +9190,12 @@
   "questGiver": "Chef Dooga",
   "minLevel": 14,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "High Elf Flesh",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Faction"
   ],
@@ -8656,7 +9215,20 @@
   "questGiver": "Jondin",
   "minLevel": 8,
   "classes": "Any",
-  "items": [],
+  "items": [
+   {
+    "name": "Fern Flower",
+    "qty": 1
+   },
+   {
+    "name": "Fern Flower Pouch",
+    "qty": 1
+   },
+   {
+    "name": "Full Fern Flower Pouch",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Frogskin Shield"
   ],
@@ -8973,7 +9545,15 @@
     "qty": 1
    },
    {
+    "name": "Dragon Tooth Choker",
+    "qty": 1
+   },
+   {
     "name": "Note to Wenglawks",
+    "qty": 1
+   },
+   {
+    "name": "Spy Report",
     "qty": 1
    }
   ],
@@ -9152,7 +9732,12 @@
   "questGiver": "Captain Nedar",
   "minLevel": 1,
   "classes": "All (Iksar)",
-  "items": [],
+  "items": [
+   {
+    "name": "Froglok Tad Tongue",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Faction"
   ],
@@ -9258,7 +9843,12 @@
   "questGiver": "Henina Miller",
   "minLevel": 1,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Sack of Hay",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Faction"
   ],
@@ -9630,7 +10220,12 @@
   "questGiver": "kerran tseq",
   "minLevel": 21,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Gnome Tinkered Toy",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Kerran Toy"
   ],
@@ -9651,7 +10246,12 @@
   "questGiver": "Captain Keatar",
   "minLevel": 20,
   "classes": "War, Cle, Pal, Rng, SK, Bard, Rog, Shm",
-  "items": [],
+  "items": [
+   {
+    "name": "Goblin Bracer",
+    "qty": 1
+   }
+  ],
   "rewards": [],
   "categories": [
    "Firiona Vie"
@@ -9671,7 +10271,16 @@
   "questGiver": "Shamus Felligan",
   "minLevel": 5,
   "classes": "Shaman",
-  "items": [],
+  "items": [
+   {
+    "name": "Caster Beads",
+    "qty": 1
+   },
+   {
+    "name": "Shattered Caster Beads",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Gavel of Justice"
   ],
@@ -9692,7 +10301,12 @@
   "questGiver": "Captain Keatar",
   "minLevel": 25,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Red Headband (Kunark)",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Wooden Shield"
   ],
@@ -12039,6 +12653,10 @@
     "qty": 1
    },
    {
+    "name": "Helm of the Tracker",
+    "qty": 1
+   },
+   {
     "name": "Kallis' Head",
     "qty": 1
    }
@@ -12503,7 +13121,12 @@
   "questGiver": "Merry Snowgleam",
   "minLevel": 1,
   "classes": "??",
-  "items": [],
+  "items": [
+   {
+    "name": "Frostmas Baubles",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Gnome Shaped Cookie",
    "Holiday Gift"
@@ -12812,7 +13435,12 @@
   "questGiver": "Tara Neklene",
   "minLevel": 5,
   "classes": "?",
-  "items": [],
+  "items": [
+   {
+    "name": "Illegible Cantrip",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Elementalkin: Fire",
    "Faction"
@@ -13205,6 +13833,10 @@
     "qty": 1
    },
    {
+    "name": "Barbarian Rib",
+    "qty": 1
+   },
+   {
     "name": "Barbarian Skull",
     "qty": 1
    },
@@ -13256,6 +13888,10 @@
    },
    {
     "name": "Heart of Fire",
+    "qty": 1
+   },
+   {
+    "name": "Melatite",
     "qty": 1
    },
    {
@@ -13496,7 +14132,20 @@
   "questGiver": "Qarrgy Scallopgobbler",
   "minLevel": 50,
   "classes": "Bard, Cleric, Paladin, Ranger, Rogue, Shadow Knight, Shaman, Warrior",
-  "items": [],
+  "items": [
+   {
+    "name": "Ornately Runed Shell Necklace",
+    "qty": 1
+   },
+   {
+    "name": "Sea Dragon Scales",
+    "qty": 1
+   },
+   {
+    "name": "Sea Dragonscale Bracer",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Sea Dragonscale Bracer"
   ],
@@ -13540,7 +14189,12 @@
   "questGiver": "Dugroz",
   "minLevel": 40,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Xalgozian Fang",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Key to Charasis"
   ],
@@ -13620,7 +14274,12 @@
   "questGiver": "Zlandicar",
   "minLevel": 55,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Neb's head",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Jaled Dar's Tomb Key"
   ],
@@ -13799,7 +14458,12 @@
   "questGiver": "Royal Guard Lilkus",
   "minLevel": 6,
   "classes": "?",
-  "items": [],
+  "items": [
+   {
+    "name": "Kobold Molar",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Faction",
    "Ringmail Armor"
@@ -13820,7 +14484,12 @@
   "questGiver": "Tiam Khonsir",
   "minLevel": 6,
   "classes": "Paladin, others?",
-  "items": [],
+  "items": [
+   {
+    "name": "Kobold Molar",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Ringmail Armor"
   ],
@@ -14315,7 +14984,12 @@
   "questGiver": "Teria O`Danos",
   "minLevel": 1,
   "classes": "?",
-  "items": [],
+  "items": [
+   {
+    "name": "Lion Meat Shipment",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Lion Delight"
   ],
@@ -14516,7 +15190,12 @@
   "questGiver": "Bungre Crawcrusher",
   "minLevel": 50,
   "classes": "Bard, Cleric, Druid, Paladin, Ranger, Rogue, Shadow Knight, Shaman, Warrior",
-  "items": [],
+  "items": [
+   {
+    "name": "Section of Lodizal's Shell",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Lodizal Shell Shield"
   ],
@@ -14545,7 +15224,20 @@
   "questGiver": "None",
   "minLevel": 25,
   "classes": "All except Bard/Rogue",
-  "items": [],
+  "items": [
+   {
+    "name": "Forge Hammer of Dalnir",
+    "qty": 1
+   },
+   {
+    "name": "Rod Segment 'I'",
+    "qty": 1
+   },
+   {
+    "name": "Rod Segment 'II'",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Long Iron Rod"
   ],
@@ -14854,6 +15546,62 @@
   "classes": "Magician",
   "items": [
    {
+    "name": "Ancient Silk Boots",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Gloves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Pantaloons",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Robe",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Sleeves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Turban",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Wristband",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Flame Opal",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Jaundice Gem",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Onyx Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Nephrite",
+    "qty": 1
+   },
+   {
+    "name": "Pristine Emerald",
+    "qty": 1
+   },
+   {
     "name": "Summoner's Boots",
     "qty": 1
    },
@@ -15148,7 +15896,39 @@
     "qty": 1
    },
    {
+    "name": "Crushed Flame Opal",
+    "qty": 1
+   },
+   {
     "name": "Crushed Onyx Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Pristine Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Gloves",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Robe",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Sleeves",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Turban",
     "qty": 1
    },
    {
@@ -15825,6 +16605,10 @@
     "qty": 1
    },
    {
+    "name": "Tattered Scroll",
+    "qty": 1
+   },
+   {
     "name": "The Skull of Torture",
     "qty": 1
    }
@@ -15953,15 +16737,43 @@
     "qty": 1
    },
    {
+    "name": "Dagger of Marnek",
+    "qty": 1
+   },
+   {
+    "name": "Dareb's Skull",
+    "qty": 1
+   },
+   {
     "name": "Gnoll Pup Scalp",
     "qty": 4
+   },
+   {
+    "name": "Head of Ghanex Drah",
+    "qty": 1
+   },
+   {
+    "name": "Head of Shen",
+    "qty": 1
    },
    {
     "name": "Putrid Rib Bone",
     "qty": 3
    },
    {
+    "name": "Robe of the Lost Circle",
+    "qty": 1
+   },
+   {
+    "name": "Skull of Jhen`Tra",
+    "qty": 1
+   },
+   {
     "name": "White Headband",
+    "qty": 1
+   },
+   {
+    "name": "Zaharn's Coronet",
     "qty": 1
    }
   ],
@@ -15989,7 +16801,63 @@
   "classes": "Monk",
   "items": [
    {
+    "name": "Ancient Leather Boots",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Leather Bracelet",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Leather Cap",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Leather Gloves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Leather Leggings",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Leather Sleeves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Leather Tunic",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Black Marble",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Coral",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
+    "qty": 1
+   },
+   {
     "name": "Fist of the Golden Star",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Sea Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Flawless Diamond",
     "qty": 1
    },
    {
@@ -16039,6 +16907,30 @@
   "items": [
    {
     "name": "Brass Knuckles",
+    "qty": 1
+   },
+   {
+    "name": "Wind Rune Beza",
+    "qty": 1
+   },
+   {
+    "name": "Wind Rune Caza",
+    "qty": 1
+   },
+   {
+    "name": "Wind Rune Geza",
+    "qty": 1
+   },
+   {
+    "name": "Wind Rune Jaka",
+    "qty": 1
+   },
+   {
+    "name": "Wind Rune Lena",
+    "qty": 1
+   },
+   {
+    "name": "Wind Rune Neza",
     "qty": 1
    }
   ],
@@ -16146,6 +17038,10 @@
     "qty": 1
    },
    {
+    "name": "Robe of the Lost Circle",
+    "qty": 1
+   },
+   {
     "name": "Snake Fang",
     "qty": 1
    }
@@ -16172,6 +17068,10 @@
   "minLevel": 1,
   "classes": "Monk",
   "items": [
+   {
+    "name": "A Scarlet Stone",
+    "qty": 1
+   },
    {
     "name": "An Outlander's Head",
     "qty": 1
@@ -16209,6 +17109,10 @@
     "qty": 1
    },
    {
+    "name": "Heart of Ice",
+    "qty": 1
+   },
+   {
     "name": "Iksar Bandit Mask",
     "qty": 1
    },
@@ -16225,6 +17129,10 @@
     "qty": 1
    },
    {
+    "name": "Jade Magma",
+    "qty": 1
+   },
+   {
     "name": "Large Scorpion Pincer",
     "qty": 1
    },
@@ -16234,6 +17142,10 @@
    },
    {
     "name": "Pebble Filled Box",
+    "qty": 1
+   },
+   {
+    "name": "Petrified Redwood",
     "qty": 1
    },
    {
@@ -16266,6 +17178,10 @@
    },
    {
     "name": "Torn Sash",
+    "qty": 1
+   },
+   {
+    "name": "Unholy Coldstone",
     "qty": 1
    },
    {
@@ -16417,7 +17333,23 @@
   "classes": "Monk",
   "items": [
    {
+    "name": "Crushed Black Marble",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Coral",
+    "qty": 1
+   },
+   {
     "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Eroded Leather Boots",
     "qty": 1
    },
    {
@@ -16425,7 +17357,39 @@
     "qty": 1
    },
    {
+    "name": "Eroded Leather Cap",
+    "qty": 1
+   },
+   {
+    "name": "Eroded Leather Gloves",
+    "qty": 1
+   },
+   {
+    "name": "Eroded Leather Leggings",
+    "qty": 1
+   },
+   {
+    "name": "Eroded Leather Sleeves",
+    "qty": 1
+   },
+   {
+    "name": "Eroded Leather Tunic",
+    "qty": 1
+   },
+   {
     "name": "Fist of the Grand Master",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Sea Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Flawless Diamond",
     "qty": 1
    },
    {
@@ -16864,6 +17828,58 @@
   "classes": "Necromancer",
   "items": [
    {
+    "name": "Ancient Silk Boots",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Gloves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Pantaloons",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Robe",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Sleeves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Turban",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Wristband",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Flame Opal",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Jaundice Gem",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Onyx Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Nephrite",
+    "qty": 1
+   },
+   {
     "name": "Plague Bearer's Boots",
     "qty": 1
    },
@@ -16889,6 +17905,10 @@
    },
    {
     "name": "Plague Bearer's Wristguard",
+    "qty": 1
+   },
+   {
+    "name": "Pristine Emerald",
     "qty": 1
    }
   ],
@@ -16959,12 +17979,20 @@
     "qty": 1
    },
    {
+    "name": "Apprentice Skullcap - 1st Rank",
+    "qty": 1
+   },
+   {
     "name": "Apprentice Skullcap - 2nd Rank",
     "qty": 1
    },
    {
     "name": "Apprentice Skullcap - 3rd Rank",
     "qty": 1
+   },
+   {
+    "name": "Bone Chips",
+    "qty": 2
    },
    {
     "name": "Bone Granite Powder",
@@ -17028,6 +18056,10 @@
    },
    {
     "name": "Ripped Tapestry",
+    "qty": 1
+   },
+   {
+    "name": "Sarnak Hatchling Brain",
     "qty": 1
    },
    {
@@ -17212,6 +18244,62 @@
   "minLevel": 45,
   "classes": "Necromancer",
   "items": [
+   {
+    "name": "Crushed Flame Opal",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Jaundice Gem",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Onyx Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Nephrite",
+    "qty": 1
+   },
+   {
+    "name": "Pristine Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Boots",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Gloves",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Pantaloons",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Robe",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Sleeves",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Turban",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Wristband",
+    "qty": 1
+   },
    {
     "name": "Warlock's Boots",
     "qty": 1
@@ -17528,7 +18616,12 @@
   "questGiver": "Reebo Leafsway",
   "minLevel": 17,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Jumjum Stalk",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Anti-Poison Amulet",
    "Arrow of Contagion",
@@ -17565,6 +18658,10 @@
   "items": [
    {
     "name": "Human Scalp",
+    "qty": 1
+   },
+   {
+    "name": "Tattered Parchment",
     "qty": 1
    }
   ],
@@ -18276,6 +19373,62 @@
   "classes": "Paladin",
   "items": [
    {
+    "name": "Ancient Tarnished Breastplate",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Greaves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Plate Boots",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Plate Bracelet",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Plate Gauntlets",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Plate Helmet",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Vambraces",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Black Marble",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Coral",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Sea Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Flawless Diamond",
+    "qty": 1
+   },
+   {
     "name": "Shining Boots",
     "qty": 1
    },
@@ -18472,11 +19625,27 @@
   "classes": "Paladin",
   "items": [
    {
+    "name": "Corroded Plate Boots",
+    "qty": 1
+   },
+   {
     "name": "Corroded Plate Bracer",
     "qty": 1
    },
    {
+    "name": "Corroded Plate Gauntlets",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Black Marble",
+    "qty": 1
+   },
+   {
     "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
     "qty": 1
    },
    {
@@ -20091,7 +21260,16 @@
   "questGiver": "Zulort",
   "minLevel": 10,
   "classes": "Shaman (Ogre)",
-  "items": [],
+  "items": [
+   {
+    "name": "Allize Volew Medicine Bag",
+    "qty": 1
+   },
+   {
+    "name": "Mystic Doll",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Initiate Symbol of Rallos Zek"
   ],
@@ -20299,6 +21477,62 @@
   "minLevel": 50,
   "classes": "Ranger",
   "items": [
+   {
+    "name": "Ancient Tarnished Chain Boots",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Chain Bracer",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Chain Coif",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Chain Gauntlets",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Chain Leggings",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Chain Sleeves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Chain Tunic",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Black Marble",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Coral",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Sea Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Flawless Diamond",
+    "qty": 1
+   },
    {
     "name": "Forest Stalker's Boots",
     "qty": 1
@@ -20509,11 +21743,19 @@
     "qty": 1
    },
    {
+    "name": "Corroded Chain Gauntlets",
+    "qty": 1
+   },
+   {
     "name": "Crushed Black Marble",
     "qty": 1
    },
    {
     "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
     "qty": 1
    },
    {
@@ -20670,7 +21912,12 @@
   "questGiver": "Menkes Tabolet",
   "minLevel": 1,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Piece of Rat Fur",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Rat Fur Cap"
   ],
@@ -20774,7 +22021,12 @@
   "questGiver": "Suuspa Clanim",
   "minLevel": 25,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Rat Shaped Ring",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Faction"
   ],
@@ -21142,6 +22394,10 @@
     "qty": 1
    },
    {
+    "name": "Mercenary Assingment",
+    "qty": 1
+   },
+   {
     "name": "Mission Report",
     "qty": 1
    },
@@ -21438,6 +22694,10 @@
     "qty": 1
    },
    {
+    "name": "Robe of the Elements",
+    "qty": 1
+   },
+   {
     "name": "Twice-Woven Cloak",
     "qty": 1
    }
@@ -21656,6 +22916,50 @@
   "classes": "Rogue",
   "items": [
    {
+    "name": "Ancient Tarnished Chain Boots",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Chain Bracer",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Chain Coif",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Chain Gauntlets",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Chain Leggings",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Chain Sleeves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Chain Tunic",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Black Marble",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Coral",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
+    "qty": 1
+   },
+   {
     "name": "Deceiver's Boots",
     "qty": 1
    },
@@ -21681,6 +22985,18 @@
    },
    {
     "name": "Deceiver's Vambraces",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Sea Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Flawless Diamond",
     "qty": 1
    }
   ],
@@ -22005,11 +23321,19 @@
     "qty": 1
    },
    {
+    "name": "Corroded Chain Gauntlets",
+    "qty": 1
+   },
+   {
     "name": "Crushed Black Marble",
     "qty": 1
    },
    {
     "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
     "qty": 1
    }
   ],
@@ -22522,6 +23846,10 @@
    },
    {
     "name": "Discarded Packaging",
+    "qty": 1
+   },
+   {
+    "name": "Forgotten Page 3",
     "qty": 1
    },
    {
@@ -23108,7 +24436,23 @@
   "classes": "Necromancer",
   "items": [
    {
+    "name": "A Werebat Wing",
+    "qty": 1
+   },
+   {
+    "name": "Eye of Shadow",
+    "qty": 1
+   },
+   {
+    "name": "Globe of Shadow",
+    "qty": 1
+   },
+   {
     "name": "Hand of Shadow",
+    "qty": 1
+   },
+   {
+    "name": "Mask of Shadow",
     "qty": 1
    },
    {
@@ -23139,6 +24483,62 @@
   "minLevel": 50,
   "classes": "Shadow Knight",
   "items": [
+   {
+    "name": "Ancient Tarnished Breastplate",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Greaves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Plate Boots",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Plate Bracelet",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Plate Gauntlets",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Plate Helmet",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Vambraces",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Black Marble",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Coral",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Sea Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Flawless Diamond",
+    "qty": 1
+   },
    {
     "name": "Malevolent Boots",
     "qty": 1
@@ -23266,11 +24666,27 @@
   "classes": "Shadow Knight",
   "items": [
    {
+    "name": "Corroded Plate Boots",
+    "qty": 1
+   },
+   {
     "name": "Corroded Plate Bracer",
     "qty": 1
    },
    {
+    "name": "Corroded Plate Gauntlets",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Black Marble",
+    "qty": 1
+   },
+   {
     "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
     "qty": 1
    },
    {
@@ -23321,7 +24737,12 @@
   "questGiver": "Shakey Scarecrow",
   "minLevel": 1,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Torn Parchment",
+    "qty": 1
+   }
+  ],
   "rewards": [],
   "categories": [
    "Rivervale",
@@ -23454,6 +24875,58 @@
   "classes": "Shaman",
   "items": [
    {
+    "name": "Ancient Tarnished Chain Boots",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Chain Bracer",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Chain Coif",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Chain Gauntlets",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Chain Leggings",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Chain Sleeves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Chain Tunic",
+    "qty": 1
+   },
+   {
+    "name": "Black Marble",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Lava Ruby",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Onyx Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Opal",
+    "qty": 1
+   },
+   {
+    "name": "Jaundice Gem",
+    "qty": 1
+   },
+   {
     "name": "Spirit Caller's Boots",
     "qty": 1
    },
@@ -23555,6 +25028,10 @@
     "qty": 1
    },
    {
+    "name": "A Mandible",
+    "qty": 1
+   },
+   {
     "name": "Dai Nozok skull canopic",
     "qty": 1
    },
@@ -23568,6 +25045,10 @@
    },
    {
     "name": "Iksar Skull",
+    "qty": 1
+   },
+   {
+    "name": "Iksar Skull Helm",
     "qty": 1
    },
    {
@@ -23807,7 +25288,31 @@
   "classes": "Shaman",
   "items": [
    {
+    "name": "Black Marble",
+    "qty": 1
+   },
+   {
+    "name": "Corroded Chain Boots",
+    "qty": 1
+   },
+   {
+    "name": "Corroded Chain Coif",
+    "qty": 1
+   },
+   {
     "name": "Corroded Chain Leggings",
+    "qty": 1
+   },
+   {
+    "name": "Corroded Chain Tunic",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Onyx Sapphire",
     "qty": 1
    },
    {
@@ -24045,7 +25550,12 @@
   "questGiver": "Kejar the Mighty",
   "minLevel": 45,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Shining Metallic Robes",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Shiny Hunk of Metal",
    "Shiny Robe of the Underfoot"
@@ -24684,7 +26194,12 @@
   "questGiver": "Sentry Kale",
   "minLevel": 45,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Velium Spider Leg",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Ring of the Chameleon"
   ],
@@ -25045,7 +26560,16 @@
   "questGiver": "Semkak Prophet of Vallon",
   "minLevel": 50,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Golden Tablet of Draconic Strategy",
+    "qty": 1
+   },
+   {
+    "name": "Scroll of Scaled Tactics",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Book of Strategy",
    "Circlet of Vallon",
@@ -25160,7 +26684,12 @@
   "questGiver": "an elven slave",
   "minLevel": 14,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Brass Earring",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Bronze Two Handed Battle Axe",
    "Dwarven Axe",
@@ -25735,6 +27264,10 @@
   "classes": "Paladin",
   "items": [
    {
+    "name": "Dusty Old Finger Bones",
+    "qty": 1
+   },
+   {
     "name": "Dwarven Ale",
     "qty": 1
    }
@@ -26062,7 +27595,12 @@
   "questGiver": "Weligon Steelherder",
   "minLevel": 30,
   "classes": "Paladin",
-  "items": [],
+  "items": [
+   {
+    "name": "A Sealed List",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Deep Six Cutlass"
   ],
@@ -26102,7 +27640,20 @@
   "questGiver": "Opal Darkbriar",
   "minLevel": 20,
   "classes": "?",
-  "items": [],
+  "items": [
+   {
+    "name": "Blackened Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Blackened Wand",
+    "qty": 1
+   },
+   {
+    "name": "Orange Sash of Order",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Wand of the Burning Dead"
   ],
@@ -26248,7 +27799,12 @@
   "questGiver": "Marda",
   "minLevel": 5,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Frog Eye Necklace",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Forager Bag",
    "Hopper Spear",
@@ -26553,6 +28109,10 @@
     "qty": 1
    },
    {
+    "name": "Piranha Tooth",
+    "qty": 1
+   },
+   {
     "name": "Rantho Rapier",
     "qty": 1
    }
@@ -26803,6 +28363,10 @@
   "classes": "Bard, Paladin, Ranger, Rogue, Shadow Knight, Warrior",
   "items": [
    {
+    "name": "Baby Joseph Sayer",
+    "qty": 1
+   },
+   {
     "name": "Gnoll Slayer",
     "qty": 1
    },
@@ -26887,7 +28451,16 @@
   "questGiver": "Ami",
   "minLevel": 35,
   "classes": "WAR CLR PAL RNG SHD BRD ROG",
-  "items": [],
+  "items": [
+   {
+    "name": "Strong Raptor Gut",
+    "qty": 1
+   },
+   {
+    "name": "Strong Wooden Branch",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Chapter P",
    "Ice Forged Shackles",
@@ -27005,6 +28578,10 @@
   "minLevel": 22,
   "classes": "?",
   "items": [
+   {
+    "name": "Dusty Kobold Scroll",
+    "qty": 1
+   },
    {
     "name": "Kobold History Collection",
     "qty": 1
@@ -27224,7 +28801,12 @@
   "questGiver": "Balix Misteyes",
   "minLevel": 35,
   "classes": "Cleric, Shadowknight, Druid, Shaman",
-  "items": [],
+  "items": [
+   {
+    "name": "Bloody Cougar Bone",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Garou Bone Club"
   ],
@@ -27541,7 +29123,12 @@
   "questGiver": "Wolten Grafe",
   "minLevel": 5,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Human Head",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Leather Armor Set"
   ],
@@ -27659,7 +29246,12 @@
   "questGiver": "Eolorn J`Axx",
   "minLevel": 1,
   "classes": "?",
-  "items": [],
+  "items": [
+   {
+    "name": "A Locked Chest",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Rat Pelt Cape"
   ],
@@ -27852,6 +29444,10 @@
     "qty": 1
    },
    {
+    "name": "Small Block of Clay",
+    "qty": 1
+   },
+   {
     "name": "Starmetal Ore",
     "qty": 1
    },
@@ -27861,6 +29457,10 @@
    },
    {
     "name": "Vial of Kromzek blood",
+    "qty": 1
+   },
+   {
+    "name": "Water Flask",
     "qty": 1
    },
    {
@@ -28114,7 +29714,12 @@
   "questGiver": "Svekk Fangbinder",
   "minLevel": 50,
   "classes": "?",
-  "items": [],
+  "items": [
+   {
+    "name": "Kromrif Battle Totem",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "UNKNOWN"
   ],
@@ -28213,7 +29818,12 @@
   "questGiver": "Brona Frugrin",
   "minLevel": 30,
   "classes": "Cleric, Druid, Enchanter, Magician, Shaman, Wizard",
-  "items": [],
+  "items": [
+   {
+    "name": "Evil Eye Lens",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Staff of the Observers"
   ],
@@ -28386,6 +29996,10 @@
    },
    {
     "name": "Tattered Parchment",
+    "qty": 1
+   },
+   {
+    "name": "Treant Fists",
     "qty": 1
    }
   ],
@@ -28626,6 +30240,18 @@
   "minLevel": 20,
   "classes": "Necromancer, Shadow Knight",
   "items": [
+   {
+    "name": "Mallet Head",
+    "qty": 1
+   },
+   {
+    "name": "Mallet Hilt",
+    "qty": 1
+   },
+   {
+    "name": "Mallet Stem",
+    "qty": 1
+   },
    {
     "name": "Reaper of the Dead",
     "qty": 1
@@ -28924,7 +30550,16 @@
   "questGiver": "Tergon Brenclog",
   "minLevel": 15,
   "classes": "Magician",
-  "items": [],
+  "items": [
+   {
+    "name": "Elemental Grimoire",
+    "qty": 1
+   },
+   {
+    "name": "Teir`Dal Head",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Elemental Grimoire"
   ],
@@ -29843,7 +31478,20 @@
   "questGiver": "Unsar Koldhagon",
   "minLevel": 1,
   "classes": "Any",
-  "items": [],
+  "items": [
+   {
+    "name": "Bat Wing",
+    "qty": 1
+   },
+   {
+    "name": "Rat Whiskers",
+    "qty": 1
+   },
+   {
+    "name": "Snake Scales",
+    "qty": 1
+   }
+  ],
   "rewards": [],
   "categories": [
    "South Qeynos"
@@ -30406,6 +32054,62 @@
   "classes": "Warrior",
   "items": [
    {
+    "name": "Ancient Tarnished Breastplate",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Greaves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Plate Boots",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Plate Bracelet",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Plate Gauntlets",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Plate Helmet",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Tarnished Vambraces",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Black Marble",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Coral",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Sea Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Flawless Diamond",
+    "qty": 1
+   },
+   {
     "name": "Warlord's Boots",
     "qty": 1
    },
@@ -30479,7 +32183,15 @@
     "qty": 1
    },
    {
+    "name": "Footman's Pike Head",
+    "qty": 1
+   },
+   {
     "name": "Froglok Escort Fife",
+    "qty": 1
+   },
+   {
+    "name": "Froglok Head",
     "qty": 1
    },
    {
@@ -30499,7 +32211,15 @@
     "qty": 1
    },
    {
+    "name": "Petrified Redwood",
+    "qty": 1
+   },
+   {
     "name": "Tattooed Sarnak Head",
+    "qty": 1
+   },
+   {
+    "name": "Thick Iksar Skull",
     "qty": 1
    }
   ],
@@ -30684,11 +32404,27 @@
     "qty": 1
    },
    {
+    "name": "Corroded Plate Boots",
+    "qty": 1
+   },
+   {
     "name": "Corroded Plate Bracer",
     "qty": 1
    },
    {
+    "name": "Corroded Plate Gauntlets",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Black Marble",
+    "qty": 1
+   },
+   {
     "name": "Crushed Flame Emerald",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
     "qty": 1
    }
   ],
@@ -30741,6 +32477,10 @@
   "items": [
    {
     "name": "Groflah's Stoutbite",
+    "qty": 1
+   },
+   {
+    "name": "Raw Short Sword 4",
     "qty": 1
    }
   ],
@@ -30827,6 +32567,10 @@
   "items": [
    {
     "name": "Frozen Shard",
+    "qty": 1
+   },
+   {
+    "name": "Sealed Letter",
     "qty": 1
    }
   ],
@@ -30984,7 +32728,24 @@
   "questGiver": "Gozzrem",
   "minLevel": 55,
   "classes": "Cleric, Druid, Shaman",
-  "items": [],
+  "items": [
+   {
+    "name": "Black Symbol",
+    "qty": 1
+   },
+   {
+    "name": "Flame Kissed Tear",
+    "qty": 1
+   },
+   {
+    "name": "Glowing Drake Orb",
+    "qty": 1
+   },
+   {
+    "name": "Runed Tear",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Black Symbol",
    "Boots of Silent Striding",
@@ -31143,6 +32904,34 @@
   "classes": "Wizard",
   "items": [
    {
+    "name": "Ancient Silk Boots",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Gloves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Pantaloons",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Robe",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Sleeves",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Turban",
+    "qty": 1
+   },
+   {
+    "name": "Ancient Silk Wristband",
+    "qty": 1
+   },
+   {
     "name": "Bangle of the Invoker",
     "qty": 1
    },
@@ -31155,11 +32944,39 @@
     "qty": 1
    },
    {
+    "name": "Crushed Flame Opal",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Jaundice Gem",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Onyx Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Topaz",
+    "qty": 1
+   },
+   {
     "name": "Gloves of the Invoker",
     "qty": 1
    },
    {
+    "name": "Nephrite",
+    "qty": 1
+   },
+   {
     "name": "Pants of the Invoker",
+    "qty": 1
+   },
+   {
+    "name": "Pristine Emerald",
     "qty": 1
    },
    {
@@ -31388,6 +33205,34 @@
   "classes": "Wizard",
   "items": [
    {
+    "name": "Crushed Flame Opal",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Jaundice Gem",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Onyx Sapphire",
+    "qty": 1
+   },
+   {
+    "name": "Crushed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Flawed Topaz",
+    "qty": 1
+   },
+   {
+    "name": "Nephrite",
+    "qty": 1
+   },
+   {
+    "name": "Pristine Emerald",
+    "qty": 1
+   },
+   {
     "name": "Sage's Boots",
     "qty": 1
    },
@@ -31413,6 +33258,34 @@
    },
    {
     "name": "Sage's Sleeves",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Boots",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Gloves",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Pantaloons",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Robe",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Sleeves",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Turban",
+    "qty": 1
+   },
+   {
+    "name": "Torn Enchanted Silk Wristband",
     "qty": 1
    }
   ],
@@ -31466,7 +33339,12 @@
   "questGiver": "Baobob Miller",
   "minLevel": 5,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Medium Quality Wolf Skin",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Wolf-hide Belt",
    "Wolf-hide Boots",
@@ -31668,7 +33546,12 @@
   "questGiver": "King Tormax",
   "minLevel": 0,
   "classes": "All",
-  "items": [],
+  "items": [
+   {
+    "name": "Yelinak's Head",
+    "qty": 1
+   }
+  ],
   "rewards": [
    "Gauntlets of Dragon Slaying"
   ],

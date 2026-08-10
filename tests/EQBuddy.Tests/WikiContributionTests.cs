@@ -201,6 +201,33 @@ public class WikiContributionTests
         Assert.Contains("faction: Kobolds of Fireclaw -5 (12 of 12 kills)", text);
     }
 
+    /// <summary>Levels ride /consider bounds into the stat block and the page
+    /// skeleton's level field (#65 round three) — a range when cons disagreed,
+    /// a single honest value when they didn't, nothing when nobody conned.</summary>
+    [Fact]
+    public void StatBlockAndSkeletonCarryConsideredLevels()
+    {
+        var ranged = Mob("Packmaster Dledsh", 12, new MobLoot("Packmaster's Whip", 3, 25.0)) with
+        {
+            Zone = "The Warrens", LevelMin = 12, LevelMax = 15,
+        };
+        var text = WikiContribution.BuildExport(
+            [new(ranged, Missing)], "Dranak", "Legends", "The Warrens",
+            new DateTime(2026, 8, 9, 14, 0, 0));
+        Assert.Contains("level (from /consider): 12 - 15", text);
+        Assert.Contains("| level         = 12 - 15", text);   // Namedmobpage skeleton
+
+        var single = Mob("Gnoll Reaver", 12, new MobLoot("Gnoll Fang", 4, 33.3)) with
+        {
+            LevelMin = 8, LevelMax = 8,
+        };
+        text = WikiContribution.BuildExport(
+            [new(single, Missing)], "Dranak", "Legends", "Blackburrow",
+            new DateTime(2026, 8, 9, 14, 0, 0));
+        Assert.Contains("level (from /consider): 8 (every /con this session agreed", text);
+        Assert.Contains("| level         = 8", text);
+    }
+
     [Fact]
     public void StatBlockReportsConfirmedFactionAbsenceAndThinSamples()
     {

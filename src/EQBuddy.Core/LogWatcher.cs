@@ -29,6 +29,9 @@ public sealed class LogWatcher : IDisposable
 
     private string? _path;
     private long _offset;
+    /// <summary>Read cap for session-range review (#74): Poll never reads past this.
+    /// long.MaxValue = live tailing, the normal state.</summary>
+    private long _endOffset = long.MaxValue;
     private readonly StringBuilder _remainder = new();
 
     public DateTime? LastGrowth { get; private set; }
@@ -117,7 +120,12 @@ public sealed class LogWatcher : IDisposable
     public static CharacterLog? MostRecentlyActive(string logFolder) =>
         DiscoverCharacters(logFolder).FirstOrDefault();
 
-    public void Select(string path)
+    public void Select(string path) => Select(path, 0, long.MaxValue);
+
+    /// <summary>Select with a byte range — review mode replaying ONE session out of a
+    /// multi-session file (#74). [startOffset, endOffset) must fall on line boundaries
+    /// (LogSessions.Scan guarantees it); live tailing is the (0, MaxValue) case.</summary>
+    public void Select(string path, long startOffset, long endOffset)
     {
         lock (_lock)
         {
@@ -127,7 +135,8 @@ public sealed class LogWatcher : IDisposable
             _stats.CharacterName = charInfo?.Character;
             _stats.ServerName = charInfo?.Server;
             if (Spawns is { } sp) sp.Server = charInfo?.Server ?? "";
-            _offset = 0;
+            _offset = startOffset;
+            _endOffset = endOffset;
             _remainder.Clear();
             InitialIngestDone = false;
             _stats.ClearCharacterState();
@@ -150,19 +159,22 @@ public sealed class LogWatcher : IDisposable
             {
                 using var fs = new FileStream(_path, FileMode.Open, FileAccess.Read,
                     FileShare.ReadWrite | FileShare.Delete);
-                if (fs.Length < _offset)
+                var readable = Math.Min(fs.Length, _endOffset);
+                if (readable < _offset)
                 {
                     // File truncated (session cleanup) — re-anchor but keep current stats;
                     // the 60-minute gap rule rolls the session when new play begins.
                     _offset = 0;
                     _remainder.Clear();
+                    readable = Math.Min(fs.Length, _endOffset);
                 }
-                if (fs.Length == _offset) return;
+                if (readable == _offset) return;
 
                 fs.Seek(_offset, SeekOrigin.Begin);
-                using var reader = new StreamReader(fs, Encoding.Latin1, false, 1 << 16, leaveOpen: true);
-                var chunk = reader.ReadToEnd();
-                _offset = fs.Length;
+                var buf = new byte[readable - _offset];
+                fs.ReadExactly(buf);
+                var chunk = Encoding.Latin1.GetString(buf);
+                _offset = readable;
                 LastGrowth = DateTime.Now;
 
                 var text = _remainder.ToString() + chunk;

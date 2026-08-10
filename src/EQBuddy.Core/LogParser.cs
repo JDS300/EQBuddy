@@ -108,7 +108,10 @@ public static partial class LogParser
     private static partial Regex HealInRx();
 
     // --You have looted a Mote of Infinitesimal Potential from orc centurion's corpse.--
-    [GeneratedRegex(@"^--You have looted an? (?<item>.+?) from (?<source>.+?)'s corpse\.--$")]
+    // --You have looted 2 Bone Chips from a decaying skeleton's corpse.-- (#80: the
+    // quantity form was invisible for a YEAR of "a/an" — stacked drops counted zero,
+    // which is how 25 bone chips became 13. Same shape as AutoSellRx/AutoStoreRx.)
+    [GeneratedRegex(@"^--You have looted (?:(?<n>\d+)|an?) (?<item>.+?) from (?<source>.+?)'s corpse\.--$")]
     private static partial Regex LootRx();
 
     // You looted a Crushbone Belt +2 from orc centurion's corpse to create a Crushbone Belt +5
@@ -483,7 +486,8 @@ public static partial class LogParser
                 r.Groups["result"].Value);
 
         if ((r = LootRx().Match(msg)).Success)
-            return new LootEvent(ts, r.Groups["item"].Value, Normalize(r.Groups["source"].Value), null);
+            return new LootEvent(ts, r.Groups["item"].Value, Normalize(r.Groups["source"].Value), null,
+                Count: r.Groups["n"].Success ? int.Parse(r.Groups["n"].Value) : 1);
 
         if ((r = MoneyRx().Match(msg)).Success)
         {

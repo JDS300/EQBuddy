@@ -15,12 +15,15 @@
             MouseLeftButtonDown="OnDrag">
         <Border.ContextMenu>
             <ContextMenu>
-                <MenuItem x:Name="VersionMenuItem" Header="EQBuddy" IsEnabled="False"/>
+                <MenuItem x:Name="VersionMenuItem" Header="EQBuddy" Click="OnOpenWebsite"
+                          ToolTip="Open the EQBuddy page — downloads, guides, and a link to share"/>
                 <MenuItem Header="Check for updates" Click="OnCheckUpdates"/>
                 <MenuItem Header="Options… (size, opacity, watch rules)" Click="OnOptions"/>
                 <MenuItem Header="Quick tutorial…" Click="OnTutorial"/>
                 <MenuItem Header="Drop camp marker" Click="OnCampMarker"/>
                 <MenuItem Header="Session history…" Click="OnHistory"/>
+                <MenuItem x:Name="ReviewLogItem" Header="Review an archived log…" Click="OnReviewLog"
+                          ToolTip="Replay a saved log read-only — Drops by Creature and ✦ Copy for wiki work against that session"/>
                 <MenuItem Header="Spawn timers…" Click="OnSpawnsWindow"/>
                 <MenuItem Header="Quest tracker…" Click="OnQuestsWindow"/>
                 <MenuItem Header="Drops by creature…" Click="OnDropsWindow"/>
@@ -80,7 +83,8 @@
                 <TextBlock x:Name="CharLabel" Grid.Column="1" Margin="10,0,6,0" VerticalAlignment="Center"
                            FontSize="12" Foreground="{DynamicResource DimBrush}"
                            TextTrimming="CharacterEllipsis" Text="looking for a character…"
-                           ToolTip="Follows whoever is actively playing (log file growth)"/>
+                           ToolTip="Follows whoever is actively playing (log file growth)"
+                           MouseLeftButtonDown="OnCharLabelClick"/>
                 <!-- Feedback sits IN the title bar, not buried in the menu, and wears the
                      one green pill on the bar so the eye lands on it (David: the betas
                      live on reports, so the door should draw people). Text-glyph envelope,
@@ -565,6 +569,20 @@
            HorizontalAlignment="Right" VerticalAlignment="Bottom"
            Cursor="SizeNWSE" ToolTip="Drag to resize (scales text and everything else with it)"
            DragStarted="OnResizeGripStarted" DragDelta="OnResizeGripDelta">
+        <Thumb.Template>
+            <ControlTemplate TargetType="Thumb"><Rectangle Fill="Transparent"/></ControlTemplate>
+        </Thumb.Template>
+    </Thumb>
+
+    <!-- Bottom-edge height grip (Reddit ask, 2026-08-09): drag to show more or fewer
+         cards before the list scrolls — TEXT size stays put, that's the corner grip's
+         job. The corner keeps its own 20px so the two grips never fight. -->
+    <Thumb x:Name="HeightGrip" Height="6" Margin="12,0,20,0"
+           HorizontalAlignment="Stretch" VerticalAlignment="Bottom"
+           Cursor="SizeNS"
+           ToolTip="Drag to make the widget taller or shorter (text size stays put). Double-click: fit to screen."
+           DragStarted="OnHeightGripStarted" DragDelta="OnHeightGripDelta"
+           DragCompleted="OnHeightGripCompleted" MouseDoubleClick="OnHeightGripReset">
         <Thumb.Template>
             <ControlTemplate TargetType="Thumb"><Rectangle Fill="Transparent"/></ControlTemplate>
         </Thumb.Template>

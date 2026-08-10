@@ -77,13 +77,18 @@ public partial class MainWindow : Window
         _stats.SessionRolledOver += () => Dispatcher.BeginInvoke(_delayedAlerts.CancelAll);
         _archiver = new SessionArchiver(_repo);
         // A 60-minute quiet gap ends a session — persist its final state to history.
-        _stats.SessionEnding += snap => _archiver.FinalizeActive(snap, "IdleTimeout");
+        // Not while reviewing an archived log (#74): those sessions were archived when
+        // they were live; replay must not mint duplicates.
+        _stats.SessionEnding += snap =>
+        {
+            if (_reviewPath is null) _archiver.FinalizeActive(snap, "IdleTimeout");
+        };
 
         // Height caps follow the monitor the widget is ON (a portrait secondary screen
         // is taller than the primary — discussion #31); primary work area is only the
         // pre-handle starting value.
         MaxHeight = SystemParameters.WorkArea.Height - 20;
-        SectionScroll.MaxHeight = SystemParameters.WorkArea.Height - 160;
+        ApplySectionMaxHeight(SystemParameters.WorkArea.Height - 160);
         SourceInitialized += (_, _) => UpdateHeightCaps();
         LocationChanged += (_, _) => UpdateHeightCaps();
 
@@ -182,6 +187,12 @@ public partial class MainWindow : Window
 
         if (Environment.GetEnvironmentVariable("EQBUDDY_OPTIONS") == "1")
             Loaded += (_, _) => OnOptions(this, new RoutedEventArgs());
+
+        // Screenshot/debug hook, same family as EQBUDDY_QUESTS: open straight into
+        // archive review of the given file (#74), skipping the file dialog.
+        if (Environment.GetEnvironmentVariable("EQBUDDY_REVIEW") is { Length: > 0 } reviewPath)
+            Loaded += (_, _) => Dispatcher.BeginInvoke(() => EnterReview(reviewPath),
+                System.Windows.Threading.DispatcherPriority.ApplicationIdle);
 
         if (Environment.GetEnvironmentVariable("EQBUDDY_FEEDBACK") == "1")
             Loaded += (_, _) => OnFeedback(this, new RoutedEventArgs());
@@ -687,7 +698,7 @@ public partial class MainWindow : Window
     {
         if (MonitorMetrics.WorkAreaFor(this) is not { } work) return;
         MaxHeight = Math.Max(200, work.Height - 20);
-        SectionScroll.MaxHeight = Math.Max(120, work.Height - 160);
+        ApplySectionMaxHeight(Math.Max(120, work.Height - 160));
     }
 
     /// <summary>Mez chips for the chip stack; formatting lives in
@@ -695,6 +706,53 @@ public partial class MainWindow : Window
     /// — see its doc comment for the display rules (numbering, "?" durations, due tint).</summary>
     private List<SpawnChip> MezChips(DateTime now) =>
         EQBuddy.UI.Shared.MezChipPresentation.Chips(_mezTracker.Snapshot(now), now);
+
+    /// <summary>The section list's height: automatic (fit the monitor) unless the
+    /// bottom-edge grip chose one (Reddit ask, 2026-08-09 — taller or shorter without
+    /// rescaling text). The choice lives in pre-scale units so it survives scale
+    /// changes; the monitor's cap always wins.</summary>
+    private double _sectionAutoCap = double.MaxValue;
+
+    private void ApplySectionMaxHeight(double? autoCap = null)
+    {
+        if (autoCap is { } cap) _sectionAutoCap = cap;
+        SectionScroll.MaxHeight = double.IsNaN(_settings.ContentHeight)
+            ? _sectionAutoCap
+            : Math.Clamp(_settings.ContentHeight, 120, _sectionAutoCap);
+    }
+
+    // Same absolute-cursor discipline as the scale grip: the window resizes under the
+    // cursor mid-drag, so accumulating DragDelta would feed back and jitter.
+    private double _heightDragCursorY, _heightDragStart;
+
+    private void OnHeightGripStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
+    {
+        _heightDragCursorY = CursorY();
+        _heightDragStart = SectionScroll.ActualHeight;
+    }
+
+    private void OnHeightGripDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
+    {
+        // Cursor moves in screen units; the list lives under the scale transform.
+        var scale = Math.Max(0.25, _settings.UiScale);
+        _settings.ContentHeight = Math.Max(120,
+            _heightDragStart + (CursorY() - _heightDragCursorY) / scale);
+        ApplySectionMaxHeight();
+    }
+
+    private void OnHeightGripCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e) =>
+        _settings.Save();
+
+    private void OnHeightGripReset(object sender, MouseButtonEventArgs e)
+    {
+        _settings.ContentHeight = double.NaN;
+        ApplySectionMaxHeight();
+        _settings.Save();
+    }
+
+    private void OnOpenWebsite(object sender, RoutedEventArgs e) =>
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+            "https://github.com/DranakCorps-bot/EQBuddy") { UseShellExecute = true });
 
     private void CloseChips()
     {
@@ -856,9 +914,97 @@ public partial class MainWindow : Window
         FollowActiveCharacter();
     }
 
+    // ---- archived-log review (#74, Snagglefern: "see what I can contribute") ----
+
+    /// <summary>Path of the archive being replayed; null = live. While set, character
+    /// follow stands down and nothing writes to session history — the review is a
+    /// window onto the past, not a new session.</summary>
+    private string? _reviewPath;
+
+    private void OnReviewLog(object sender, RoutedEventArgs e)
+    {
+        if (_reviewPath is not null) { ExitReview(); return; }
+        var archive = _settings.LogFolder is { } lf ? Path.Combine(lf, "archive") : null;
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Review an archived log",
+            Filter = "EQ logs (eqlog_*.txt)|eqlog_*.txt|All files (*.*)|*.*",
+            InitialDirectory = archive is not null && Directory.Exists(archive)
+                ? archive : _settings.LogFolder ?? "",
+        };
+        if (dlg.ShowDialog(this) == true) EnterReview(dlg.FileName);
+    }
+
+    private void EnterReview(string path)
+    {
+        // A pre-splitter log holds days of sessions; ask which one (#74 round two —
+        // Snagglefern's 10 MB archive replayed as a 10-minute evening). Splitter
+        // archives are one session each, so they skip the dialog entirely.
+        List<LogSessionInfo> sessions;
+        try { sessions = LogSessions.Scan(path); }
+        catch (Exception ex) { App.LogError(ex); sessions = []; }
+        LogSessionInfo? pick = null;
+        if (sessions.Count > 1)
+        {
+            // Debug/screenshot hook: 1-based chronological index skips the dialog.
+            pick = int.TryParse(Environment.GetEnvironmentVariable("EQBUDDY_REVIEW_SESSION"),
+                    out var idx) && idx >= 1 && idx <= sessions.Count
+                ? sessions[idx - 1]
+                : SessionPickerWindow.Choose(this, Path.GetFileName(path), sessions);
+            if (pick is null) return;   // cancelled
+        }
+
+        // The live session goes to history first, same as a character switch —
+        // then the archiver stands down until we're back.
+        _archiver.FinalizeActive(_stats.Snapshot(), "ReviewingArchive");
+        _reviewPath = path;
+        if (pick is not null) _watcher.Select(path, pick.StartOffset, pick.EndOffset);
+        else _watcher.Select(path);
+        ReviewLogItem.Header = "✓ Reviewing an archive — return to live log";
+        var when = pick is not null ? $" ({pick.Start:MMM d HH:mm})" : "";
+        CharLabel.Text = $"REVIEWING {Path.GetFileName(path)}{when} — click here to go live";
+        CharLabel.Foreground = (Brush)FindResource("WarnBrush");
+        CharLabel.Cursor = Cursors.Hand;
+        CharLabel.ToolTip = "Replaying a saved log. Drops by Creature and ✦ Copy for wiki " +
+            "show the reviewed session. Click to return to the live log.";
+    }
+
+    private void ExitReview()
+    {
+        _reviewPath = null;
+        ReviewLogItem.Header = "Review an archived log…";
+        CharLabel.Foreground = (Brush)FindResource("DimBrush");
+        CharLabel.Cursor = null;
+        CharLabel.ToolTip = "Follows whoever is actively playing (log file growth)";
+        // No finalize here: the reviewed session is already history. Follow just
+        // re-selects whoever is live; the switch path sees review's CurrentPath but
+        // _reviewPath is null again, so guard by handing follow a clean slate.
+        _lastCharScan = DateTime.MinValue;
+        if (_settings.LogFolder is { } lf && LogWatcher.MostRecentlyActive(lf) is { } active)
+        {
+            _watcher.Select(active.FilePath);
+            _archiver.SetIdentity(_stats.ServerName, _stats.CharacterName);
+            CharLabel.Text = active.Display;
+        }
+        else
+        {
+            CharLabel.Text = "waiting for a character to log in…";
+        }
+    }
+
+    // Mouse DOWN, and handled: the title bar's OnDrag starts a DragMove on the same
+    // press, which captures the mouse and eats any up-event this label would get.
+    private void OnCharLabelClick(object sender, MouseButtonEventArgs e)
+    {
+        if (_reviewPath is null) return;
+        ExitReview();
+        e.Handled = true;
+    }
+
     /// <summary>Switch to whoever is actively playing: the most recently written log.</summary>
     private void FollowActiveCharacter()
     {
+        if (_reviewPath is not null) return;   // reviewing an archive — stay put (#74)
         ChooseLogFolderItem.ToolTip = _settings.LogFolder ?? "(no folder found)";
         if (_settings.LogFolder is null)
         {
@@ -989,7 +1135,8 @@ public partial class MainWindow : Window
         ProcessTrackedAlerts(s);
 
         // Every 5 min: checkpoint the active session so a crash loses little (RECOVERY-001).
-        if (DateTime.Now - _lastCheckpoint > TimeSpan.FromMinutes(5))
+        // Review replays are read-only — their sessions are already history (#74).
+        if (_reviewPath is null && DateTime.Now - _lastCheckpoint > TimeSpan.FromMinutes(5))
         {
             _lastCheckpoint = DateTime.Now;
             _archiver.Checkpoint(s);
@@ -1473,7 +1620,15 @@ public partial class MainWindow : Window
             {
                 Header = $"{ClassAbbrev(classGroup.Key)} {classDone}/{classTotal}",
                 Tag = classGroup.Key,
-                Content = panel,
+                Content = new ScrollViewer
+                {
+                    Content = panel,
+                    MaxHeight = SkyQuestListMaxHeight(),
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                    PanningMode = PanningMode.VerticalOnly,
+                    Padding = new Thickness(0, 0, 4, 0),
+                },
                 ToolTip = classGroup.Key,
             };
             SkyQuestTabs.Items.Add(tab);
@@ -1483,6 +1638,12 @@ public partial class MainWindow : Window
 
         if (SkyQuestTabs.SelectedIndex < 0 && SkyQuestTabs.Items.Count > 0)
             SkyQuestTabs.SelectedIndex = 0;
+    }
+
+    private double SkyQuestListMaxHeight()
+    {
+        var available = SectionScroll.MaxHeight > 0 ? SectionScroll.MaxHeight - 220 : 260;
+        return Math.Clamp(available, 180, 320);
     }
 
     private static string SkyRewardKey(string className, string reward) => className + "|" + reward;
@@ -1931,6 +2092,7 @@ public partial class MainWindow : Window
         MiniRoot.Visibility = mini ? Visibility.Visible : Visibility.Collapsed;
         NormalRoot.Visibility = mini ? Visibility.Collapsed : Visibility.Visible;
         ResizeGrip.Visibility = mini ? Visibility.Collapsed : Visibility.Visible;
+        HeightGrip.Visibility = mini ? Visibility.Collapsed : Visibility.Visible;
         _settings.Save();
         var snap = _stats.Snapshot();
         if (mini) UpdateMiniChips(snap);
@@ -2474,7 +2636,8 @@ public partial class MainWindow : Window
         _settings.WindowTop = Top;
         _settings.Save();
         foreach (var w in _breakouts.Values) w.Close();   // each persists its spot on Closed
-        _archiver.FinalizeActiveSync(_stats.Snapshot(), "ApplicationExit");
+        if (_reviewPath is null)   // a review session is already history (#74)
+            _archiver.FinalizeActiveSync(_stats.Snapshot(), "ApplicationExit");
         _watcher.Dispose();
         _repo.Dispose();
         base.OnClosed(e);

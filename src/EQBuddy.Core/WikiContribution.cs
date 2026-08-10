@@ -212,6 +212,10 @@ public static class WikiContribution
             + (thin ? " — thin sample, for your notes rather than the wiki yet):" : ") — compare, don't overwrite:"));
         if (killZone.Length > 0)
             sb.AppendLine($"  zone (at kill time): {killZone}");
+        if (mob.LevelMin > 0)
+            sb.AppendLine("  level (from /consider): " + (mob.LevelMin == mob.LevelMax
+                ? $"{mob.LevelMin} (every /con this session agreed — more cons on other spawns could still widen it)"
+                : $"{mob.LevelMin} - {mob.LevelMax}"));
         if (mob.CoinMin >= 0)
             sb.AppendLine("  money per kill: " + (mob.CoinMin == mob.CoinMax
                 ? $"{StatsSnapshot.FormatCoin(mob.CoinMin)} (single observed value — one sample can't tell \"always\" from \"lucky\")"
@@ -259,7 +263,9 @@ public static class WikiContribution
         sb.AppendLine($"| name          = {mob.Name}");
         sb.AppendLine("| race          = ");
         sb.AppendLine("| class         = ");
-        sb.AppendLine("| level         = ");
+        sb.AppendLine("| level         = " + (mob.LevelMin > 0
+            ? mob.LevelMin == mob.LevelMax ? $"{mob.LevelMin}" : $"{mob.LevelMin} - {mob.LevelMax}"
+            : ""));
         sb.AppendLine();
         sb.AppendLine($"| zone          = {(zone.Length > 0 ? $"[[{zone}]]" : "")}");
         sb.AppendLine("| location      = ");

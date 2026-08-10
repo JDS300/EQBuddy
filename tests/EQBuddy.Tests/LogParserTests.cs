@@ -310,6 +310,15 @@ public class LogParserTests
     {
         var e = Parse<LootEvent>("--You have looted a Mote of Infinitesimal Potential from orc centurion's corpse.--");
         Assert.Equal(("Mote of Infinitesimal Potential", "Orc centurion", null), (e.Item, e.Source, e.UpgradeResult));
+        Assert.Equal(1, e.Count);
+    }
+
+    [Fact]
+    public void CorpseLootCountsStacks()
+    {
+        // #80 (Snagglefern): the quantity form counted ZERO — 25 bone chips became 13.
+        var e = Parse<LootEvent>("--You have looted 2 Bone Chips from a decaying skeleton's corpse.--");
+        Assert.Equal(("Bone Chips", "Decaying skeleton", 2), (e.Item, e.Source, e.Count));
     }
 
     [Fact]

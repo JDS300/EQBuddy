@@ -157,7 +157,13 @@ def parse_quest(title, wikitext, quest_item_set):
         # EXCEPT inside the reward section, where they're prizes.
         in_rewards = "reward" in section
         is_bullet = line.lstrip().startswith("*") and not in_rewards
-        if not is_bullet and not re.search(r"\b(give|hand|turn\s*in|return)\b", line, re.IGNORECASE):
+        # Verb shapes from the field (#79, Kobold Molars): "each [[X]] that is TURNED IN",
+        # "has a chance to DROP a [[X]]", "COLLECT/BRING me [[X]]" — repeatable turn-in
+        # loops phrase their one item this way and never say "give". Safe to widen: bare
+        # links still need the wiki's own Quest Items category to vouch for them.
+        if not is_bullet and not re.search(
+                r"\b(give|hand|turn(?:ed)?\s*in|return|bring|collect|drop(?:s|ped)?)\b",
+                line, re.IGNORECASE):
             continue
         for qty, name in re.findall(r"(\d+)\s*x\s*" + LINK, line):
             name = name.strip()

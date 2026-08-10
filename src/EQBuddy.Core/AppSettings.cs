@@ -28,6 +28,10 @@ public sealed class AppSettings
     public Dictionary<string, double> WindowZooms { get; set; } = new();
     /// <summary>Opacity of the widget's background panel only — text stays fully opaque.</summary>
     public double BackgroundOpacity { get; set; } = 0.95;
+    /// <summary>Section-list height chosen by dragging the widget's bottom edge, in
+    /// pre-scale units so it survives UiScale changes (Reddit ask, 2026-08-09: grow the
+    /// window without growing the text). NaN = automatic, fit the monitor.</summary>
+    public double ContentHeight { get; set; } = double.NaN;
     /// <summary>Empty finished-session logs automatically. Off = logs grow forever
     /// (for players who upload their logs elsewhere).</summary>
     public bool TruncateLogs { get; set; } = true;

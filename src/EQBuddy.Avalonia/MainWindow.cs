@@ -148,6 +148,7 @@ public sealed class MainWindow : Window
     private X11HotkeyService? _hotkeys;
     private HistoryWindow? _historyWindow;
     private OptionsWindow? _optionsWindow;
+    private ClickThroughChip? _unlockChip;
     private AlertWindow? _alertWindow;
     private IReadOnlyList<WhatsNewEntry> _whatsNewNotes = [];
     private readonly MezTracker _mezTracker = new();
@@ -796,7 +797,13 @@ public sealed class MainWindow : Window
     private ContextMenu BuildContextMenu()
     {
         var menu = new ContextMenu();
-        var version = new MenuItem { Header = $"EQBuddy v{UpdateChecker.DisplayVersion}", IsEnabled = false };
+        // Clickable since 1.48 (#76): downloads, guides, and a shareable link. Keeps this
+        // fork's DisplayVersion (it carries the local -Daggo marker), and points at THIS
+        // repo rather than upstream's: the link exists to hand to a guildmate, and
+        // upstream ships no Linux build with these features in it.
+        var version = new MenuItem { Header = $"EQBuddy v{UpdateChecker.DisplayVersion}" };
+        version.Click += (_, _) => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+            "https://github.com/JDS300/EQBuddy") { UseShellExecute = true });
         var check = new MenuItem { Header = "Check for updates" };
         check.Click += (_, _) => { _lastUpdateCheck = DateTime.Now; CheckForUpdates(manual: true); };
         var options = new MenuItem { Header = "Options... (size, opacity, watch rules)" };
@@ -1804,13 +1811,28 @@ public sealed class MainWindow : Window
         _chipsWindow?.ApplyClickThrough(next);
         _root.BorderBrush = _clickThrough ? AppTheme.WarnBrush : AppTheme.BorderBrush;
         Topmost = true;
-        // With the hotkey unbound there is no key to name, and "press  to interact again"
-        // is worse than saying nothing: point at the menu item that always works.
+        // The tooltip used to point at the right-click menu. That was wrong, and it was the
+        // bug upstream's chip fixes (#7): an empty input shape means the menu cannot be
+        // reached THROUGH the widget either, and this fork ships every hotkey unbound, so
+        // on a default install click-through was a one-way trip. The chip below is the one
+        // solid thing left to click, so the tooltip names it and mentions the hotkey only
+        // when the user has actually bound one.
         ToolTip.SetTip(_root, !_clickThrough ? null
             : string.IsNullOrWhiteSpace(_settings.HotkeyClickThrough)
-                ? "Click-through ON - unlock from the right-click menu"
-                : $"Click-through ON - press {_settings.HotkeyClickThrough} to interact again");
+                ? "Click-through ON - click the \U0001F512 chip to interact again"
+                : $"Click-through ON - click the \U0001F512 chip or press {_settings.HotkeyClickThrough}");
         _clickThroughItem.IsChecked = _clickThrough;
+        // Upstream's escape hatch, kept around this fork's toggle rather than its own
+        // SetClickThrough: the stack propagation and the real checkbox above are ours.
+        if (_clickThrough)
+        {
+            _unlockChip ??= new ClickThroughChip(ToggleClickThrough);
+            _unlockChip.ShowNear(this);
+        }
+        else
+        {
+            _unlockChip?.Hide();
+        }
     }
 
     private void OnGear(object? sender, EventArgs e) => _root.ContextMenu?.Open(_root);

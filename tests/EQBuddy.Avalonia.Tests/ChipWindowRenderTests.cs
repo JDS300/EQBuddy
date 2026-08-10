@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
 using EQBuddy.Core;
@@ -279,6 +280,56 @@ public class ChipWindowRenderTests : IDisposable
         Assert.True(frame!.Size.Width > 100, $"Spawns window rendered only {frame.Size.Width}px wide");
         Assert.True(frame.Size.Height > 100, $"Spawns window rendered only {frame.Size.Height}px tall");
         window.Close();
+        main.Close();
+    }
+
+    // ---- ClickThroughChip (merged from upstream 1.49.0, issue #7) ----
+
+    /// <summary>The chip is the ONLY way back out of click-through on a default install
+    /// of this fork: an empty X11 input shape means the right-click menu cannot be reached
+    /// through the widget, and every global hotkey ships unbound. So "it renders and a
+    /// click on it calls unlock" is the whole safety property — if this regresses, turning
+    /// click-through on strands the user in settings.json.</summary>
+    [AvaloniaFact]
+    public void TheUnlockChipRendersAndOneClickCallsUnlock()
+    {
+        var unlocked = 0;
+        var main = OpenMain();
+        var chip = new ClickThroughChip(() => unlocked++);
+        chip.ShowNear(main);
+
+        var frame = chip.CaptureRenderedFrame();
+        Assert.NotNull(frame);
+        Assert.True(frame!.Size.Width > 20, $"unlock chip rendered only {frame.Size.Width}px wide");
+
+        Assert.Contains(chip.GetVisualDescendants().OfType<TextBlock>(),
+            t => t.Text is { } text && text.Contains("\U0001F512", StringComparison.Ordinal));
+
+        var border = chip.GetVisualDescendants().OfType<Border>()
+            .First(b => b.Child is TextBlock);
+        border.RaiseEvent(new PointerReleasedEventArgs(
+            border, new Pointer(0, PointerType.Mouse, true), border, default,
+            0, PointerPointProperties.None, KeyModifiers.None, MouseButton.Left));
+
+        Assert.Equal(1, unlocked);
+        chip.Close();
+        main.Close();
+    }
+
+    /// <summary>ShowNear parks the chip above the widget and never off the top of the
+    /// screen — a chip at a negative Y is a chip you cannot click, which is the same
+    /// stranding this window exists to prevent.</summary>
+    [AvaloniaFact]
+    public void TheUnlockChipStaysOnScreenWhenTheWidgetIsAtTheTopEdge()
+    {
+        var main = OpenMain();
+        main.Position = new global::Avalonia.PixelPoint(0, 0);
+        var chip = new ClickThroughChip(() => { });
+        chip.ShowNear(main);
+
+        Assert.True(chip.Position.X >= 0 && chip.Position.Y >= 0,
+            $"unlock chip parked off-screen at {chip.Position}");
+        chip.Close();
         main.Close();
     }
 }

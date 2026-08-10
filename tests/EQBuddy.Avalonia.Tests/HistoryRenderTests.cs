@@ -18,6 +18,20 @@ public sealed class HistoryRenderTests : IDisposable
         try { Directory.Delete(_profile, recursive: true); } catch { }
     }
 
+    /// <summary>Session history opened at 0,0 like the UI backup window did - on a
+    /// multi-monitor desktop that is a corner of a screen you were not looking at. Every
+    /// other panel in the app centres on the widget.</summary>
+    [AvaloniaFact]
+    public void ItOpensOverTheWidgetRatherThanInAScreenCorner()
+    {
+        var repository = new SessionRepository(Path.Combine(_profile, "placement.db"));
+
+        var window = new HistoryWindow(repository);
+
+        Assert.Equal(WindowStartupLocation.CenterOwner, window.WindowStartupLocation);
+        window.Close();
+    }
+
     [AvaloniaFact]
     public void HistoryDrawsTheSharedDpsTimeline()
     {

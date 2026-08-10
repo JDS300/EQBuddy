@@ -7,7 +7,7 @@
         Width="860" Height="560"
         MinWidth="640" MinHeight="400"
         Background="{DynamicResource BgBrush}"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterOwner">
 
   <Window.Styles>
     <Style Selector="TextBlock">

@@ -1845,7 +1845,9 @@ public sealed class MainWindow : Window
             return;
         }
         _historyWindow = new HistoryWindow(_repo);
-        _historyWindow.Show();
+        // Owned, so CenterOwner has something to centre on - and so it behaves like every
+        // other panel here (Options, Feedback, UI backups) rather than drifting off alone.
+        _historyWindow.Show(this);
     }
 
     private void DropCampMarker()

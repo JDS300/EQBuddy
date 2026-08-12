@@ -89,13 +89,48 @@ public class DebuffTrackerTests
             tracker.Apply(Tick("a sand giant", "Drifting Death", second));
         tracker.Active(T0.AddSeconds(70));            // ticks stopped: the cast is complete
 
-        Assert.Equal(54, tracker.LearnedDurations["Drifting Death"], 0);
+        Assert.Equal(48, tracker.LearnedDurations["Drifting Death"], 0);
 
         tracker.Apply(Tick("a dervish cutthroat", "Drifting Death", 100));
         var state = Assert.Single(tracker.Active(T0.AddSeconds(100)));
 
         Assert.NotNull(state.ExpiresAt);
-        Assert.Equal(54, state.RemainingSeconds(T0.AddSeconds(100))!.Value, 0);
+        Assert.Equal(48, state.RemainingSeconds(T0.AddSeconds(100))!.Value, 0);
+    }
+
+    /// <summary>Immolate's wiki duration is 48s, and in the fixture its fade line arrives at the
+    /// last tick, not a tick after it: nine ticks spanning 48s, then "worn off" in the same second.
+    /// The tick-retired path used to add a phantom trailing tick and teach 54s - the number that
+    /// looked like a 6s anchoring error and is not one.</summary>
+    [Fact]
+    public void ATickRetiredDotMeasuresFirstTickToLastTick()
+    {
+        var tracker = new DebuffTracker();
+        for (var i = 0; i <= 48; i += 6)
+            tracker.Apply(Tick("a sand giant", "Immolate", i));
+
+        // Ticks stop; the effect retires once TickGrace has passed.
+        tracker.Active(T0.AddSeconds(48 + 13));
+
+        Assert.Equal(48, tracker.LearnedDurations["Immolate"]);
+    }
+
+    /// <summary>The fade path and the tick-retired path must agree. They measure the same event
+    /// by different evidence, so a disagreement means one of them is wrong.</summary>
+    [Fact]
+    public void TheFadePathAndTheTickPathMeasureTheSameDuration()
+    {
+        var faded = new DebuffTracker();
+        for (var i = 0; i <= 48; i += 6)
+            faded.Apply(Tick("a sand giant", "Immolate", i));
+        faded.Apply(new SpellWornOffEvent(T0.AddSeconds(48), "Immolate", "a sand giant"));
+
+        var ticked = new DebuffTracker();
+        for (var i = 0; i <= 48; i += 6)
+            ticked.Apply(Tick("a sand giant", "Immolate", i));
+        ticked.Active(T0.AddSeconds(48 + 13));
+
+        Assert.Equal(faded.LearnedDurations["Immolate"], ticked.LearnedDurations["Immolate"]);
     }
 
     [Fact]
@@ -139,9 +174,9 @@ public class DebuffTrackerTests
         for (var second = 100; second <= 148; second += 6)
             tracker.Apply(Tick("a dervish cutthroat", "Drifting Death", second));
 
-        // Learned 54s from a cast landing at 100, so it drops at 154.
-        Assert.False(tracker.Active(T0.AddSeconds(142))[0].IsAboutToDrop(T0.AddSeconds(142), 10));
-        Assert.True(tracker.Active(T0.AddSeconds(148))[0].IsAboutToDrop(T0.AddSeconds(148), 10));
+        // Learned 48s from a cast landing at 100, so it drops at 148.
+        Assert.False(tracker.Active(T0.AddSeconds(136))[0].IsAboutToDrop(T0.AddSeconds(136), 10));
+        Assert.True(tracker.Active(T0.AddSeconds(142))[0].IsAboutToDrop(T0.AddSeconds(142), 10));
     }
 
     /// <summary>Refreshing a DoT before it drops is the normal case, and the ticks continue
@@ -160,8 +195,8 @@ public class DebuffTrackerTests
             tracker.Apply(Tick("a sand giant", "Immolate", second));
         tracker.Active(T0.AddSeconds(120));
 
-        // 36..90 is the second cast: 54s + the tick already paid for = 60, not 96.
-        Assert.Equal(60, tracker.LearnedDurations["Immolate"], 0);
+        // 36..90 is the second cast: 54s, not 96. The last tick falls on the expiry.
+        Assert.Equal(54, tracker.LearnedDurations["Immolate"], 0);
     }
 
     /// <summary>One odd sample must not become the duration for good. A mob wandering out of
@@ -179,11 +214,11 @@ public class DebuffTrackerTests
             tracker.Active(T0.AddSeconds(to + 30));
         }
 
-        Cast("mob one", 0, 48);        // 54s
-        Cast("mob two", 200, 248);     // 54s again
-        Cast("mob three", 400, 418);   // 24s - the odd one out, and the most RECENT
+        Cast("mob one", 0, 48);        // 48s
+        Cast("mob two", 200, 248);     // 48s again
+        Cast("mob three", 400, 418);   // 18s - the odd one out, and the most RECENT
 
-        Assert.Equal(54, tracker.LearnedDurations["Ignite"], 0);
+        Assert.Equal(48, tracker.LearnedDurations["Ignite"], 0);
     }
 
     /// <summary>A gap between ticks ends the effect even if nothing asked for the active list
@@ -206,7 +241,7 @@ public class DebuffTrackerTests
 
         var state = Assert.Single(tracker.Active(T0.AddSeconds(120)));
         Assert.Equal(T0.AddSeconds(120), state.LandedAt);
-        Assert.Equal(12, tracker.LearnedDurations["Choke"], 0);
+        Assert.Equal(6, tracker.LearnedDurations["Choke"], 0);
     }
 
     // ---- slice 2: fades, slows and cripples ----

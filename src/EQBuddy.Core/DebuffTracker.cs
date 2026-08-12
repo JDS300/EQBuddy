@@ -29,11 +29,17 @@ public sealed record DebuffState(
 /// <summary>
 /// Your own DoTs, timed so they can be refreshed before they fall off.
 ///
-/// The log never states a duration, but it does not have to. Ticks arrive every ~6 seconds
-/// naming the spell and target, so a completed cast measures itself: first tick to last tick,
-/// plus the tick that was already paid for. That measurement drives the NEXT cast of the same
-/// spell, which is why the first cast of anything shows no countdown and every one after it
-/// does.
+/// The log never states a duration, but it does not have to. The first tick IS the landing,
+/// ticks arrive every ~6 seconds naming the spell, and the last tick falls on the expiry - the
+/// fade line arrives in the same second, not one tick later. So a completed cast measures
+/// itself as first tick to last tick, and that measurement drives the NEXT cast of the same
+/// spell, which is why the first cast of anything shows no countdown and every one after does.
+///
+/// Measured across the 690k-line fixture (six DoTs, 138 completed casts): first-tick-to-fade
+/// equals the wiki duration exactly for every spell whose wiki value is given in exact seconds
+/// or ticks - Immolate 48, Drones of Doom 48, Gasping Embrace 48, Stinging Swarm 54. Anchoring
+/// on the CAST line instead matches none of them, running long by each spell's own cast time
+/// (Immolate 2.5s, Shiftless Deeds 6.0s), which is why the error is not a constant six seconds.
 ///
 /// Third-party DoTs are deliberately ignored (<see cref="ThirdDotEvent"/>). They were not
 /// wanted, and in a real group log they are the overwhelming majority of tick lines.
@@ -56,10 +62,6 @@ public sealed class DebuffTracker
     /// <summary>Kept briefly past its expiry so a drop is seen rather than silently vanishing
     /// between two glances at the panel.</summary>
     public static readonly TimeSpan ExpiryLinger = TimeSpan.FromSeconds(5);
-
-    /// <summary>A DoT ticks on the six-second server heartbeat, and the first tick lands one
-    /// heartbeat after the cast, so a cast's length is (last - first) + one tick.</summary>
-    public const double ServerTickSeconds = 6;
 
     /// <summary>Measurements kept per spell so a single odd cast cannot become the duration
     /// for good. Capped: a long session would otherwise grow this without bound, and the
@@ -242,7 +244,7 @@ public sealed class DebuffTracker
     private void Record(DebuffState state)
     {
         if (state.LastTickAt <= state.LandedAt) return;   // a single tick measures nothing
-        Record(state.Spell, (state.LastTickAt - state.LandedAt).TotalSeconds + ServerTickSeconds);
+        Record(state.Spell, (state.LastTickAt - state.LandedAt).TotalSeconds);
     }
 
     private void Record(string spell, double measured)

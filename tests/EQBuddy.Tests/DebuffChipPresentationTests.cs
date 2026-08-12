@@ -12,9 +12,10 @@ public class DebuffChipPresentationTests
 {
     private static readonly DateTime T0 = new(2026, 8, 10, 20, 0, 0, DateTimeKind.Utc);
 
-    private static DebuffState State(string target, string spell, double? remaining) =>
+    private static DebuffState State(string target, string spell, double? remaining,
+        DurationCertainty certainty = DurationCertainty.Measured) =>
         new(target, spell, BaseName: spell, Caster: "", IsMine: true, LandedAt: T0, LastTickAt: T0,
-            ExpiresAt: remaining is { } r ? T0.AddSeconds(r) : null);
+            ExpiresAt: remaining is { } r ? T0.AddSeconds(r) : null, Certainty: certainty);
 
     [Fact]
     public void ACountdownIsShownAsMinutesAndSeconds()
@@ -88,5 +89,36 @@ public class DebuffChipPresentationTests
         var other = chips.Single(c => c.Name == "Enfeeblement");
         Assert.False(other.Emphasis);
         Assert.Contains("Cognix", other.Detail, StringComparison.Ordinal);
+    }
+
+    /// <summary>A derived countdown says it is one. Without the mark, a wiki estimate and a
+    /// measurement read identically, and the panel exists to support "do I recast now".</summary>
+    [Fact]
+    public void ADerivedCountdownIsMarkedAsAnEstimate()
+    {
+        var chips = DebuffChipPresentation.Chips(
+            [State("a sand giant", "Shiftless Deeds VI", 240, DurationCertainty.Derived)], T0, 10);
+
+        Assert.Equal("~4:00", Assert.Single(chips).CountdownText);
+    }
+
+    [Fact]
+    public void AMeasuredCountdownIsNotMarked()
+    {
+        var chips = DebuffChipPresentation.Chips(
+            [State("a sand giant", "Immolate", 48, DurationCertainty.Measured)], T0, 10);
+
+        Assert.Equal("0:48", Assert.Single(chips).CountdownText);
+    }
+
+    /// <summary>An estimate about to drop is still worth warning about - it is the best
+    /// information available, and suppressing the warning would make the estimate pointless.</summary>
+    [Fact]
+    public void ADerivedCountdownStillWarnsWhenItIsAboutToDrop()
+    {
+        var chips = DebuffChipPresentation.Chips(
+            [State("a sand giant", "Shiftless Deeds VI", 8, DurationCertainty.Derived)], T0, 10);
+
+        Assert.True(Assert.Single(chips).IsDue);
     }
 }

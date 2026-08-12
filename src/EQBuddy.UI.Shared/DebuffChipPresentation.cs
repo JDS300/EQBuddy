@@ -13,6 +13,12 @@ public static class DebuffChipPresentation
     /// reads as "it just dropped" rather than "nobody knows".</summary>
     public const string UnknownCountdown = "--";
 
+    /// <summary>Prefixes a countdown derived from the wiki's base duration rather than measured
+    /// from this log. One character, because the chip is narrow and the slider makes it
+    /// narrower - but the distinction has to survive a glance mid-fight, so it is in the text
+    /// rather than in an opacity a screenshot would lose.</summary>
+    public const string EstimatePrefix = "~";
+
     public static List<SpawnChip> Chips(
         IReadOnlyList<DebuffState> states, DateTime now, double warnSeconds) =>
         states
@@ -25,17 +31,18 @@ public static class DebuffChipPresentation
             .Select(s => new SpawnChip(
                 Zone: s.Target,
                 Name: s.Spell,
-                CountdownText: Countdown(s.RemainingSeconds(now)),
+                CountdownText: Countdown(s.RemainingSeconds(now), s.Certainty),
                 IsDue: s.IsAboutToDrop(now, warnSeconds),
                 Detail: s.IsMine ? "" : s.Caster,
                 Icon: "☠",
                 Emphasis: s.IsMine))
             .ToList();
 
-    private static string Countdown(double? remaining)
+    private static string Countdown(double? remaining, DurationCertainty certainty)
     {
         if (remaining is not { } seconds) return UnknownCountdown;
         var whole = (int)Math.Round(seconds);
-        return $"{whole / 60}:{whole % 60:00}";
+        var prefix = certainty == DurationCertainty.Derived ? EstimatePrefix : "";
+        return $"{prefix}{whole / 60}:{whole % 60:00}";
     }
 }

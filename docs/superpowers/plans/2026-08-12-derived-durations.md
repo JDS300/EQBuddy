@@ -18,7 +18,7 @@
   - `dotnet build src/EQBuddy.Avalonia/EQBuddy.Avalonia.csproj -c Release`
   - `dotnet test tests/EQBuddy.Tests/EQBuddy.Tests.csproj -c Release`
   - `dotnet test tests/EQBuddy.Avalonia.Tests/EQBuddy.Avalonia.Tests.csproj -c Release`
-- **`dotnet test` can exit 0 despite `[FATAL ERROR] Catastrophic failure` — read the test count, never trust the exit code.** Baseline at `54e9cf1` is 923 passing.
+- **`dotnet test` can exit 0 despite `[FATAL ERROR] Catastrophic failure` — read the test count, never trust the exit code.** Baseline on branch `derived-durations`, verified 2026-08-12: **`EQBuddy.Tests` 842**, **`EQBuddy.Avalonia.Tests` 81** (923 combined). Every per-task count below is for `EQBuddy.Tests` alone.
 - **Never run the Avalonia tests while the app is running.** Check `ps -C EQBuddy.Avalonia` first.
 - Test line shapes must be verbatim from `tests/fixtures/eqlog_Daggo_freeport.txt`.
 
@@ -125,7 +125,7 @@ Then correct the class docstring, which currently states the wrong model. Replac
 
 Run: `dotnet test tests/EQBuddy.Tests/EQBuddy.Tests.csproj -c Release`
 
-Expected: PASS. Read the total — it must be 925 (923 baseline + 2 new), with 0 failed. If any pre-existing test now fails, it was asserting the phantom tick; report which before changing it.
+Expected: PASS. Read the total — it must be 844 (842 baseline + 2 new), with 0 failed. If any pre-existing test now fails, it was asserting the phantom tick; report which before changing it.
 
 - [ ] **Step 6: Commit**
 
@@ -293,7 +293,7 @@ public static class SpellRank
 
 Run: `dotnet test tests/EQBuddy.Tests/EQBuddy.Tests.csproj -c Release --filter "FullyQualifiedName~SpellRankTests"`
 
-Expected: PASS, 16 tests.
+Expected: PASS, 16 tests (4 theories, 16 cases).
 
 - [ ] **Step 5: Commit**
 
@@ -622,7 +622,7 @@ public sealed class SpellDurationCatalog
 
 Run: `dotnet test tests/EQBuddy.Tests/EQBuddy.Tests.csproj -c Release`
 
-Expected: PASS. Total 948 (925 + Task 2's 16 theory cases + 7 new), 0 failed.
+Expected: PASS. Total 867 (844 + Task 2's 16 theory cases + 7 new), 0 failed.
 
 - [ ] **Step 8: Commit**
 
@@ -934,7 +934,7 @@ Finally, in `OnFade`, the lookup key becomes the base name — fade lines never 
 
 Run: `dotnet test tests/EQBuddy.Tests/EQBuddy.Tests.csproj -c Release`
 
-Expected: PASS. Total 955 (948 + 7 new), 0 failed.
+Expected: PASS. Total 874 (867 + 7 new), 0 failed.
 
 Existing `DebuffState` constructions in tests will need the new `BaseName` argument. Where a test constructs one positionally, pass the same value as `Spell`. **Do not** change any existing assertion's expected value to make it pass — if a pre-existing behavioural test fails, stop and report it.
 
@@ -1039,7 +1039,7 @@ And replace `Countdown`:
 
 Run: `dotnet test tests/EQBuddy.Tests/EQBuddy.Tests.csproj -c Release`
 
-Expected: PASS. Total 958 (955 + 3 new), 0 failed.
+Expected: PASS. Total 877 (874 + 3 new), 0 failed.
 
 - [ ] **Step 5: Run the Avalonia suite**
 

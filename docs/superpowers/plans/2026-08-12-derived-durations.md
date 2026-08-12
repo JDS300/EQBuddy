@@ -426,7 +426,7 @@ print('Cripple present?', 'Cripple' in d)
 "
 ```
 
-Expected: ~1580 entries; `Shiftless Deeds: 150.0`, `Tepid Deeds: 150.0`, `Immolate: 48.0`, `Mesmerization: 24.0`, `Clarity II: 2100.0`, `Burnout IV: 900.0`; `Cripple present? False`.
+Expected: **exactly 680 entries**; `Shiftless Deeds: 150.0`, `Tepid Deeds: 150.0`, `Immolate: 48.0`, `Mesmerization: 24.0`, `Clarity II: 2100.0`, `Burnout IV: 900.0`; `Cripple present? False`.
 
 If any value differs, **stop and report** — the catalog is the evidence base for the whole feature.
 
@@ -589,7 +589,7 @@ public sealed class SpellDurationCatalog
             ? LoadEmbedded()
             : new Dictionary<string, double>(durations, StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>The shipped catalog, loaded once. ~1,580 spells.</summary>
+    /// <summary>The shipped catalog, loaded once. 680 spells.</summary>
     public static SpellDurationCatalog Embedded => _embedded ??= new SpellDurationCatalog();
 
     /// <summary>Base seconds for a cast name, scaled for rank - or null when the catalog

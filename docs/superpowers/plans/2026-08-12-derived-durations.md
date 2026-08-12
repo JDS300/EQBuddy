@@ -125,7 +125,24 @@ Then correct the class docstring, which currently states the wrong model. Replac
 
 Run: `dotnet test tests/EQBuddy.Tests/EQBuddy.Tests.csproj -c Release`
 
-Expected: PASS. Read the total — it must be 844 (842 baseline + 2 new), with 0 failed. If any pre-existing test now fails, it was asserting the phantom tick; report which before changing it.
+Expected: PASS **only after the step below**. Four existing tests encode the phantom tick and must be corrected — they are the regression evidence, not collateral damage. Make exactly these edits in `tests/EQBuddy.Tests/DebuffTrackerTests.cs`, changing expected values and their explanatory comments only:
+
+| Test | Tick span | Was | Becomes |
+|---|---|---|---|
+| `ADurationLearnedFromOneCastCountsDownTheNext` | 0→48 | `54` (twice: `LearnedDurations` and `RemainingSeconds`) | `48` |
+| `RecastingRestartsTheClockRatherThanExtendingIt` | 36→90 | `60` | `54` |
+| `TheRepeatedMeasurementWinsOverAnOddOne` | 0→48 | `54` | `48` |
+| `AGapBetweenTicksEndsTheEffectEvenWithoutAnActiveCall` | 0→6 | `12` | `6` |
+
+Also update the inline comments that state the old arithmetic:
+- In `RecastingRestartsTheClockRatherThanExtendingIt`: `// 36..90 is the second cast: 54s + the tick already paid for = 60, not 96.` becomes `// 36..90 is the second cast: 54s, not 96. The last tick falls on the expiry.`
+- In `TheRepeatedMeasurementWinsOverAnOddOne`: the `// 54s` comments become `// 48s`, and `// 24s - the odd one out` becomes `// 18s - the odd one out`.
+
+**These four must NOT change:** `AFadeLineEndsTheEffectAndMeasuresItExactly` (54), `ATheirSlowBorrowsADurationYouMeasuredYourself` (60), `ASlowSurvivesLongerThanTheTickGapAndIsEndedByItsFade` (60), `AnUnmeasuredSpellHasNoCountdownRatherThanAGuess` (nulls). They all exercise the fade path or the no-duration path, which this task does not touch — if any of them fails, **stop and report**, because that means the change reached further than intended.
+
+Then run: `dotnet test tests/EQBuddy.Tests/EQBuddy.Tests.csproj -c Release`
+
+Expected: PASS. Read the total — it must be 844 (842 baseline + 2 new), with 0 failed.
 
 - [ ] **Step 6: Commit**
 
@@ -845,7 +862,7 @@ Replace `OnLanding`'s body after the cast lookup:
 
 ```csharp
         var key = (landed.Target, _catalog.BaseNameOf(cast.Spell));
-        var (expires, certainty) = Expiry(cast.Spell, landed.Time);
+        var (expires, certainty) = Expiry(cast.Spell, cast.Spell, landed.Time);
         _active[key] = new DebuffState(
             landed.Target, cast.Spell, key.Item2, cast.Caster, cast.Mine,
             LandedAt: landed.Time, LastTickAt: landed.Time,
@@ -873,7 +890,8 @@ In `OnTick`, replace the key and both construction sites. The key is already the
 Then in the recast branch, replace the `with` expression:
 
 ```csharp
-                var (refreshedAt, refreshedCertainty) = Expiry(castName ?? tick.Source, tick.Time);
+                var (refreshedAt, refreshedCertainty) =
+                    Expiry(castName ?? tick.Source, castName, tick.Time);
                 _active[key] = existing with
                 {
                     Spell = castName ?? existing.Spell,
@@ -889,7 +907,7 @@ Then in the recast branch, replace the `with` expression:
 And the new-effect branch at the end:
 
 ```csharp
-        var (at, howSure) = Expiry(castName ?? tick.Source, tick.Time);
+        var (at, howSure) = Expiry(castName ?? tick.Source, castName, tick.Time);
         _active[key] = new DebuffState(
             tick.Target, castName ?? tick.Source, tick.Source, Caster: "", IsMine: true,
             LandedAt: tick.Time, LastTickAt: tick.Time,
@@ -908,12 +926,18 @@ Replace `Record(DebuffState)` and `Expiry` so samples key on the displayed (rank
     /// <summary>Measured samples first, catalog second, nothing third - the trust order the
     /// whole panel rests on. Samples key on the RANKED name because ranks genuinely differ:
     /// pooling Immolate I with Immolate V would corrupt both. A measurement is never adjusted
-    /// toward the catalog; Tepid Deeds keeps its measured 126s against a wiki 150.</summary>
-    private (DateTime? At, DurationCertainty Certainty) Expiry(string spell, DateTime from)
+    /// toward the catalog; Tepid Deeds keeps its measured 126s against a wiki 150.
+    ///
+    /// <paramref name="castName"/> is null when no cast explained this effect, and then NOTHING
+    /// is derived. The rank lives on the cast line alone, so deriving from the base name would
+    /// silently assume tier 0 - reading 48s for a rank-V Immolate that runs 72s, and warning
+    /// early on every cast. An unknown rank is an unknown duration.</summary>
+    private (DateTime? At, DurationCertainty Certainty) Expiry(
+        string sampleKey, string? castName, DateTime from)
     {
-        if (_samples.TryGetValue(spell, out var samples) && samples.Count > 0)
+        if (_samples.TryGetValue(sampleKey, out var samples) && samples.Count > 0)
             return (from.AddSeconds(Consensus(samples)), DurationCertainty.Measured);
-        if (_catalog.Resolve(spell) is { } derived)
+        if (castName is not null && _catalog.Resolve(castName) is { } derived)
             return (from.AddSeconds(derived.Seconds), DurationCertainty.Derived);
         return (null, DurationCertainty.Unknown);
     }

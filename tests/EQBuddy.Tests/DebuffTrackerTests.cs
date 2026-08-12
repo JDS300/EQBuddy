@@ -357,4 +357,131 @@ public class DebuffTrackerTests
         Assert.Empty(tracker.Active(T0.AddSeconds(61)));
         Assert.Equal(60, tracker.LearnedDurations["Tepid Deeds"], 0);
     }
+
+    // ---- derived durations: the catalog as a fallback ----
+
+    private static DebuffTracker WithCatalog() => new(new SpellDurationCatalog(
+        new Dictionary<string, double> { ["Shiftless Deeds"] = 150, ["Immolate"] = 48 }));
+
+    /// <summary>Cold start: nothing has been measured, so the catalog answers - marked as an
+    /// estimate so the chip can say so.</summary>
+    [Fact]
+    public void AnUnmeasuredSpellFallsBackToTheDerivedDuration()
+    {
+        var tracker = WithCatalog();
+
+        tracker.Apply(new SpellCastEvent(T0, "Shiftless Deeds VI"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(6), "a sand giant", DebuffKind.Slow));
+
+        var state = Assert.Single(tracker.Active(T0.AddSeconds(6)));
+        Assert.Equal(DurationCertainty.Derived, state.Certainty);
+        Assert.Equal(240, state.RemainingSeconds(T0.AddSeconds(6))!.Value, precision: 3);
+    }
+
+    /// <summary>The trust order. Tepid Deeds measures ~126s while its wiki page says 150 - and
+    /// that page contradicts itself. The measurement wins and is never corrected toward the wiki.</summary>
+    [Fact]
+    public void AMeasurementSupersedesTheDerivedDuration()
+    {
+        var tracker = new DebuffTracker(new SpellDurationCatalog(
+            new Dictionary<string, double> { ["Immolate"] = 48 }));
+
+        // First cast: nothing measured yet, so the estimate is shown.
+        tracker.Apply(new SpellCastEvent(T0, "Immolate"));
+        for (var i = 0; i <= 126; i += 6)
+            tracker.Apply(Tick("a sand giant", "Immolate", i));
+        tracker.Apply(new SpellWornOffEvent(T0.AddSeconds(126), "Immolate", "a sand giant"));
+
+        // Second cast on a fresh mob: the measured 126 is used, not the catalog's 48.
+        tracker.Apply(new SpellCastEvent(T0.AddSeconds(200), "Immolate"));
+        tracker.Apply(Tick("a griffon", "Immolate", 206));
+
+        var state = Assert.Single(tracker.Active(T0.AddSeconds(206)));
+        Assert.Equal(DurationCertainty.Measured, state.Certainty);
+        Assert.Equal(126, state.RemainingSeconds(T0.AddSeconds(206))!.Value, precision: 3);
+    }
+
+    /// <summary>Ranks have genuinely different durations, so their samples must not pool - a
+    /// rank-I measurement must never shorten a rank-V countdown.</summary>
+    [Fact]
+    public void SamplesForTwoRanksOfOneSpellDoNotPool()
+    {
+        var tracker = WithCatalog();
+
+        tracker.Apply(new SpellCastEvent(T0, "Shiftless Deeds IV"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(1), "a sand giant", DebuffKind.Slow));
+        tracker.Apply(new SpellWornOffEvent(T0.AddSeconds(101), "Shiftless Deeds", "a sand giant"));
+
+        Assert.Equal(100, tracker.LearnedDurations["Shiftless Deeds IV"]);
+        Assert.False(tracker.LearnedDurations.ContainsKey("Shiftless Deeds VI"));
+    }
+
+    /// <summary>The rank lives on the cast line and nowhere else, so a tick nobody cast has an
+    /// unknown tier. Assuming base rank would read 48s against a real 72s for a rank-V DoT and
+    /// warn early on every single cast.</summary>
+    [Fact]
+    public void ATickWithNoExplainingCastShowsNoDerivedDuration()
+    {
+        var tracker = WithCatalog();
+
+        tracker.Apply(Tick("a sand giant", "Immolate", 0));
+
+        var state = Assert.Single(tracker.Active(T0));
+        Assert.Equal(DurationCertainty.Unknown, state.Certainty);
+        Assert.Null(state.RemainingSeconds(T0));
+    }
+
+    /// <summary>A cast from long ago must not supply a rank. _recentCasts is pruned only when a
+    /// new cast arrives, so without a window this quietly becomes "the last rank I ever saw" -
+    /// the guess this design rejected.</summary>
+    [Fact]
+    public void AStaleCastDoesNotSupplyTheRank()
+    {
+        var tracker = WithCatalog();
+
+        tracker.Apply(new SpellCastEvent(T0, "Immolate III"));
+        // Two minutes later, a tick with no cast of its own to explain it.
+        tracker.Apply(Tick("a sand giant", "Immolate", 120));
+
+        var state = Assert.Single(tracker.Active(T0.AddSeconds(120)));
+        Assert.Equal("Immolate", state.Spell);
+        Assert.Equal(DurationCertainty.Unknown, state.Certainty);
+    }
+
+    /// <summary>The chip shows the rank you actually cast, while tracking keys on the base name
+    /// the tick and fade lines use.</summary>
+    [Fact]
+    public void TheChipShowsTheRankedNameButTracksByBaseName()
+    {
+        var tracker = WithCatalog();
+
+        tracker.Apply(new SpellCastEvent(T0, "Shiftless Deeds IV"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(1), "a sand giant", DebuffKind.Slow));
+
+        var state = Assert.Single(tracker.Active(T0.AddSeconds(1)));
+        Assert.Equal("Shiftless Deeds IV", state.Spell);
+        Assert.Equal("Shiftless Deeds", state.BaseName);
+    }
+
+    /// <summary>_recastPending held the RANKED cast name and was looked up with the UNRANKED tick
+    /// name, so recast detection could never fire for a ranked DoT - the exact failure the tracker
+    /// documents ("Immolate 115s against 54-60s for every sibling"). The fixture never caught it
+    /// because none of Daggo's DoTs are ranked.</summary>
+    [Fact]
+    public void ARecastOfARankedDotRestartsTheClock()
+    {
+        var tracker = new DebuffTracker(new SpellDurationCatalog(
+            new Dictionary<string, double> { ["Immolate"] = 48 }));
+
+        tracker.Apply(new SpellCastEvent(T0, "Immolate III"));
+        tracker.Apply(Tick("a sand giant", "Immolate", 6));
+        tracker.Apply(Tick("a sand giant", "Immolate", 12));
+
+        // Refresh before it drops. The clock must restart from the new cast's first tick.
+        tracker.Apply(new SpellCastEvent(T0.AddSeconds(18), "Immolate III"));
+        tracker.Apply(Tick("a sand giant", "Immolate", 24));
+
+        var state = Assert.Single(tracker.Active(T0.AddSeconds(24)));
+        Assert.Equal(T0.AddSeconds(24), state.LandedAt);
+    }
 }

@@ -3,7 +3,11 @@ namespace EQBuddy.Core;
 /// <summary>One damage-over-time effect currently ticking on one target.</summary>
 public sealed record DebuffState(
     string Target,
+    /// <summary>What to show on the chip - the ranked name when a cast supplied one.</summary>
     string Spell,
+    /// <summary>What to key on. Tick and fade lines never carry the rank, so tracking keys on
+    /// the base name while the chip displays the rank.</summary>
+    string BaseName,
     string Caster,
     bool IsMine,
     DateTime LandedAt,
@@ -11,7 +15,9 @@ public sealed record DebuffState(
     DateTime? ExpiresAt,
     /// <summary>True for DoTs, which announce themselves every six seconds. A slow announces
     /// itself once and then says nothing until it fades, so silence means nothing for it.</summary>
-    bool Ticks = false)
+    bool Ticks = false,
+    /// <summary>Whether the countdown was measured, derived from the wiki, or is unknown.</summary>
+    DurationCertainty Certainty = DurationCertainty.Unknown)
 {
     /// <summary>Null when this spell's duration has never been measured. A null countdown is
     /// the honest answer: the alternative is a number invented at the exact moment the user
@@ -68,11 +74,24 @@ public sealed class DebuffTracker
     /// oldest samples say nothing the newest do not.</summary>
     public static readonly int SampleCap = 16;
 
+    /// <summary>How long after a cast a first TICK can still be attributed to it, and so
+    /// supply the rank. Wider than <see cref="CastToLand"/> because the cast line precedes the
+    /// landing by the spell's own cast time, which reaches 6s (Shiftless Deeds) before the
+    /// first tick is even due. Measured across the fixture, cast-to-first-tick runs a median of
+    /// 5s and a 90th percentile of 8s. Still far below the shortest DoT duration (30s), so this
+    /// can never reach back and grab the PREVIOUS cast of the same spell.</summary>
+    public static readonly TimeSpan CastToTick = TimeSpan.FromSeconds(15);
+
+    private readonly SpellDurationCatalog _catalog;
+
     private readonly Dictionary<(string Target, string Spell), DebuffState> _active = [];
     private readonly Dictionary<string, List<double>> _samples = [];
     private readonly HashSet<string> _died = [];
     private readonly HashSet<string> _recastPending = [];
     private readonly List<(DateTime Time, string Caster, string Spell, bool Mine)> _recentCasts = [];
+
+    public DebuffTracker(SpellDurationCatalog? catalog = null) =>
+        _catalog = catalog ?? SpellDurationCatalog.Embedded;
 
     /// <summary>Lead time, in seconds, at which an effect counts as about to drop.</summary>
     public double WarnSeconds { get; set; } = 10;
@@ -105,7 +124,7 @@ public sealed class DebuffTracker
             // Nothing in the tick lines marks a recast - the ticks simply continue - so the
             // cast line is the only evidence that the clock restarted.
             case SpellCastEvent cast:
-                _recastPending.Add(cast.Spell);
+                _recastPending.Add(_catalog.BaseNameOf(cast.Spell));
                 RememberCast(cast.Time, "", cast.Spell, mine: true);
                 break;
             // Someone else's cast is worth remembering only because a slow landing names
@@ -138,11 +157,12 @@ public sealed class DebuffTracker
         var cast = _recentCasts.LastOrDefault(c => landed.Time - c.Time <= CastToLand);
         if (cast.Spell is null or "") return;   // nobody we can see cast it: no spell, no chip
 
-        var key = (landed.Target, cast.Spell);
+        var key = (landed.Target, _catalog.BaseNameOf(cast.Spell));
+        var (expires, certainty) = Expiry(cast.Spell, cast.Spell, landed.Time);
         _active[key] = new DebuffState(
-            landed.Target, cast.Spell, cast.Caster, cast.Mine,
+            landed.Target, cast.Spell, key.Item2, cast.Caster, cast.Mine,
             LandedAt: landed.Time, LastTickAt: landed.Time,
-            ExpiresAt: Expiry(cast.Spell, landed.Time));
+            ExpiresAt: expires, Certainty: certainty);
     }
 
     /// <summary>Only YOUR spells announce a fade, so this both ends and measures your own
@@ -150,17 +170,27 @@ public sealed class DebuffTracker
     /// and shows no countdown until you have measured one.</summary>
     private void OnFade(SpellWornOffEvent fade)
     {
-        var key = (fade.Target, fade.Spell);
+        var key = (fade.Target, _catalog.BaseNameOf(fade.Spell));
         if (!_active.Remove(key, out var state)) return;
         if (_died.Contains(fade.Target)) return;
 
         var measured = (fade.Time - state.LandedAt).TotalSeconds;
-        if (measured > 0) Record(state.Spell, measured);
+        if (measured > 0) Record(state.Spell, measured);   // ranked name: samples are per-rank
     }
 
     private void OnTick(DamageDealtEvent tick)
     {
         var key = (tick.Target, tick.Source);
+        // The rank is on the cast line and nowhere else, so a tick nobody cast has an unknown
+        // tier - and an unknown tier cannot be derived, only measured.
+        //
+        // The window matters. _recentCasts is pruned only when a new cast arrives, so an
+        // unbounded search would match a cast from ten minutes ago and silently become "the
+        // last rank I ever saw" - which is exactly the guess this design rejected.
+        var castName = _recentCasts
+            .LastOrDefault(c => c.Mine && tick.Time - c.Time <= CastToTick
+                && _catalog.BaseNameOf(c.Spell) == tick.Source).Spell;
+
         if (_active.TryGetValue(key, out var existing) && tick.Time - existing.LastTickAt > TickGrace)
         {
             // The previous effect ended before this tick, and nobody was watching. Retirement
@@ -181,11 +211,15 @@ public sealed class DebuffTracker
                 // rather than the spell's duration - the same reason a kill teaches nothing.
                 // Without the restart the two casts read as one long effect, which is how the
                 // real log taught Immolate 115s against 54-60s for every sibling druid DoT.
+                var (refreshedAt, refreshedCertainty) =
+                    Expiry(castName ?? tick.Source, castName, tick.Time);
                 _active[key] = existing with
                 {
+                    Spell = castName ?? existing.Spell,
                     LandedAt = tick.Time,
                     LastTickAt = tick.Time,
-                    ExpiresAt = Expiry(tick.Source, tick.Time),
+                    ExpiresAt = refreshedAt,
+                    Certainty = refreshedCertainty,
                     Ticks = true,
                 };
                 return;
@@ -197,10 +231,11 @@ public sealed class DebuffTracker
         _recastPending.Remove(tick.Source);   // that cast explains THIS landing, not a refresh
 
         _died.Remove(tick.Target);   // a fresh cast on a name that died earlier
+        var (at, howSure) = Expiry(castName ?? tick.Source, castName, tick.Time);
         _active[key] = new DebuffState(
-            tick.Target, tick.Source, Caster: "", IsMine: true,
+            tick.Target, castName ?? tick.Source, tick.Source, Caster: "", IsMine: true,
             LandedAt: tick.Time, LastTickAt: tick.Time,
-            ExpiresAt: Expiry(tick.Source, tick.Time), Ticks: true);
+            ExpiresAt: at, Ticks: true, Certainty: howSure);
     }
 
     /// <summary>What is ticking now. Also the point at which effects whose ticks have stopped
@@ -255,8 +290,22 @@ public sealed class DebuffTracker
         _samples[spell] = samples;
     }
 
-    private DateTime? Expiry(string spell, DateTime from) =>
-        _samples.TryGetValue(spell, out var samples) && samples.Count > 0
-            ? from.AddSeconds(Consensus(samples))
-            : null;
+    /// <summary>Measured samples first, catalog second, nothing third - the trust order the
+    /// whole panel rests on. Samples key on the RANKED name because ranks genuinely differ:
+    /// pooling Immolate I with Immolate V would corrupt both. A measurement is never adjusted
+    /// toward the catalog; Tepid Deeds keeps its measured 126s against a wiki 150.
+    ///
+    /// <paramref name="castName"/> is null when no cast explained this effect, and then NOTHING
+    /// is derived. The rank lives on the cast line alone, so deriving from the base name would
+    /// silently assume tier 0 - reading 48s for a rank-V Immolate that runs 72s, and warning
+    /// early on every cast. An unknown rank is an unknown duration.</summary>
+    private (DateTime? At, DurationCertainty Certainty) Expiry(
+        string sampleKey, string? castName, DateTime from)
+    {
+        if (_samples.TryGetValue(sampleKey, out var samples) && samples.Count > 0)
+            return (from.AddSeconds(Consensus(samples)), DurationCertainty.Measured);
+        if (castName is not null && _catalog.Resolve(castName) is { } derived)
+            return (from.AddSeconds(derived.Seconds), DurationCertainty.Derived);
+        return (null, DurationCertainty.Unknown);
+    }
 }

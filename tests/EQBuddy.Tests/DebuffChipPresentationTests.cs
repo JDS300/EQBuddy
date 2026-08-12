@@ -13,7 +13,7 @@ public class DebuffChipPresentationTests
     private static readonly DateTime T0 = new(2026, 8, 10, 20, 0, 0, DateTimeKind.Utc);
 
     private static DebuffState State(string target, string spell, double? remaining) =>
-        new(target, spell, Caster: "", IsMine: true, LandedAt: T0, LastTickAt: T0,
+        new(target, spell, BaseName: spell, Caster: "", IsMine: true, LandedAt: T0, LastTickAt: T0,
             ExpiresAt: remaining is { } r ? T0.AddSeconds(r) : null);
 
     [Fact]

@@ -25,6 +25,7 @@
     <EmbeddedResource Include="Data\RegenSpells.json" />
     <EmbeddedResource Include="Data\QuestCatalog.json" />
     <EmbeddedResource Include="Data\ZoneGraph.json" />
+    <EmbeddedResource Include="Data\SpellDurations.json" />
   </ItemGroup>
 
 </Project>

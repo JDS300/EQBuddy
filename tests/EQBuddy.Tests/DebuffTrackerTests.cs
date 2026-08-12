@@ -89,13 +89,48 @@ public class DebuffTrackerTests
             tracker.Apply(Tick("a sand giant", "Drifting Death", second));
         tracker.Active(T0.AddSeconds(70));            // ticks stopped: the cast is complete
 
-        Assert.Equal(54, tracker.LearnedDurations["Drifting Death"], 0);
+        Assert.Equal(48, tracker.LearnedDurations["Drifting Death"], 0);
 
         tracker.Apply(Tick("a dervish cutthroat", "Drifting Death", 100));
         var state = Assert.Single(tracker.Active(T0.AddSeconds(100)));
 
         Assert.NotNull(state.ExpiresAt);
-        Assert.Equal(54, state.RemainingSeconds(T0.AddSeconds(100))!.Value, 0);
+        Assert.Equal(48, state.RemainingSeconds(T0.AddSeconds(100))!.Value, 0);
+    }
+
+    /// <summary>Immolate's wiki duration is 48s, and in the fixture its fade line arrives at the
+    /// last tick, not a tick after it: nine ticks spanning 48s, then "worn off" in the same second.
+    /// The tick-retired path used to add a phantom trailing tick and teach 54s - the number that
+    /// looked like a 6s anchoring error and is not one.</summary>
+    [Fact]
+    public void ATickRetiredDotMeasuresFirstTickToLastTick()
+    {
+        var tracker = new DebuffTracker();
+        for (var i = 0; i <= 48; i += 6)
+            tracker.Apply(Tick("a sand giant", "Immolate", i));
+
+        // Ticks stop; the effect retires once TickGrace has passed.
+        tracker.Active(T0.AddSeconds(48 + 13));
+
+        Assert.Equal(48, tracker.LearnedDurations["Immolate"]);
+    }
+
+    /// <summary>The fade path and the tick-retired path must agree. They measure the same event
+    /// by different evidence, so a disagreement means one of them is wrong.</summary>
+    [Fact]
+    public void TheFadePathAndTheTickPathMeasureTheSameDuration()
+    {
+        var faded = new DebuffTracker();
+        for (var i = 0; i <= 48; i += 6)
+            faded.Apply(Tick("a sand giant", "Immolate", i));
+        faded.Apply(new SpellWornOffEvent(T0.AddSeconds(48), "Immolate", "a sand giant"));
+
+        var ticked = new DebuffTracker();
+        for (var i = 0; i <= 48; i += 6)
+            ticked.Apply(Tick("a sand giant", "Immolate", i));
+        ticked.Active(T0.AddSeconds(48 + 13));
+
+        Assert.Equal(faded.LearnedDurations["Immolate"], ticked.LearnedDurations["Immolate"]);
     }
 
     [Fact]
@@ -139,9 +174,9 @@ public class DebuffTrackerTests
         for (var second = 100; second <= 148; second += 6)
             tracker.Apply(Tick("a dervish cutthroat", "Drifting Death", second));
 
-        // Learned 54s from a cast landing at 100, so it drops at 154.
-        Assert.False(tracker.Active(T0.AddSeconds(142))[0].IsAboutToDrop(T0.AddSeconds(142), 10));
-        Assert.True(tracker.Active(T0.AddSeconds(148))[0].IsAboutToDrop(T0.AddSeconds(148), 10));
+        // Learned 48s from a cast landing at 100, so it drops at 148.
+        Assert.False(tracker.Active(T0.AddSeconds(136))[0].IsAboutToDrop(T0.AddSeconds(136), 10));
+        Assert.True(tracker.Active(T0.AddSeconds(142))[0].IsAboutToDrop(T0.AddSeconds(142), 10));
     }
 
     /// <summary>Refreshing a DoT before it drops is the normal case, and the ticks continue
@@ -160,8 +195,8 @@ public class DebuffTrackerTests
             tracker.Apply(Tick("a sand giant", "Immolate", second));
         tracker.Active(T0.AddSeconds(120));
 
-        // 36..90 is the second cast: 54s + the tick already paid for = 60, not 96.
-        Assert.Equal(60, tracker.LearnedDurations["Immolate"], 0);
+        // 36..90 is the second cast: 54s, not 96. The last tick falls on the expiry.
+        Assert.Equal(54, tracker.LearnedDurations["Immolate"], 0);
     }
 
     /// <summary>One odd sample must not become the duration for good. A mob wandering out of
@@ -179,11 +214,11 @@ public class DebuffTrackerTests
             tracker.Active(T0.AddSeconds(to + 30));
         }
 
-        Cast("mob one", 0, 48);        // 54s
-        Cast("mob two", 200, 248);     // 54s again
-        Cast("mob three", 400, 418);   // 24s - the odd one out, and the most RECENT
+        Cast("mob one", 0, 48);        // 48s
+        Cast("mob two", 200, 248);     // 48s again
+        Cast("mob three", 400, 418);   // 18s - the odd one out, and the most RECENT
 
-        Assert.Equal(54, tracker.LearnedDurations["Ignite"], 0);
+        Assert.Equal(48, tracker.LearnedDurations["Ignite"], 0);
     }
 
     /// <summary>A gap between ticks ends the effect even if nothing asked for the active list
@@ -206,7 +241,7 @@ public class DebuffTrackerTests
 
         var state = Assert.Single(tracker.Active(T0.AddSeconds(120)));
         Assert.Equal(T0.AddSeconds(120), state.LandedAt);
-        Assert.Equal(12, tracker.LearnedDurations["Choke"], 0);
+        Assert.Equal(6, tracker.LearnedDurations["Choke"], 0);
     }
 
     // ---- slice 2: fades, slows and cripples ----
@@ -321,5 +356,227 @@ public class DebuffTrackerTests
 
         Assert.Empty(tracker.Active(T0.AddSeconds(61)));
         Assert.Equal(60, tracker.LearnedDurations["Tepid Deeds"], 0);
+    }
+
+    // ---- derived durations: the catalog as a fallback ----
+
+    private static DebuffTracker WithCatalog() => new(new SpellDurationCatalog(
+        new Dictionary<string, double> { ["Shiftless Deeds"] = 150, ["Immolate"] = 48 }));
+
+    /// <summary>Cold start: nothing has been measured, so the catalog answers - marked as an
+    /// estimate so the chip can say so.</summary>
+    [Fact]
+    public void AnUnmeasuredSpellFallsBackToTheDerivedDuration()
+    {
+        var tracker = WithCatalog();
+
+        tracker.Apply(new SpellCastEvent(T0, "Shiftless Deeds VI"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(6), "a sand giant", DebuffKind.Slow));
+
+        var state = Assert.Single(tracker.Active(T0.AddSeconds(6)));
+        Assert.Equal(DurationCertainty.Derived, state.Certainty);
+        Assert.Equal(240, state.RemainingSeconds(T0.AddSeconds(6))!.Value, precision: 3);
+    }
+
+    /// <summary>The trust order. Tepid Deeds measures ~126s while its wiki page says 150 - and
+    /// that page contradicts itself. The measurement wins and is never corrected toward the wiki.</summary>
+    [Fact]
+    public void AMeasurementSupersedesTheDerivedDuration()
+    {
+        var tracker = new DebuffTracker(new SpellDurationCatalog(
+            new Dictionary<string, double> { ["Immolate"] = 48 }));
+
+        // First cast: nothing measured yet, so the estimate is shown.
+        tracker.Apply(new SpellCastEvent(T0, "Immolate"));
+        for (var i = 0; i <= 126; i += 6)
+            tracker.Apply(Tick("a sand giant", "Immolate", i));
+        tracker.Apply(new SpellWornOffEvent(T0.AddSeconds(126), "Immolate", "a sand giant"));
+
+        // Second cast on a fresh mob: the measured 126 is used, not the catalog's 48.
+        tracker.Apply(new SpellCastEvent(T0.AddSeconds(200), "Immolate"));
+        tracker.Apply(Tick("a griffon", "Immolate", 206));
+
+        var state = Assert.Single(tracker.Active(T0.AddSeconds(206)));
+        Assert.Equal(DurationCertainty.Measured, state.Certainty);
+        Assert.Equal(126, state.RemainingSeconds(T0.AddSeconds(206))!.Value, precision: 3);
+    }
+
+    /// <summary>Ranks have genuinely different durations, so their samples must not pool - a
+    /// rank-I measurement must never shorten a rank-V countdown.</summary>
+    [Fact]
+    public void SamplesForTwoRanksOfOneSpellDoNotPool()
+    {
+        var tracker = WithCatalog();
+
+        // Rank IV on one mob, measured at 100s.
+        tracker.Apply(new SpellCastEvent(T0, "Shiftless Deeds IV"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(1), "a sand giant", DebuffKind.Slow));
+        tracker.Apply(new SpellWornOffEvent(T0.AddSeconds(101), "Shiftless Deeds", "a sand giant"));
+
+        // Rank VI on another, measured at 130s. Both fade lines say "Shiftless Deeds".
+        tracker.Apply(new SpellCastEvent(T0.AddSeconds(200), "Shiftless Deeds VI"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(201), "a hill giant", DebuffKind.Slow));
+        tracker.Apply(new SpellWornOffEvent(T0.AddSeconds(331), "Shiftless Deeds", "a hill giant"));
+
+        Assert.Equal(100, tracker.LearnedDurations["Shiftless Deeds IV"]);
+        Assert.Equal(130, tracker.LearnedDurations["Shiftless Deeds VI"]);
+        // And nothing pooled into the base name the two fades share.
+        Assert.False(tracker.LearnedDurations.ContainsKey("Shiftless Deeds"));
+    }
+
+    /// <summary>The rank lives on the cast line and nowhere else, so a tick nobody cast has an
+    /// unknown tier. Assuming base rank would read 48s against a real 72s for a rank-V DoT and
+    /// warn early on every single cast.</summary>
+    [Fact]
+    public void ATickWithNoExplainingCastShowsNoDerivedDuration()
+    {
+        var tracker = WithCatalog();
+
+        tracker.Apply(Tick("a sand giant", "Immolate", 0));
+
+        var state = Assert.Single(tracker.Active(T0));
+        Assert.Equal(DurationCertainty.Unknown, state.Certainty);
+        Assert.Null(state.RemainingSeconds(T0));
+    }
+
+    /// <summary>A cast from long ago must not supply a rank. _recentCasts is pruned only when a
+    /// new cast arrives, so without a window this quietly becomes "the last rank I ever saw" -
+    /// the guess this design rejected.</summary>
+    [Fact]
+    public void AStaleCastDoesNotSupplyTheRank()
+    {
+        var tracker = WithCatalog();
+
+        tracker.Apply(new SpellCastEvent(T0, "Immolate III"));
+        // Two minutes later, a tick with no cast of its own to explain it.
+        tracker.Apply(Tick("a sand giant", "Immolate", 120));
+
+        var state = Assert.Single(tracker.Active(T0.AddSeconds(120)));
+        Assert.Equal("Immolate", state.Spell);
+        Assert.Equal(DurationCertainty.Unknown, state.Certainty);
+    }
+
+    /// <summary>The chip shows the rank you actually cast, while tracking keys on the base name
+    /// the tick and fade lines use.</summary>
+    [Fact]
+    public void TheChipShowsTheRankedNameButTracksByBaseName()
+    {
+        var tracker = WithCatalog();
+
+        tracker.Apply(new SpellCastEvent(T0, "Shiftless Deeds IV"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(1), "a sand giant", DebuffKind.Slow));
+
+        var state = Assert.Single(tracker.Active(T0.AddSeconds(1)));
+        Assert.Equal("Shiftless Deeds IV", state.Spell);
+        Assert.Equal("Shiftless Deeds", state.BaseName);
+    }
+
+    /// <summary>_recastPending held the RANKED cast name and was looked up with the UNRANKED tick
+    /// name, so recast detection could never fire for a ranked DoT - the exact failure the tracker
+    /// documents ("Immolate 115s against 54-60s for every sibling"). The fixture never caught it
+    /// because none of Daggo's DoTs are ranked.</summary>
+    [Fact]
+    public void ARecastOfARankedDotRestartsTheClock()
+    {
+        var tracker = new DebuffTracker(new SpellDurationCatalog(
+            new Dictionary<string, double> { ["Immolate"] = 48 }));
+
+        tracker.Apply(new SpellCastEvent(T0, "Immolate III"));
+        tracker.Apply(Tick("a sand giant", "Immolate", 6));
+        tracker.Apply(Tick("a sand giant", "Immolate", 12));
+
+        // Refresh before it drops. The clock must restart from the new cast's first tick.
+        tracker.Apply(new SpellCastEvent(T0.AddSeconds(18), "Immolate III"));
+        tracker.Apply(Tick("a sand giant", "Immolate", 24));
+
+        var state = Assert.Single(tracker.Active(T0.AddSeconds(24)));
+        Assert.Equal(T0.AddSeconds(24), state.LandedAt);
+    }
+
+    /// <summary>A derived duration is an ESTIMATE, and the real spell can outlast it: replaying
+    /// the user's own log, Shiftless Deeds IV measured 214.0s against a derived 210.0s and
+    /// graduated with one second to spare. Retiring the chip must not also forget the effect -
+    /// otherwise the fade finds nothing, nothing is recorded, and every later cast re-derives the
+    /// same estimate, pinning the spell at the guess for the rest of the session.</summary>
+    [Fact]
+    public void ASlowOutlastingItsDerivedEstimateIsStillMeasuredWhenItFades()
+    {
+        var tracker = WithCatalog();   // Shiftless Deeds 150 base; rank IV derives 210s
+
+        tracker.Apply(new SpellCastEvent(T0, "Shiftless Deeds IV"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(1), "a sand giant", DebuffKind.Slow));
+
+        // The estimate and its linger run out while the effect is still on the mob: the chip
+        // goes away, as it should - a countdown that reached zero is not worth showing.
+        Assert.Empty(tracker.Active(T0.AddSeconds(220)));
+
+        // The truth arrives late, and is still the truth.
+        tracker.Apply(new SpellWornOffEvent(T0.AddSeconds(231), "Shiftless Deeds", "a sand giant"));
+
+        Assert.Equal(230, tracker.LearnedDurations["Shiftless Deeds IV"]);
+    }
+
+    /// <summary>UnknownCap exists so a mis-attributed chip cannot hold the panel forever. A
+    /// derived duration must not defeat it - Valor's 3240s would keep a wrong chip up for 54
+    /// minutes, which is the exact thing the cap was written to stop.</summary>
+    [Fact]
+    public void ALongDerivedDurationStillRetiresAtTheUnknownCap()
+    {
+        var tracker = new DebuffTracker(new SpellDurationCatalog(
+            new Dictionary<string, double> { ["Valor"] = 3240 }));
+
+        tracker.Apply(new SpellCastEvent(T0, "Valor"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(1), "a sand giant", DebuffKind.Slow));
+
+        Assert.Single(tracker.Active(T0.AddSeconds(590)));
+        Assert.Empty(tracker.Active(T0.AddSeconds(700)));
+    }
+
+    /// <summary>What is remembered for a late fade is bounded too, or a mob three zones back
+    /// could still teach a duration an hour later.</summary>
+    [Fact]
+    public void AFadeLongAfterTheUnknownCapTeachesNothing()
+    {
+        var tracker = WithCatalog();
+
+        tracker.Apply(new SpellCastEvent(T0, "Shiftless Deeds IV"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(1), "a sand giant", DebuffKind.Slow));
+
+        Assert.Empty(tracker.Active(T0.AddSeconds(700)));
+        tracker.Apply(new SpellWornOffEvent(T0.AddSeconds(800), "Shiftless Deeds", "a sand giant"));
+
+        Assert.Empty(tracker.LearnedDurations);
+    }
+
+    /// <summary>A refresh must not read samples under a name it would never write to. The chip
+    /// keeps the ranked name, so the countdown has to come from the ranked name's samples: the
+    /// 30s measured for unranked Immolate belongs to tier 0 and must never surface on a rank-III
+    /// chip, least of all marked Measured.</summary>
+    [Fact]
+    public void ARefreshedRankedDotDoesNotBorrowTheBaseRanksMeasurement()
+    {
+        var tracker = new DebuffTracker(new SpellDurationCatalog(
+            new Dictionary<string, double> { ["Immolate"] = 48 }));
+
+        // Tier 0, measured at 30s on another mob: ticks with no cast to name a rank.
+        foreach (var second in new[] { 0, 6, 12, 18, 24, 30 })
+            tracker.Apply(Tick("a hill giant", "Immolate", second));
+        Assert.Empty(tracker.Active(T0.AddSeconds(50)));
+        Assert.Equal(30, tracker.LearnedDurations["Immolate"]);
+
+        // Rank III on the sand giant, then a refresh. The bard's cast is what used to prune the
+        // recast line out of _recentCasts, leaving the refresh with no rank to work from and the
+        // sample lookup falling back to the tick's base name.
+        tracker.Apply(new SpellCastEvent(T0.AddSeconds(100), "Immolate III"));
+        foreach (var second in new[] { 102, 108, 114 })
+            tracker.Apply(Tick("a sand giant", "Immolate", second));
+        tracker.Apply(new SpellCastEvent(T0.AddSeconds(116), "Immolate III"));
+        tracker.Apply(new OtherCastEvent(T0.AddSeconds(125), "Kulwhip", "Chords of Dissonance"));
+        tracker.Apply(Tick("a sand giant", "Immolate", 126));
+
+        var state = Assert.Single(tracker.Active(T0.AddSeconds(126)));
+        Assert.Equal("Immolate III", state.Spell);
+        Assert.NotEqual(DurationCertainty.Measured, state.Certainty);
+        Assert.Equal(62.4, state.RemainingSeconds(T0.AddSeconds(126))!.Value, precision: 3);
     }
 }

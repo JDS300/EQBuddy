@@ -408,12 +408,20 @@ public class DebuffTrackerTests
     {
         var tracker = WithCatalog();
 
+        // Rank IV on one mob, measured at 100s.
         tracker.Apply(new SpellCastEvent(T0, "Shiftless Deeds IV"));
         tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(1), "a sand giant", DebuffKind.Slow));
         tracker.Apply(new SpellWornOffEvent(T0.AddSeconds(101), "Shiftless Deeds", "a sand giant"));
 
+        // Rank VI on another, measured at 130s. Both fade lines say "Shiftless Deeds".
+        tracker.Apply(new SpellCastEvent(T0.AddSeconds(200), "Shiftless Deeds VI"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(201), "a hill giant", DebuffKind.Slow));
+        tracker.Apply(new SpellWornOffEvent(T0.AddSeconds(331), "Shiftless Deeds", "a hill giant"));
+
         Assert.Equal(100, tracker.LearnedDurations["Shiftless Deeds IV"]);
-        Assert.False(tracker.LearnedDurations.ContainsKey("Shiftless Deeds VI"));
+        Assert.Equal(130, tracker.LearnedDurations["Shiftless Deeds VI"]);
+        // And nothing pooled into the base name the two fades share.
+        Assert.False(tracker.LearnedDurations.ContainsKey("Shiftless Deeds"));
     }
 
     /// <summary>The rank lives on the cast line and nowhere else, so a tick nobody cast has an
@@ -483,5 +491,92 @@ public class DebuffTrackerTests
 
         var state = Assert.Single(tracker.Active(T0.AddSeconds(24)));
         Assert.Equal(T0.AddSeconds(24), state.LandedAt);
+    }
+
+    /// <summary>A derived duration is an ESTIMATE, and the real spell can outlast it: replaying
+    /// the user's own log, Shiftless Deeds IV measured 214.0s against a derived 210.0s and
+    /// graduated with one second to spare. Retiring the chip must not also forget the effect -
+    /// otherwise the fade finds nothing, nothing is recorded, and every later cast re-derives the
+    /// same estimate, pinning the spell at the guess for the rest of the session.</summary>
+    [Fact]
+    public void ASlowOutlastingItsDerivedEstimateIsStillMeasuredWhenItFades()
+    {
+        var tracker = WithCatalog();   // Shiftless Deeds 150 base; rank IV derives 210s
+
+        tracker.Apply(new SpellCastEvent(T0, "Shiftless Deeds IV"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(1), "a sand giant", DebuffKind.Slow));
+
+        // The estimate and its linger run out while the effect is still on the mob: the chip
+        // goes away, as it should - a countdown that reached zero is not worth showing.
+        Assert.Empty(tracker.Active(T0.AddSeconds(220)));
+
+        // The truth arrives late, and is still the truth.
+        tracker.Apply(new SpellWornOffEvent(T0.AddSeconds(231), "Shiftless Deeds", "a sand giant"));
+
+        Assert.Equal(230, tracker.LearnedDurations["Shiftless Deeds IV"]);
+    }
+
+    /// <summary>UnknownCap exists so a mis-attributed chip cannot hold the panel forever. A
+    /// derived duration must not defeat it - Valor's 3240s would keep a wrong chip up for 54
+    /// minutes, which is the exact thing the cap was written to stop.</summary>
+    [Fact]
+    public void ALongDerivedDurationStillRetiresAtTheUnknownCap()
+    {
+        var tracker = new DebuffTracker(new SpellDurationCatalog(
+            new Dictionary<string, double> { ["Valor"] = 3240 }));
+
+        tracker.Apply(new SpellCastEvent(T0, "Valor"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(1), "a sand giant", DebuffKind.Slow));
+
+        Assert.Single(tracker.Active(T0.AddSeconds(590)));
+        Assert.Empty(tracker.Active(T0.AddSeconds(700)));
+    }
+
+    /// <summary>What is remembered for a late fade is bounded too, or a mob three zones back
+    /// could still teach a duration an hour later.</summary>
+    [Fact]
+    public void AFadeLongAfterTheUnknownCapTeachesNothing()
+    {
+        var tracker = WithCatalog();
+
+        tracker.Apply(new SpellCastEvent(T0, "Shiftless Deeds IV"));
+        tracker.Apply(new DebuffLandedEvent(T0.AddSeconds(1), "a sand giant", DebuffKind.Slow));
+
+        Assert.Empty(tracker.Active(T0.AddSeconds(700)));
+        tracker.Apply(new SpellWornOffEvent(T0.AddSeconds(800), "Shiftless Deeds", "a sand giant"));
+
+        Assert.Empty(tracker.LearnedDurations);
+    }
+
+    /// <summary>A refresh must not read samples under a name it would never write to. The chip
+    /// keeps the ranked name, so the countdown has to come from the ranked name's samples: the
+    /// 30s measured for unranked Immolate belongs to tier 0 and must never surface on a rank-III
+    /// chip, least of all marked Measured.</summary>
+    [Fact]
+    public void ARefreshedRankedDotDoesNotBorrowTheBaseRanksMeasurement()
+    {
+        var tracker = new DebuffTracker(new SpellDurationCatalog(
+            new Dictionary<string, double> { ["Immolate"] = 48 }));
+
+        // Tier 0, measured at 30s on another mob: ticks with no cast to name a rank.
+        foreach (var second in new[] { 0, 6, 12, 18, 24, 30 })
+            tracker.Apply(Tick("a hill giant", "Immolate", second));
+        Assert.Empty(tracker.Active(T0.AddSeconds(50)));
+        Assert.Equal(30, tracker.LearnedDurations["Immolate"]);
+
+        // Rank III on the sand giant, then a refresh. The bard's cast is what used to prune the
+        // recast line out of _recentCasts, leaving the refresh with no rank to work from and the
+        // sample lookup falling back to the tick's base name.
+        tracker.Apply(new SpellCastEvent(T0.AddSeconds(100), "Immolate III"));
+        foreach (var second in new[] { 102, 108, 114 })
+            tracker.Apply(Tick("a sand giant", "Immolate", second));
+        tracker.Apply(new SpellCastEvent(T0.AddSeconds(116), "Immolate III"));
+        tracker.Apply(new OtherCastEvent(T0.AddSeconds(125), "Kulwhip", "Chords of Dissonance"));
+        tracker.Apply(Tick("a sand giant", "Immolate", 126));
+
+        var state = Assert.Single(tracker.Active(T0.AddSeconds(126)));
+        Assert.Equal("Immolate III", state.Spell);
+        Assert.NotEqual(DurationCertainty.Measured, state.Certainty);
+        Assert.Equal(62.4, state.RemainingSeconds(T0.AddSeconds(126))!.Value, precision: 3);
     }
 }

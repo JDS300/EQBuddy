@@ -82,9 +82,21 @@ public sealed class DebuffTracker
     /// can never reach back and grab the PREVIOUS cast of the same spell.</summary>
     public static readonly TimeSpan CastToTick = TimeSpan.FromSeconds(15);
 
+    /// <summary>How long a cast is remembered. The widest of the windows that read it, or the
+    /// wider window is fiction: pruning at <see cref="CastToLand"/> alone meant a tick could
+    /// never see a cast older than 8s and <see cref="CastToTick"/>'s 15s described a list that
+    /// could not contain them, silently losing the rank on a slow first tick.</summary>
+    private static readonly TimeSpan CastMemory =
+        CastToLand > CastToTick ? CastToLand : CastToTick;
+
     private readonly SpellDurationCatalog _catalog;
 
-    private readonly Dictionary<(string Target, string Spell), DebuffState> _active = [];
+    private readonly Dictionary<(string Target, string BaseName), DebuffState> _active = [];
+
+    /// <summary>Effects whose chip has been retired but whose fade line has not arrived yet.
+    /// A derived duration is an estimate and the real spell can outlast it, so the panel stops
+    /// showing a chip long before the effect is safe to FORGET - see <see cref="Active"/>.</summary>
+    private readonly Dictionary<(string Target, string BaseName), DebuffState> _awaitingFade = [];
     private readonly Dictionary<string, List<double>> _samples = [];
     private readonly HashSet<string> _died = [];
     private readonly HashSet<string> _recastPending = [];
@@ -146,7 +158,7 @@ public sealed class DebuffTracker
     private void RememberCast(DateTime time, string caster, string spell, bool mine)
     {
         _recentCasts.Add((time, caster, spell, mine));
-        _recentCasts.RemoveAll(c => time - c.Time > CastToLand);
+        _recentCasts.RemoveAll(c => time - c.Time > CastMemory);
     }
 
     /// <summary>A slow or cripple landing. The line names the mob and nothing else, so the
@@ -157,10 +169,11 @@ public sealed class DebuffTracker
         var cast = _recentCasts.LastOrDefault(c => landed.Time - c.Time <= CastToLand);
         if (cast.Spell is null or "") return;   // nobody we can see cast it: no spell, no chip
 
-        var key = (landed.Target, _catalog.BaseNameOf(cast.Spell));
+        var key = (Target: landed.Target, BaseName: _catalog.BaseNameOf(cast.Spell));
+        _awaitingFade.Remove(key);   // a fresh landing supersedes whatever the old one measures
         var (expires, certainty) = Expiry(cast.Spell, cast.Spell, landed.Time);
         _active[key] = new DebuffState(
-            landed.Target, cast.Spell, key.Item2, cast.Caster, cast.Mine,
+            landed.Target, cast.Spell, key.BaseName, cast.Caster, cast.Mine,
             LandedAt: landed.Time, LastTickAt: landed.Time,
             ExpiresAt: expires, Certainty: certainty);
     }
@@ -171,8 +184,10 @@ public sealed class DebuffTracker
     private void OnFade(SpellWornOffEvent fade)
     {
         var key = (fade.Target, _catalog.BaseNameOf(fade.Spell));
-        if (!_active.Remove(key, out var state)) return;
-        if (_died.Contains(fade.Target)) return;
+        // The chip may already be gone - a derived estimate that ran short retires it early -
+        // but the effect is only truly forgotten at UnknownCap, so the fade can still measure it.
+        if (!_active.Remove(key, out var state) && !_awaitingFade.Remove(key, out state)) return;
+        if (state is null || _died.Contains(fade.Target)) return;
 
         var measured = (fade.Time - state.LandedAt).TotalSeconds;
         if (measured > 0) Record(state.Spell, measured);   // ranked name: samples are per-rank
@@ -180,7 +195,12 @@ public sealed class DebuffTracker
 
     private void OnTick(DamageDealtEvent tick)
     {
-        var key = (tick.Target, tick.Source);
+        // Every key goes through BaseNameOf - no exceptions. Real tick lines carry no numeral,
+        // so this is usually the identity; for a spell genuinely NAMED with one and missing from
+        // the catalog it is the difference between the tick key and the fade key agreeing and
+        // fade-ending silently ceasing to work.
+        var baseName = _catalog.BaseNameOf(tick.Source);
+        var key = (tick.Target, baseName);
         // The rank is on the cast line and nowhere else, so a tick nobody cast has an unknown
         // tier - and an unknown tier cannot be derived, only measured.
         //
@@ -189,7 +209,7 @@ public sealed class DebuffTracker
         // last rank I ever saw" - which is exactly the guess this design rejected.
         var castName = _recentCasts
             .LastOrDefault(c => c.Mine && tick.Time - c.Time <= CastToTick
-                && _catalog.BaseNameOf(c.Spell) == tick.Source).Spell;
+                && _catalog.BaseNameOf(c.Spell) == baseName).Spell;
 
         if (_active.TryGetValue(key, out var existing) && tick.Time - existing.LastTickAt > TickGrace)
         {
@@ -204,15 +224,20 @@ public sealed class DebuffTracker
 
         if (existing is not null && _active.ContainsKey(key))
         {
-            if (_recastPending.Remove(tick.Source))
+            if (_recastPending.Remove(baseName))
             {
                 // A refresh restarts the clock. The interrupted first cast is NOT recorded:
                 // it was cut short by the recast, so it measures the gap between two casts
                 // rather than the spell's duration - the same reason a kill teaches nothing.
                 // Without the restart the two casts read as one long effect, which is how the
                 // real log taught Immolate 115s against 54-60s for every sibling druid DoT.
+                //
+                // The sample key and the displayed name fall back to the SAME name. Split them
+                // and a rank-N effect takes its countdown from tier-0 samples and shows it as
+                // Measured - the pooling this design forbids, arriving through the display
+                // rather than through the store.
                 var (refreshedAt, refreshedCertainty) =
-                    Expiry(castName ?? tick.Source, castName, tick.Time);
+                    Expiry(castName ?? existing.Spell, castName, tick.Time);
                 _active[key] = existing with
                 {
                     Spell = castName ?? existing.Spell,
@@ -228,12 +253,12 @@ public sealed class DebuffTracker
             return;
         }
 
-        _recastPending.Remove(tick.Source);   // that cast explains THIS landing, not a refresh
+        _recastPending.Remove(baseName);   // that cast explains THIS landing, not a refresh
 
         _died.Remove(tick.Target);   // a fresh cast on a name that died earlier
         var (at, howSure) = Expiry(castName ?? tick.Source, castName, tick.Time);
         _active[key] = new DebuffState(
-            tick.Target, castName ?? tick.Source, tick.Source, Caster: "", IsMine: true,
+            tick.Target, castName ?? tick.Source, baseName, Caster: "", IsMine: true,
             LandedAt: tick.Time, LastTickAt: tick.Time,
             ExpiresAt: at, Ticks: true, Certainty: howSure);
     }
@@ -256,11 +281,30 @@ public sealed class DebuffTracker
             // A slow says nothing between landing and fading, so silence is not evidence.
             // Yours ends at its fade line; a stranger's has no fade line at all, so it ends at
             // the measured duration, or is eventually dropped rather than believed forever.
-            var over = state.ExpiresAt is { } expiry
-                ? now > expiry + ExpiryLinger
-                : now - state.LandedAt > UnknownCap;
-            if (over) _active.Remove(key);
+            //
+            // Two deadlines, and the sooner wins. The expiry says when to stop SHOWING a chip;
+            // UnknownCap says how long any unmeasured chip may be believed at all, and a derived
+            // duration must not defeat it - Valor's 3240s would hold a mis-attributed chip on the
+            // panel for 54 minutes, which is the exact thing the cap exists to prevent.
+            var cap = state.LandedAt + UnknownCap;
+            var retireAt = state.ExpiresAt is { } expiry && expiry + ExpiryLinger < cap
+                ? expiry + ExpiryLinger
+                : cap;
+            if (now <= retireAt) continue;
+
+            // Retired from the panel, not forgotten. A derived duration is an ESTIMATE and the
+            // real spell can outlast it - Shiftless Deeds IV measured 214.0s against a derived
+            // 210.0s in the user's own log - so dropping the effect outright would leave its fade
+            // line nothing to measure, and every later cast would re-derive the same estimate,
+            // pinning the spell at the guess for the rest of the session.
+            _active.Remove(key);
+            _awaitingFade[key] = state;
         }
+
+        // Bounded, for the same reason the chip is: nothing announces a stranger's slow ending.
+        foreach (var (key, state) in _awaitingFade.ToList())
+            if (now - state.LandedAt > UnknownCap) _awaitingFade.Remove(key);
+
         return _active.Values
             .OrderBy(s => s.Target, StringComparer.OrdinalIgnoreCase)
             .ThenBy(s => s.Spell, StringComparer.OrdinalIgnoreCase)

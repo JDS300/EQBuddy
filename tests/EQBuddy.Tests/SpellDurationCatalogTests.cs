@@ -7,7 +7,12 @@ namespace EQBuddy.Tests;
 /// Resolving a cast name to a base duration. The whole contract is the ordering: an exact
 /// catalog hit beats a rank interpretation, because 121 wiki spells are genuinely NAMED with a
 /// trailing numeral and reading "Clarity II" as tier-2 Clarity would scale a duration the
-/// catalog already knows exactly.
+/// catalog already knows exactly. <see cref="ASpellNamedWithANumeralResolvesExactlyAndIsNotScaled"/>
+/// and <see cref="NumeralNamedSpellsWithARealBaseEntryStillResolveExactly"/> both give the rank
+/// branch a real "Clarity"/"Burnout" base entry to wrongly match against, so a reversed
+/// (rank-before-exact) implementation produces a wrong NUMBER rather than merely missing -
+/// confirmed by temporarily swapping the two branches in <c>Resolve</c> and watching both
+/// fail (1944 vs 2100, 5040 vs 900), then reverting and watching both pass again.
 /// </summary>
 public class SpellDurationCatalogTests
 {
@@ -16,12 +21,16 @@ public class SpellDurationCatalogTests
         ["Shiftless Deeds"] = 150,
         ["Mesmerization"] = 24,
         ["Immolate"] = 48,
+        ["Clarity"] = 1620,
         ["Clarity II"] = 2100,
     });
 
-    /// <summary>The trap. "Clarity II" is a spell, not a rank of "Clarity" - and note the
-    /// fixture catalog has no "Clarity" entry at all, so a rank reading would resolve nothing
-    /// while the correct reading answers exactly.</summary>
+    /// <summary>The trap, made to actually bite. The fixture now has BOTH "Clarity" (1620) and
+    /// "Clarity II" (2100), so a reversed (rank-before-exact) implementation has something to
+    /// wrongly match: it would read "Clarity II" as tier-2 Clarity and return 1620 * 1.2 = 1944,
+    /// not 2100. With no "Clarity" entry at all, a reversed implementation's rank branch would
+    /// just miss and fall through to the same exact hit - passing for the wrong reason, which is
+    /// exactly what let this test through review the first time.</summary>
     [Fact]
     public void ASpellNamedWithANumeralResolvesExactlyAndIsNotScaled()
     {
@@ -78,6 +87,22 @@ public class SpellDurationCatalogTests
         Assert.Equal(24, catalog.Resolve("Mesmerization")!.Seconds);
         // Confirmed in game: Shiftless Deeds VI shows 4 minutes.
         Assert.Equal(240, catalog.Resolve("Shiftless Deeds VI")!.Seconds);
+    }
+
+    /// <summary>The trap against the REAL data, where it is sharpest: the embedded catalog has
+    /// both a base entry and a numeral-named entry for these two families, so a reversed
+    /// (rank-before-exact) implementation would silently corrupt them rather than merely miss.
+    /// "Clarity" 1620s exists alongside "Clarity II" 2100s (reversed: 1620 * 1.2 = 1944, wrong).
+    /// "Burnout" 3600s exists alongside "Burnout IV" 900s (reversed: 3600 * 1.4 = 5040, a 5.6x
+    /// error). Exact-match-first is what keeps these two independent, unrelated durations from
+    /// being scaled off each other.</summary>
+    [Fact]
+    public void NumeralNamedSpellsWithARealBaseEntryStillResolveExactly()
+    {
+        var catalog = SpellDurationCatalog.Embedded;
+
+        Assert.Equal(2100, catalog.Resolve("Clarity II")!.Seconds);
+        Assert.Equal(900, catalog.Resolve("Burnout IV")!.Seconds);
     }
 
     /// <summary>Cripple's wiki duration is the level-scaled range "6.3 minutes @L53 to 7.0

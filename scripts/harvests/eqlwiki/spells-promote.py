@@ -16,11 +16,23 @@ Excluded on purpose:
 Ranks are NOT expanded here. "Shiftless Deeds IV" is derived at runtime from the base entry
 (see SpellRank); pre-expanding would bloat the catalog and freeze the formula into data.
 
+Name collisions: two different wiki pages occasionally share a spell NAME with genuinely
+different durations - not a rank variant, just two spells the wiki happens to call the same
+thing. Last-wins (source array order) picks which value survives, same as a plain dict
+literal would. That is a real, silent decision, so it is logged rather than swallowed. Two
+known cases as of the 2026-08-06 harvest:
+  - "Rabies": page "Rabies" (2880.0s) vs page "Putrid Breath" (314.0s) -> keeps 314.0
+  - "Solon's Bravura": page "Solon's Bravura" (18.0s) vs page "Solon's Bewitching Bravura"
+    (60.0s) -> keeps 60.0
+A future refresh could flip either pick if the wiki reorders pages; the warning is what
+makes that visible in a refresh PR instead of silently changing behavior.
+
 Serialization matches quests-promote.py: sorted keys, compact separators, so knowledge-refresh
 PRs diff as DATA rather than formatting.
 """
 
 import json
+import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -30,13 +42,25 @@ OUT = HERE.parents[2] / "src" / "EQBuddy.Core" / "Data" / "SpellDurations.json"
 
 def promote(spells):
     durations = {}
+    sources = {}
     for s in spells:
         seconds = s.get("duration_seconds")
         if not isinstance(seconds, (int, float)) or seconds <= 0:
             continue
         name = s["name"].strip()
-        if name:
-            durations[name] = round(float(seconds), 1)
+        if not name:
+            continue
+        value = round(float(seconds), 1)
+        page = s.get("page_title") or name
+        if name in durations and durations[name] != value:
+            print(
+                f"warning: duration collision for {name!r}: "
+                f"page {sources[name]!r} = {durations[name]}, "
+                f"page {page!r} = {value} -> keeping {value}",
+                file=sys.stderr,
+            )
+        durations[name] = value
+        sources[name] = page
     return durations
 
 

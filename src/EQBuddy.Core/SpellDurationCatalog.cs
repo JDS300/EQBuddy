@@ -23,11 +23,13 @@ public sealed record ResolvedDuration(string BaseName, int Tier, double Seconds)
 /// <summary>
 /// Base spell durations from eqlwiki, embedded rather than fetched (Data/SpellDurations.json).
 /// A game overlay should not make an HTTP request mid-fight for a number that is only a
-/// fallback estimate, and the harvest already on disk answers 680 spells offline.
+/// fallback estimate, and the harvest already on disk answers 679 spells offline.
 ///
-/// The resolution order exists because of a trap worth stating plainly: 121 spells in the wiki
-/// catalog END in a roman numeral as their real name - "Clarity II", "Burnout IV",
-/// "Cannibalize IV", "Berserker Madness III". They are distinct spell pages, not ranks. So the
+/// The resolution order exists because of a trap worth stating plainly: some spells END in a
+/// roman numeral as their real name and are distinct spell pages, not ranks. 121 of them appear
+/// across the 1,929-spell wiki harvest; 10 survive into the shipped catalog ("Clarity II",
+/// "Burnout II/III/IV", "Rune I".."Rune V", "Yaulp IV"), and 4 of those - Burnout II/III/IV and
+/// Clarity II - also have a base entry, which is where the two readings actually collide. So the
 /// catalog is asked for the full name FIRST, and only a miss is reinterpreted as a rank. Read
 /// the other way round, "Clarity II" would scale a duration the catalog already knows exactly.
 /// </summary>
@@ -41,7 +43,9 @@ public sealed class SpellDurationCatalog
             ? LoadEmbedded()
             : new Dictionary<string, double>(durations, StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>The shipped catalog, loaded once. 680 spells.</summary>
+    /// <summary>The shipped catalog, loaded once. 680 entries, 679 keys: the loader is
+    /// OrdinalIgnoreCase and the harvest ships both "Invisibility Versus Undead" and
+    /// "Invisibility versus Undead" (1620.0 either way, so the fold costs nothing).</summary>
     public static SpellDurationCatalog Embedded => _embedded ??= new SpellDurationCatalog();
 
     /// <summary>Base seconds for a cast name, scaled for rank - or null when the catalog

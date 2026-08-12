@@ -7,10 +7,11 @@ namespace EQBuddy.Core;
 /// Level slider reads "Duration +60%" at level 6, and Mesmerization V measures ~36s against a
 /// 24s base (x1.5). Compounding would give 1.1^6 = 1.77, which matches no observed value.
 ///
-/// This splitter is deliberately naive about WHETHER the numeral is a rank. 121 spells in the
-/// wiki catalog are genuinely named with a trailing numeral - "Clarity II", "Burnout IV",
-/// "Cannibalize IV" - and are not ranks of anything. Only the catalog can tell the two apart,
-/// so that call lives in <see cref="SpellDurationCatalog"/>.
+/// This splitter is deliberately naive about WHETHER the numeral is a rank. Some spells are
+/// genuinely named with a trailing numeral and are not ranks of anything - 121 such names across
+/// the 1,929-spell wiki harvest, of which 10 are in the shipped catalog ("Clarity II",
+/// "Burnout IV", "Yaulp IV"). Only the catalog can tell the two apart, so that call lives in
+/// <see cref="SpellDurationCatalog"/>.
 /// </summary>
 public static class SpellRank
 {

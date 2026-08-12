@@ -29,7 +29,8 @@ public class DebuffChipPresentationTests
     [Fact]
     public void AnUnknownDurationShowsADashRatherThanZero()
     {
-        var chips = DebuffChipPresentation.Chips([State("a sand giant", "Ignite", null)], T0, 10);
+        var chips = DebuffChipPresentation.Chips(
+            [State("a sand giant", "Ignite", null, DurationCertainty.Unknown)], T0, 10);
 
         var chip = Assert.Single(chips);
         Assert.Equal("--", chip.CountdownText);

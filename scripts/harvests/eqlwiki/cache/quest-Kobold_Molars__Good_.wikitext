@@ -27,7 +27,7 @@
 
 == Walkthrough ==
 
-'''Find [[Tiam Khonsir]] located behind the Temple of Deepwater Knights in the city of [[Erudin]].'''
+'''Find [[Tiam Khonsir]] (-1127, -419) located behind the Temple of Deepwater Knights in the city of [[Erudin]].'''
 
 You say, 'Hail, Tiam Khonsir'
 
@@ -64,3 +64,4 @@ You also have about a one in four chance of getting a piece of [[Ringmail Armor]
 
 [[Category:Quests]]
 [[Category:Erudin]]
+[[Category:Repeatable Turn-in Quests]]
